@@ -130,17 +130,20 @@ for (const spec of COMPANIES) {
   });
 }
 
-test('調整用の2社は、誤りと対になる正しい記述を記録し、5件以上離して並べる', () => {
-  for (const company of ['kuzuri', 'kinodoten']) {
+// 保留の会社も同じ検査をする。データを開かずに確かめられるよう、失敗の表示は件数だけにし、記述の ID や本文を出さない
+test('追加4社は、誤りと対になる正しい記述を記録し、5件以上離して並べる', () => {
+  const failures = [];
+  for (const { company } of COMPANIES) {
     const { statements } = readJson(company, 'answers/verifier.json');
     const order = readJson(company, 'input/statements.json').statements.map((s) => s.id);
     const paired = statements.filter((s) => s.pair);
-    assert.ok(paired.length >= 8, `${company} の対の記録は ${paired.length} 件です`);
-    for (const answer of paired) {
-      const distance = Math.abs(order.indexOf(answer.id) - order.indexOf(answer.pair));
-      assert.ok(distance >= 5, `${company} ${answer.id} と ${answer.pair} の距離は ${distance} です`);
-    }
+    if (paired.length < 8) failures.push(`${company}：対の記録が足りません（${paired.length} 件）`);
+    const close = paired.filter((s) => Math.abs(order.indexOf(s.id) - order.indexOf(s.pair)) < 5).length;
+    if (close > 0) failures.push(`${company}：近すぎる対が ${close} 件あります`);
+    const invalid = paired.filter((s) => s.kind !== 'seeded' || statements.find((t) => t.id === s.pair)?.kind !== 'correct').length;
+    if (invalid > 0) failures.push(`${company}：対の指定の誤りが ${invalid} 件あります`);
   }
+  assert.ok(failures.length === 0, failures.join(' / '));
 });
 
 test('ダミーの認証情報は会社ごとに別の値で、1社に1件だけある', () => {
