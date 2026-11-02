@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { loadAnswers, loadInput } from '../eval/lib/load-set.mjs';
 import { runPipeline } from '../eval/pipeline.mjs';
 import { applyEdits, missingTokens } from '../plugin/lib/apply-edits.mjs';
-import { prepareForRender, summarizeVerification } from '../plugin/lib/handover.mjs';
+import { buildRevision, prepareForRender, summarizeVerification } from '../plugin/lib/handover.mjs';
 import { longSentences, plainProblems } from '../plugin/lib/plain-check.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { nextStep, run } from '../plugin/scripts/hikitsugi.mjs';
@@ -103,6 +103,17 @@ test('判定のない文章があれば合格にしない', () => {
   const flagged = summarizeVerification({ results: [{ statement: 'STM-001', verdict: 'dangerous' }, { statement: 'STM-002', verdict: 'correct' }] }, manual);
   assert.equal(flagged.passed, false);
   assert.equal(flagged.counts.dangerous, 1);
+});
+
+test('差し戻しでは前の版から用語の説明を外し、文章が増え続けないようにする', () => {
+  const manual = fixture();
+  const explanation = manual.glossary[0].explanation;
+  const kept = manual.statements.find((s) => s.id !== explanation && !manual.glossary.some((g) => g.explanation === s.id)).id;
+  const revision = buildRevision(manual, [{ statement: kept, verdict: 'unsupported' }, { statement: explanation, verdict: 'unsupported' }]);
+  assert.deepEqual(revision.previous_manual.glossary, []);
+  assert.ok(!revision.previous_manual.statements.some((s) => s.id === explanation));
+  assert.ok(revision.previous_manual.statements.some((s) => s.id === kept));
+  assert.deepEqual(revision.findings.map((f) => f.statement), [kept]);
 });
 
 // ---- 通しの評価 ----
@@ -258,8 +269,13 @@ test('/hikitsugi：段階をたどって取扱説明書まで進み、途中か�
     assert.match(hikitsugi('check-next'), /終えました/);
     assert.deepEqual(nextStep(work), { step: 'writer', round: 1 });
 
-    write('manual-1.json', manualBody());
+    // サブエージェントが会社の情報を書いても、プログラムの値で上書きする
+    write('manual-1.json', { ...manualBody(), company_name: '仮の名前', company: '仮', as_of: '2000-01-01', schema_version: 1 });
     hikitsugi('check-writer', ['1']);
+    const written = JSON.parse(readFileSync(join(work, 'manual-1.json'), 'utf8'));
+    assert.equal(written.company_name, 'テスト 会社');
+    assert.equal(written.company, input.survey.company);
+    assert.equal(written.as_of, input.survey.as_of);
     assert.equal(nextStep(work).step, 'editor');
     write('editor-1.json', { rewrites: [], glossary: [] });
     hikitsugi('merge-edits', ['1']);

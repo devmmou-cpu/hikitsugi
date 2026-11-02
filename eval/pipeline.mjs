@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { prepareForRender, summarizeVerification } from '../plugin/lib/handover.mjs';
+import { buildRevision, prepareForRender, summarizeVerification } from '../plugin/lib/handover.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { clientOf, runGapFinderLive, runVerifierLive } from './lib/adapters/live.mjs';
@@ -92,6 +92,7 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
 
     const context = { survey, transcript };
     let revision;
+    let lastFindings = [];
     for (let round = 1; round <= MAX_RESENDS + 1; round += 1) {
       const written = await once(`manual-${round}-writer`, 'manual', () =>
         runWriterLive({ survey, transcript, companyName: info.name, revision, client: api, record }),
@@ -118,9 +119,10 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
         writeFileSync(join(dir, 'manual.html'), renderManual(forRender));
         return finish('passed', { resends: round - 1, omitted });
       }
-      revision = { previous_manual: manual, findings: result.findings };
+      revision = buildRevision(manual, result.findings);
+      lastFindings = result.findings;
     }
-    return finish('not_passed', { resends: MAX_RESENDS, unresolved: revision.findings.map((f) => ({ statement: f.statement, verdict: f.verdict })) });
+    return finish('not_passed', { resends: MAX_RESENDS, unresolved: lastFindings.map((f) => ({ statement: f.statement, verdict: f.verdict })) });
   } catch (error) {
     if (error instanceof UsageError) throw error;
     return finish('error', { failed_stage: stage, error: maskCredentials(error.message, input).masked });

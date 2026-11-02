@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyEdits } from '../lib/apply-edits.mjs';
-import { prepareForRender, summarizeVerification } from '../lib/handover.mjs';
+import { buildRevision, prepareForRender, summarizeVerification } from '../lib/handover.mjs';
 import { plainProblems } from '../lib/plain-check.mjs';
 import { appendEntry, checkNextQuestion, emptyTranscript, QUESTION_LIMIT } from '../lib/transcript.mjs';
 import { validate } from '../lib/validate.mjs';
@@ -120,7 +120,8 @@ function checkWriter(work, [round]) {
   const survey = readJson(join(work, 'survey.json'));
   const path = join(work, `manual-${round}.json`);
   const raw = readJson(path);
-  const manual = { schema_version: 1, company: state.company, company_name: state.company_name, as_of: survey.as_of, ...raw };
+  // 会社の情報はプログラムが付ける。サブエージェントが書いた値で上書きさせない
+  const manual = { ...raw, schema_version: 1, company: state.company, company_name: state.company_name, as_of: survey.as_of };
   checkSchema('manual', manual);
   writeJson(path, manual);
   return `書きました（文章 ${manual.statements.length} 件、手順ページ ${manual.symptom_pages.length} 件）`;
@@ -156,7 +157,7 @@ function checkVerification(work, [round]) {
     return `合格しました（文章 ${manual.statements.length} 件）`;
   }
   const line = `不合格：矛盾 ${result.counts.contradiction} 件、根拠なし ${result.counts.unsupported} 件、危険 ${result.counts.dangerous} 件、判定なし ${result.unanswered.length} 件`;
-  writeJson(join(work, `findings-${round}.json`), { previous_manual: manual, findings: result.findings });
+  writeJson(join(work, `findings-${round}.json`), buildRevision(manual, result.findings));
   if (Number(round) > MAX_RESENDS) return `${line}\n差し戻しの上限に達しました`;
   writeJson(join(work, 'state.json'), { ...state, round: Number(round) + 1 });
   return `${line}\n差し戻します（findings-${round}.json）`;

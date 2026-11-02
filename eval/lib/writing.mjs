@@ -54,7 +54,8 @@ export async function runWriterLive({ survey, transcript, companyName, revision,
   const api = await clientOf(client);
   const agent = loadAgent('plugin/agents/writer.md');
   const parsed = await callAgent({ api, agent, params: buildWriterRequest({ survey, transcript, revision, agent }), record });
-  return { schema_version: 1, company: survey.company, company_name: companyName, as_of: survey.as_of, ...parsed };
+  // 会社の情報はプログラムが付ける。モデルの出力で上書きさせない
+  return { ...parsed, schema_version: 1, company: survey.company, company_name: companyName, as_of: survey.as_of };
 }
 
 export async function runEditorLive({ manual, survey, transcript, revert = true, client, record = () => {} }) {

@@ -24,3 +24,15 @@ export function summarizeVerification(verification, manual) {
   const findings = verification.results.filter((result) => result.verdict !== 'correct');
   return { counts, findings, unanswered, passed: findings.length === 0 && unanswered.length === 0 };
 }
+
+/**
+ * 差し戻しで Writer に渡す内容を作る。用語の説明は Editor が作り直すので、前の版から外す。
+ * 残すと、説明の文章が参照されないまま残り、作り直した分だけ文章が増え続けるため。
+ */
+export function buildRevision(manual, findings) {
+  const glossaryIds = new Set(manual.glossary.map((entry) => entry.explanation));
+  return {
+    previous_manual: { ...manual, glossary: [], statements: manual.statements.filter((statement) => !glossaryIds.has(statement.id)) },
+    findings: findings.filter((finding) => !glossaryIds.has(finding.statement)),
+  };
+}
