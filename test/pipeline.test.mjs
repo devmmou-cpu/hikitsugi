@@ -387,6 +387,12 @@ test('部品の文面はプログラムが組み立て、根拠に部品と値�
   assert.deepEqual(validate(JSON.parse(readFileSync(join(ROOT, 'plugin/schemas/manual.schema.json'), 'utf8')), manual), []);
 });
 
+test('調査データの項目名の側にある値も、部品に入れる値として認める', () => {
+  const survey = { items: [{ id: 'INV-001', status: 'ok', key: 'drive.Z', value: 'path' }] };
+  const { problems } = composeProcedures(withSteps([step('STM-001', 'LIB-004', [{ slot: 'ドライブ文字', value: 'Z', evidence: ['INV-001'] }])]), { survey, transcript: { entries: [] } });
+  assert.deepEqual(problems, []);
+});
+
 test('部品の指定の誤りと、根拠にない値を見つける', () => {
   const problemsOf = (statements) => composeProcedures(withSteps(statements), sources).problems.join('\n');
   assert.match(problemsOf([step('STM-001', 'LIB-999')]), /存在しない部品/);

@@ -3,7 +3,7 @@
 // 差し戻しは最大2回。Verifier が合格しなければ、表示プログラムには渡さない。
 // 終了コード：0＝合格して HTML まで完了、1＝失敗または不合格、2＝指定の誤り
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -53,6 +53,8 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
   const record = ({ raw_text: rawText, ...call }) => {
     const masked = rawText === undefined ? null : maskCredentials(rawText, input);
     calls.push({ ...call, stage, ...(masked ? { credentials_masked: masked.count } : {}) });
+    // 失敗の原因を調べられるよう、生の出力も残す。認証情報は伏せる
+    if (masked) appendFileSync(join(dir, 'raw-output.txt'), `${JSON.stringify({ stage, agent: call.agent, stop_reason: call.stop_reason })}\n${masked.masked}\n`);
     writeFileSync(callsPath, JSON.stringify(calls, null, 2) + '\n');
   };
   const pathOf = (name) => join(dir, `${name}.json`);

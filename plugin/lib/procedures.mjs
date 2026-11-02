@@ -15,12 +15,13 @@ export const libraryForAgents = (library = loadLibrary()) => ({
 
 const fill = (text, values) => values.reduce((filled, { slot, value }) => filled.replaceAll(`{${slot}}`, value), text);
 
-/** 根拠の ID から、中身の文字列を返す。使えない根拠は null。 */
+/** 根拠の ID から、照合に使う文字列を返す。使えない根拠は null。 */
 function evidenceReader({ survey, transcript }) {
   const inv = new Map(survey.items.map((item) => [item.id, item]));
   const int = new Map(transcript.entries.map((entry) => [entry.id, entry]));
   return (ref) => {
-    if (inv.get(ref)?.status === 'ok') return String(inv.get(ref).value);
+    // ドライブ文字のように、調査データでは項目名の側にある値も認める
+    if (inv.get(ref)?.status === 'ok') return `${inv.get(ref).key} ${inv.get(ref).value}`;
     if (int.get(ref)?.status === 'answered') return int.get(ref).answer;
     return null;
   };

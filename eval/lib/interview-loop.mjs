@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { appendEntry, checkNextQuestion, emptyTranscript, QUESTION_LIMIT } from '../../plugin/lib/transcript.mjs';
+import { appendEntry, checkNextQuestion, emptyTranscript, QUESTION_CHARS, QUESTION_LIMIT } from '../../plugin/lib/transcript.mjs';
 import { buildRequest, callAgent, clientOf, LiveFailure, loadAgent, loadChecklist, tagged } from './adapters/live.mjs';
 import { createMockTanaka } from './mock-tanaka.mjs';
 
@@ -33,12 +33,13 @@ export function buildInterviewerRequest({ survey, gaps, checklist = loadChecklis
   ], { maxTokens: INTERVIEWER_MAX_TOKENS });
 }
 
-/** 次の1問を受け取る。途中で切れた出力や、不自然な質問は呼び直す。 */
+/** 次の1問を受け取る。途中で切れた出力や、不自然な質問は、問題を伝えて呼び直す。 */
 async function askNext({ api, agent, params, record, gaps }) {
   let last;
+  let retryParams = params;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     try {
-      const next = await callAgent({ api, agent, params, record, estimate: false });
+      const next = await callAgent({ api, agent, params: retryParams, record, estimate: false });
       const problems = checkNextQuestion(next, gaps);
       if (problems.length === 0) return next;
       last = new LiveFailure('interviewer', problems.join(' / '));
@@ -46,6 +47,10 @@ async function askNext({ api, agent, params, record, gaps }) {
       if (error.stage !== 'incomplete' && error.stage !== 'parse') throw error;
       last = error;
     }
+    // キャッシュの後ろに足すので、前置きの費用は増えない
+    const [stable, dynamic] = params.messages[0].content;
+    const notice = { type: 'text', text: `前回の出力には次の問題がありました：${last.message}\n質問を1つだけ、${QUESTION_CHARS}字以内の短い文にしてください。聞く内容が多いときは、今回は一部だけを聞きます。` };
+    retryParams = { ...params, messages: [{ role: 'user', content: [stable, dynamic, notice] }] };
   }
   throw last;
 }
