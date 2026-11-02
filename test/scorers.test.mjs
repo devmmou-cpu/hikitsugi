@@ -266,3 +266,16 @@ test('模擬の後任：不正な値は例外にする', () => {
   assert.throws(() => troubles.score({ results: [{ trouble: 'T9', action: 'self' }] }, answers.troubles), /トラブルの ID/);
   assert.throws(() => troubles.score({ results: [{ trouble: 'T1', action: 'maybe' }] }, answers.troubles), /行動の値/);
 });
+
+test('模擬の後任：「確かめてから依頼」は、行動と連絡先の両方が合って合格になる', () => {
+  const output = (action, contact) => ({
+    results: answers.troubles.troubles.map((t) => (t.id === 'T5' ? { trouble: 'T5', action, contact } : { trouble: t.id, action: t.action, contact: t.contact })),
+  });
+  const gold = answers.troubles.troubles.find((t) => t.id === 'T5');
+  assert.equal(gold.action, 'check_first');
+  const passed = (out) => troubles.summarize(troubles.score(out, answers.troubles)).passed;
+  assert.equal(passed(output('check_first', gold.contact)), 5);
+  assert.equal(passed(output('check_first', 'VEN-01')), 4);
+  assert.equal(passed(output('self', null)), 4);
+  assert.equal(passed(output('contact', gold.contact)), 4);
+});

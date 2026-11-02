@@ -2,10 +2,73 @@
   "schema_version": 1,
   "company": "kuzuri",
   "troubles": [
-    { "id": "T1", "symptom": "共有フォルダが見えない", "action": "self", "contact": null, "support": [{ "ref": "INT-018", "contains": "つなぎ直せば直ります" }] },
-    { "id": "T2", "symptom": "営業所だけ社内につながらない", "action": "contact", "contact": "VEN-02", "support": [{ "ref": "INT-018", "contains": "カワウソシステムサービスに連絡" }] },
-    { "id": "T3", "symptom": "車庫の Wi-Fi が切れる", "action": "self", "contact": null, "support": [{ "ref": "INT-018", "contains": "詰所の AP を再起動" }, { "ref": "INT-004", "contains": "30秒待って" }] },
-    { "id": "T4", "symptom": "配車システムの画面が動かない", "action": "contact", "contact": "VEN-04", "support": [{ "ref": "INT-018", "contains": "イイズナソフトに連絡" }] },
-    { "id": "T5", "symptom": "パスワードを忘れて入れない社員がいる", "action": "self", "contact": null, "support": [{ "ref": "INT-009", "contains": "一時パスワード" }] }
+    {
+      "id": "T1",
+      "symptom": "共有フォルダが見えない",
+      "action": "self",
+      "contact": null,
+      "support": [
+        {
+          "ref": "INT-018",
+          "contains": "つなぎ直せば直ります"
+        }
+      ]
+    },
+    {
+      "id": "T2",
+      "symptom": "営業所だけ社内につながらない",
+      "action": "contact",
+      "contact": "VEN-02",
+      "support": [
+        {
+          "ref": "INT-018",
+          "contains": "カワウソシステムサービスに連絡"
+        }
+      ]
+    },
+    {
+      "id": "T3",
+      "symptom": "車庫の Wi-Fi が切れる",
+      "action": "self",
+      "contact": null,
+      "support": [
+        {
+          "ref": "INT-018",
+          "contains": "詰所の AP を再起動"
+        },
+        {
+          "ref": "INT-004",
+          "contains": "30秒待って"
+        }
+      ]
+    },
+    {
+      "id": "T4",
+      "symptom": "配車システムの画面が動かない",
+      "action": "contact",
+      "contact": "VEN-04",
+      "support": [
+        {
+          "ref": "INT-018",
+          "contains": "イイズナソフトに連絡"
+        }
+      ]
+    },
+    {
+      "id": "T5",
+      "symptom": "パスワードを忘れて入れない社員がいる",
+      "action": "check_first",
+      "contact": "VEN-02",
+      "support": [
+        {
+          "ref": "INT-009",
+          "contains": "社員の名前"
+        },
+        {
+          "ref": "INT-009",
+          "contains": "スポット"
+        }
+      ]
+    }
   ]
 }

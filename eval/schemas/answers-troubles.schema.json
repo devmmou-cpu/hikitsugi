@@ -1,5 +1,5 @@
 {
-  "$comment": "T1〜T5 の正しい行動。self は自力で解決、contact は連絡先への連絡",
+  "$comment": "T1〜T5 の正しい行動。self は自力で解決、check_first は後任が確かめてから連絡先へ依頼、contact は連絡先への連絡",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "company", "troubles"],
@@ -17,7 +17,7 @@
         "properties": {
           "id": { "type": "string", "pattern": "^T[1-5]$" },
           "symptom": { "type": "string", "minLength": 1 },
-          "action": { "enum": ["self", "contact"] },
+          "action": { "enum": ["self", "check_first", "contact"] },
           "contact": { "type": ["string", "null"], "pattern": "^VEN-\\d{2}$" },
           "support": {
             "type": "array",

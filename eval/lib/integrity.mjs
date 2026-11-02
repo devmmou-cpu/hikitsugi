@@ -296,10 +296,13 @@ export function checkSet(setDir, { repoRoot, checklistPath, schemaRoot = repoRoo
   // ---- 行動の正解 ----
   const vendorIds = new Set(data.case.vendors.map((v) => v.id));
   const troubles = data.troubles.troubles;
-  if (troubles.filter((t) => t.action === 'self').length !== 3) problems.push('自力で解決するトラブルは3件必要です');
+  // 後任が手を動かすトラブル（自力、または確かめてから依頼）は3件
+  if (troubles.filter((t) => t.action === 'self' || t.action === 'check_first').length !== 3) {
+    problems.push('自力で解決、または確かめてから依頼するトラブルは3件必要です');
+  }
   for (const trouble of troubles) {
     checkSupport(trouble.id, trouble.support);
-    if (trouble.action === 'contact' && !vendorIds.has(trouble.contact)) problems.push(`${trouble.id}: 連絡先がありません`);
+    if (trouble.action !== 'self' && !vendorIds.has(trouble.contact)) problems.push(`${trouble.id}: 連絡先がありません`);
     if (trouble.action === 'self' && trouble.contact !== null) problems.push(`${trouble.id}: 自力の場合、連絡先は null です`);
   }
 

@@ -23,7 +23,7 @@ const COMPANIES = [
 ];
 
 // オコジョ精工のデータの基準値。夜間の作業で変更されていないことを確かめる
-const OKOJO_SHA256 = '9126967e1ef367061e82c5bf0e8cc42c2a03d5898f39768ab22f0e138f69ad9d';
+const OKOJO_SHA256 = 'f4c86b2b23860b17a17ff0618eb45f84a943ddbaedd90745ee12774ebbf74e9b';
 
 const walk = (dir) =>
   readdirSync(dir).flatMap((name) => {

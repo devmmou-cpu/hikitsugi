@@ -57,12 +57,20 @@
     {
       "id": "T5",
       "symptom": "バックアップの失敗に気づかない",
-      "action": "self",
-      "contact": null,
+      "action": "check_first",
+      "contact": "VEN-02",
       "support": [
         {
+          "ref": "INT-007",
+          "contains": "件名"
+        },
+        {
+          "ref": "INT-007",
+          "contains": "スポット"
+        },
+        {
           "ref": "INT-018",
-          "contains": "毎月の容量確認で気づけます"
+          "contains": "容量不足"
         }
       ]
     }

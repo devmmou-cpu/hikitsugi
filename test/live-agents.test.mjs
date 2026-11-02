@@ -287,7 +287,7 @@ const agentFiles = [
 
 test('すべてのエージェントのプロンプトに、評価セットの文と値が混ざっていない', () => {
   // 判定の名前や状態の名前はスキーマの語で、正解データにも同じ語がある。これは内容の混入ではないので除く
-  const schemaWords = /dangerous|contradiction|unsupported|correct|answered|unknown|filled|partial|Microsoft 365/g;
+  const schemaWords = /dangerous|contradiction|unsupported|correct|answered|unknown|filled|partial|check_first|Microsoft 365/g;
   const grams = new Set();
   for (const source of collect([input.statements, input.transcript, input.survey, answers, hidden])) {
     for (let i = 0; i + NGRAM <= source.length; i += 1) grams.add(source.slice(i, i + NGRAM));

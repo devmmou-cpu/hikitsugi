@@ -399,11 +399,11 @@
       "support": [
         {
           "ref": "INT-007",
-          "contains": "最古の世代"
+          "contains": "スポット"
         },
         {
           "ref": "INT-018",
-          "contains": "毎月の容量確認"
+          "contains": "容量不足"
         }
       ]
     },
