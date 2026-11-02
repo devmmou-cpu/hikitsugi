@@ -23,7 +23,7 @@ ${targetNames.map((t) => `  ${t.padEnd(10)} ${adapterNames(t).join(', ')}`).join
   all-flag     全部を指摘する（基準の確認用）
   empty        何も答えない（基準の確認用）
   fixture      保存済みの出力を --output で読み込む
-  live         API を呼ぶ（未実装）`;
+  live         API を呼ぶ（今は verifier だけ）。node --env-file=.env で実行する`;
 
 function main() {
   let values;
@@ -61,6 +61,10 @@ function main() {
     runId: `${stamp}-${values.set}-${values.target}-${values.adapter}`,
   }).then((result) => {
     console.log(`模擬評価 ${result.set} / ${result.target} / ${result.adapter}`);
+    if (result.api) {
+      const { input_tokens: input, output_tokens: output, cost_usd: cost } = result.api;
+      console.log(`使用量：入力 ${input} トークン、出力 ${output} トークン、費用 ${cost === null ? '不明' : `$${cost.toFixed(4)}`}`);
+    }
     if (result.status === 'error') {
       for (const error of result.errors) console.error(`失敗（${error.stage}）：${error.message}`);
       console.error(`採点できませんでした。詳細：${join(result.dir, 'errors.jsonl')}`);

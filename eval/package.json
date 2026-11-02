@@ -2,6 +2,9 @@
   "name": "hikitsugi-eval",
   "version": "0.0.0",
   "private": true,
-  "description": "ヒキツギの評価ランナー。公式 Anthropic SDK はここにだけ入れる（API クレジットが届いてから追加）",
-  "type": "module"
+  "description": "ヒキツギの評価ランナー。公式 Anthropic SDK はここにだけ入れる",
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.3.0"
+  }
 }

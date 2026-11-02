@@ -1,11 +1,12 @@
 // 出力を用意するアダプター。評価の仕組みそのものを確かめるための基準の出力と、保存済みの出力を扱う。
 // oracle は正解をそのまま返す基準であり、エージェントの評価には使わない。
-// live（API を呼ぶもの）はクレジットが届いてから実装する。入力は context.input だけを使うこと。
+// live（API を呼ぶもの）は context.input だけを渡す。今は Verifier だけに対応する。
 
 import { readFileSync } from 'node:fs';
+import { NotImplementedError, UsageError } from './errors.mjs';
+import { runVerifierLive } from './live.mjs';
 
-export class UsageError extends Error {}
-export class NotImplementedError extends Error {}
+export { NotImplementedError, UsageError };
 
 const envelope = (context, body) => ({ schema_version: 1, company: context.input.survey.company, ...body });
 
@@ -41,8 +42,11 @@ function fromFile(context) {
 }
 
 function live() {
-  throw new NotImplementedError('live アダプターは未実装です。API クレジットが届いてから実装します');
+  throw new NotImplementedError('この対象の live アダプターは未実装です。今は verifier だけに対応しています');
 }
+
+// 正解を渡せないよう、input、client、record だけを取り出して渡す
+const verifierLive = ({ input, client, record }) => runVerifierLive({ input, client, record });
 
 const ADAPTERS = {
   verifier: {
@@ -50,7 +54,7 @@ const ADAPTERS = {
     'all-correct': (c) => verifierOutput(c, () => 'correct'),
     'all-flag': (c) => verifierOutput(c, () => 'contradiction'),
     fixture: fromFile,
-    live,
+    live: verifierLive,
   },
   gaps: {
     oracle: (c) => gapsOutput(c, (i) => i.state, (i) => i.state !== 'filled'),

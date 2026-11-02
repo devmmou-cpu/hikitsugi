@@ -141,9 +141,9 @@ test('実行結果に記述の本文を保存しない（ダミーの認証情�
     assert.ok(!saved.includes('パスワード'));
   }));
 
-test('live は未実装で止まり、対応しないアダプターや対象は指定の誤りになる', () =>
+test('未対応の対象の live は未実装で止まり、対応しないアダプターや対象は指定の誤りになる', () =>
   withResults(async (dir) => {
-    await assert.rejects(run('verifier', 'live', dir), NotImplementedError);
+    await assert.rejects(run('gaps', 'live', dir), NotImplementedError);
     await assert.rejects(run('manual', 'oracle', dir), UsageError);
     await assert.rejects(run('存在しない', 'oracle', dir), UsageError);
     await assert.rejects(run('verifier', 'fixture', dir), UsageError);
@@ -153,12 +153,12 @@ function cli(...args) {
   return spawnSync(process.execPath, [join(ROOT, 'eval/run.mjs'), ...args], { encoding: 'utf8' });
 }
 
-test('コマンド：oracle は終了コード 0、live は未実装を表示して 2', () =>
+test('コマンド：oracle は終了コード 0、未対応の対象の live は未実装を表示して 2', () =>
   withResults(async (dir) => {
     const ok = cli('--set', 'okojo', '--target', 'verifier', '--adapter', 'oracle', '--results-dir', dir);
     assert.equal(ok.status, 0, ok.stderr);
     assert.match(ok.stdout, /模擬評価/);
-    const live = cli('--set', 'okojo', '--target', 'verifier', '--adapter', 'live', '--results-dir', dir);
+    const live = cli('--set', 'okojo', '--target', 'gaps', '--adapter', 'live', '--results-dir', dir);
     assert.equal(live.status, 2);
     assert.match(live.stderr, /未実装/);
   }));

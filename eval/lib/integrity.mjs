@@ -37,7 +37,7 @@ const WORD = /(?<![0-9A-Za-z.\\-])[A-Za-z][A-Za-z0-9-]*/g;
 const LEAK = /(?<![0-9A-Za-z])E(?:[1-9]|10)(?![0-9A-Za-z])|誤り|わざと|正解|ダミー|埋め込/;
 
 // パスワードや認証情報の本体を書いた形。保管場所の文には当たらない。
-const CREDENTIAL = /(?:パスワード|暗証番号|認証コード|password|passcode)(?:は|:|：|=|＝)\s*[「"']?([!-~]{4,})/giu;
+export const CREDENTIAL = /(?:パスワード|暗証番号|認証コード|password|passcode)(?:は|:|：|=|＝)\s*[「"']?([!-~]{4,})/giu;
 
 const PHONE = /0\d{1,4}-\d{1,4}-\d{3,4}/g;
 const FICTIONAL_PHONE = /^03-0000-01\d{2}$/;

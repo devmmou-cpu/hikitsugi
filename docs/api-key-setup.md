@@ -31,8 +31,9 @@ node --env-file=.env -e "console.log(process.env.ANTHROPIC_API_KEY?.length > 0 ?
 最後のコマンドは、値を表示せずに読み込めたかだけを確かめます。
 
 ## 5. 使い方
-Node.js の標準機能で読み込むので、`dotenv` などのライブラリは使いません。
+Node.js の標準機能で読み込むので、`dotenv` などのライブラリは使いません。SDK は `eval/` にだけ入っているので、最初に1回インストールします。
 ```bash
+(cd eval && npm ci --ignore-scripts)
 node --env-file=.env eval/run.mjs --set okojo --target verifier --adapter live
 ```
 
