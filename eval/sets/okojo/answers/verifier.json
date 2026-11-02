@@ -58,8 +58,8 @@
       "id": "S-05",
       "kind": "seeded",
       "error": "E4",
-      "expected": "unsupported",
-      "note": "どの根拠にもない電話番号",
+      "expected": "contradiction",
+      "note": "どの根拠にもない電話番号。NAS に保守契約がないという聞き取りとも矛盾するので、優先順により矛盾とする",
       "support": [
         {
           "ref": "INT-005",

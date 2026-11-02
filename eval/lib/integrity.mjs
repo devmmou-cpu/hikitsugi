@@ -20,6 +20,10 @@ const VERDICT_BY_ERROR = {
   E10: 'contradiction',
 };
 
+// 会社ごとの例外。オコジョ精工の E4 は保守契約がないという聞き取りとも矛盾するので、優先順により矛盾とする。
+// 他の会社の E4 は、ほかの事実と矛盾しない純粋な「根拠なし」にする。
+const VERDICT_EXCEPTIONS = { okojo: { E4: 'contradiction' } };
+
 // 英字の語は許可リスト方式で確認する。実在の製品名やメーカー名を、禁止リストとしてリポジトリに置かないため。
 const ALLOWED_WORDS = new Set([
   // 許可された実在の名前（製品名として使ってよいのはこの範囲だけ）
@@ -198,7 +202,8 @@ export function checkSet(setDir, { repoRoot, checklistPath, schemaRoot = repoRoo
   if (correct.length < 18 || correct.length > 22) problems.push(`正しい記述は約20件必要です（${correct.length} 件）`);
   for (const answer of answers) {
     checkSupport(answer.id, answer.support);
-    if (answer.kind === 'seeded' && answer.expected !== VERDICT_BY_ERROR[answer.error]) {
+    const expectedVerdict = VERDICT_EXCEPTIONS[data.case.company]?.[answer.error] ?? VERDICT_BY_ERROR[answer.error];
+    if (answer.kind === 'seeded' && answer.expected !== expectedVerdict) {
       problems.push(`${answer.id}: ${answer.error} の期待判定が違います`);
     }
     if (answer.kind === 'correct' && (answer.expected !== 'correct' || answer.error !== null)) {

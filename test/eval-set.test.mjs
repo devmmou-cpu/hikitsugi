@@ -120,6 +120,24 @@ test('架空の形式でない電話番号を入れると失敗する', () => {
   includes(problems, '架空の形式ではない電話番号');
 });
 
+test('E4 の例外はオコジョ精工だけで、他の会社の E4 は「根拠なし」でなければ失敗する', () => {
+  const answerOf = (d) => d.statements.find((s) => s.error === 'E4');
+  // オコジョ精工：優先順により矛盾なので、根拠なしに戻すと失敗する
+  const okojo = withCopy((setDir) => {
+    editJson(join(setDir, 'answers/verifier.json'), (d) => {
+      answerOf(d).expected = 'unsupported';
+    });
+  });
+  includes(okojo, 'E4 の期待判定');
+  // 他の会社：同じ「矛盾」は認めない
+  const other = withCopy((setDir) => {
+    editJson(join(setDir, 'case.json'), (d) => {
+      d.company = 'other';
+    });
+  });
+  includes(other, 'E4 の期待判定');
+});
+
 test('E4 の電話番号が根拠側に現れると失敗する', () => {
   const problems = withCopy((setDir) => {
     editJson(join(setDir, 'case.json'), (d) => {
