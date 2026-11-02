@@ -26,6 +26,8 @@ const CATEGORY_LABELS = [
   ['other', 'その他'],
 ];
 
+const SHORT_STEP_LENGTH = 40;
+
 const FREQUENCY_LABELS = [
   ['weekly', '毎週'],
   ['monthly', '毎月'],
@@ -50,11 +52,12 @@ const icon = (name) => `<svg class="icon" viewBox="0 0 24 24" role="presentation
 
 const BADGE_ICONS = { self: 'check', check_first: 'alert', vendor: 'phone' };
 
+// 文字を大きくしたときは、<wbr> の位置（語の切れ目）でだけ折り返す
 const TABS = [
-  ['tab-help', '困ったとき', 'help'],
+  ['tab-help', '困った<wbr>とき', 'help'],
   ['tab-contacts', '連絡先', 'phone'],
-  ['tab-routines', '毎月やること', 'calendar'],
-  ['tab-company', '会社のIT', 'monitor'],
+  ['tab-routines', '毎月<wbr>やること', 'calendar'],
+  ['tab-company', '会社の<wbr>IT', 'monitor'],
 ];
 
 // ---- 文字の扱い ----
@@ -65,6 +68,14 @@ const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ESCAPES[c]);
 function formatDate(isoDate) {
   const [year, month, day] = isoDate.split('-').map(Number);
   return `${year}年${month}月${day}日`;
+}
+
+/**
+ * 文章を HTML にする。\\ で始まる接続先は、見ながら入力する値なので、途中で折り返さない印を付ける。
+ * 文字は変えない（タグを除けば元の文章のまま。コピーする文面も変わらない）。
+ */
+function statementHtml(text) {
+  return esc(text).replace(/\\\\[^\s、。，．）」』]+/g, (path) => `<span class="path">${path}</span>`);
 }
 
 /** 語が使われているか。英数字の語は単語の境界で判定する（NAS が別の英単語の一部に当たらないように）。 */
@@ -215,7 +226,9 @@ function stepsHtml(ctx, page, stepTerms) {
   const items = page.steps.map((id, index) => {
     const terms = stepTerms[index].length ? `<div class="step-terms">${stepTerms[index].map((term) => termHtml(ctx, term)).join('')}</div>` : '';
     // チェック欄を先に置くのは、チェックしたときに番号と文の色を CSS で変えるため。見た目では右端に並ぶ
-    return `<li><label class="tap step"><input type="checkbox" data-check="${esc(page.id)}:${esc(id)}"><span class="step-number">${index + 1}</span><span class="step-text">${ctx.text(id)}</span></label>${terms}</li>`;
+    // 短い手順だけ文節で折り返す。長い文を文節で切ると、かえって行の長さがばらつくため
+    const textClass = ctx.raw(id).length <= SHORT_STEP_LENGTH ? 'step-text is-short' : 'step-text';
+    return `<li><label class="tap step"><input type="checkbox" data-check="${esc(page.id)}:${esc(id)}"><span class="step-number">${index + 1}</span><span class="${textClass}">${ctx.text(id)}</span></label>${terms}</li>`;
   });
   return [
     '<div class="steps-head"><h3>やること</h3><span class="js-only progress"></span></div>',
@@ -375,7 +388,7 @@ function companyPanel(ctx) {
 
 // ---- 全体 ----
 function navHtml() {
-  const links = TABS.map(([id, label, name]) => `<a class="tap tab" href="#${id}">${icon(name)}${esc(label)}</a>`);
+  const links = TABS.map(([id, label, name]) => `<a class="tap tab" href="#${id}">${icon(name)}<span>${label}</span></a>`);
   return `<nav class="tabs" aria-label="画面の切り替え">\n${links.join('\n')}\n</nav>`;
 }
 
@@ -389,7 +402,7 @@ export function renderManual(manual) {
     statements,
     contacts: new Map(manual.contacts.map((c) => [c.id, c])),
     raw: (id) => statements.get(id).text,
-    text: (id) => esc(statements.get(id).text),
+    text: (id) => statementHtml(statements.get(id).text),
   };
 
   const company = esc(manual.company_name);

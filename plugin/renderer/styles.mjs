@@ -253,6 +253,7 @@ main {
 .note,
 .verdict-text,
 .reassure,
+.step-text.is-short,
 .panel h2,
 .panel h4 {
   word-break: auto-phrase;
@@ -262,8 +263,7 @@ main {
 /* 長い文は文節で切るとかえって行がばらつくので、最後の行が短くなりすぎないようにだけする */
 .step-text,
 .facts dd,
-.term > p,
-.routine-list .step-text {
+.term > p {
   text-wrap: pretty;
 }
 
@@ -447,6 +447,16 @@ html.js .is-next .step-text::before {
   color: var(--color-accent);
   font-size: 1rem;
   font-weight: 700;
+}
+
+/* 接続先。行に収まらなければ、値ごと次の行へ送る。行より長ければ折り返す */
+.path {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0 var(--space-1);
+  background: var(--color-accent-soft);
+  border-radius: var(--radius-small);
+  font-weight: 600;
 }
 
 /* 用語の開閉 */
@@ -716,6 +726,8 @@ html.js summary::-webkit-details-marker {
   line-height: 1.3;
   text-align: center;
   text-decoration: none;
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
 
 .tab:focus-visible {
