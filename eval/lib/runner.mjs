@@ -8,6 +8,7 @@ import { validate } from '../../plugin/lib/validate.mjs';
 import { getAdapter, NotImplementedError, UsageError } from './adapters/index.mjs';
 import { CREDENTIAL } from './integrity.mjs';
 import { loadAnswers, loadCase, loadHidden, loadInput, readJson } from './load-set.mjs';
+import * as editor from './scorers/editor.mjs';
 import * as verifier from './scorers/verifier.mjs';
 import * as gaps from './scorers/gaps.mjs';
 import * as interview from './scorers/interview.mjs';
@@ -37,6 +38,11 @@ const TARGETS = {
     schema: 'manual',
     score: (output, c) => manual.score(output, null, c.input),
     summarize: (rows) => manual.summarize(rows),
+  },
+  editor: {
+    schema: 'manual',
+    score: (output, c) => editor.score(output, c.from, c.input),
+    summarize: (rows) => editor.summarize(rows),
   },
   troubles: {
     // 模擬の後任の出力はプラグインの成果物ではないので、形式は採点器で確かめる
@@ -90,12 +96,12 @@ function summarizeCalls(calls) {
  * 1回分の評価を実行して結果を保存する。
  * 設定の誤り（UsageError）と未実装（NotImplementedError）は実行として記録せず、そのまま投げる。
  */
-export async function runEval({ set, setDir, target, adapter: adapterName, outputPath, resultsRoot, runId, client, final = false }) {
+export async function runEval({ set, setDir, target, adapter: adapterName, outputPath, resultsRoot, runId, client, final = false, fromPath }) {
   const spec = TARGETS[target];
   if (!spec) throw new UsageError(`${target} という対象はありません（使えるもの：${targetNames.join('、')}）`);
   const adapter = getAdapter(target, adapterName);
   // 保留の会社は最終確認にだけ使う。うっかり実行して調整に使わないよう、明示の指定がなければ止める
-  const { split } = loadCase(setDir);
+  const { split, name: companyName } = loadCase(setDir);
   if (split === 'holdout' && !final) {
     throw new UsageError(`${set} は保留の会社です。最終確認のときだけ --final を付けて実行してください`);
   }
@@ -107,6 +113,8 @@ export async function runEval({ set, setDir, target, adapter: adapterName, outpu
     answers: loadAnswers(setDir),
     hidden: loadHidden(setDir),
     outputPath,
+    from: fromPath ? readJson(fromPath) : undefined,
+    companyName,
     client,
     record: ({ raw_text: rawText, ...call }) => {
       if (rawText === undefined) {
@@ -161,5 +169,9 @@ export async function runEval({ set, setDir, target, adapter: adapterName, outpu
   writeFileSync(join(dir, 'results.jsonl'), toJsonl(rows));
   writeFileSync(join(dir, 'errors.jsonl'), toJsonl(errors));
   if (rawTexts.length) writeFileSync(join(dir, 'raw-output.txt'), rawTexts.join('\n') + '\n');
+  // 次の段階の入力に使えるよう、検査を通った出力を残す。認証情報は伏せる
+  if (output !== undefined) {
+    writeFileSync(join(dir, 'output.json'), maskCredentials(JSON.stringify(output, null, 2), context.input).masked + '\n');
+  }
   return { ...result, rows, errors, dir };
 }

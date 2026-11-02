@@ -1,0 +1,12 @@
+{
+  "$comment": "Interviewer の出力。次の1問、または聞き取りの終わり",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["action", "gap", "covers", "question"],
+  "properties": {
+    "action": { "enum": ["ask", "finish"] },
+    "gap": { "type": "string" },
+    "covers": { "type": "array", "items": { "type": "string", "pattern": "^CHK-\\d{2}$" } },
+    "question": { "type": "string" }
+  }
+}

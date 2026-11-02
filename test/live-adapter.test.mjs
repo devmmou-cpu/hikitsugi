@@ -276,7 +276,7 @@ test('Verifier の定義はプラグインの frontmatter の形を満たす', (
   assert.equal(frontmatter.name, 'verifier');
   assert.ok(frontmatter.description.length > 0);
   assert.equal(frontmatter.model, 'opus');
-  assert.equal(frontmatter.tools, 'Read');
+  assert.equal(frontmatter.tools, 'Read, Write');
   assert.ok(prompt.startsWith('あなたは'));
   for (const verdict of ['dangerous', 'contradiction', 'unsupported', 'correct']) assert.ok(prompt.includes(`\`${verdict}\``));
 });

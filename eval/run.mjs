@@ -12,7 +12,7 @@ import { NotImplementedError, runEval, targetNames, UsageError } from './lib/run
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 const HELP = `使い方：
-  node eval/run.mjs --set okojo --target <対象> --adapter <アダプター> [--output <ファイル>] [--results-dir <フォルダ>] [--final]
+  node eval/run.mjs --set okojo --target <対象> --adapter <アダプター> [--output <ファイル>] [--results-dir <フォルダ>] [--from <前の段階の output.json>] [--final]
 
 対象とアダプター：
 ${targetNames.map((t) => `  ${t.padEnd(10)} ${adapterNames(t).join(', ')}`).join('\n')}
@@ -25,7 +25,7 @@ ${targetNames.map((t) => `  ${t.padEnd(10)} ${adapterNames(t).join(', ')}`).join
   all-flag     全部を指摘する（基準の確認用）
   empty        何も答えない（基準の確認用）
   fixture      保存済みの出力を --output で読み込む
-  live         API を呼ぶ（今は verifier だけ）。node --env-file=.env で実行する`;
+  live         API を呼ぶ。node --env-file=.env で実行する`;
 
 function main() {
   let values;
@@ -37,6 +37,7 @@ function main() {
         adapter: { type: 'string' },
         output: { type: 'string' },
         'results-dir': { type: 'string' },
+        from: { type: 'string' },
         final: { type: 'boolean' },
         help: { type: 'boolean' },
       },
@@ -61,6 +62,7 @@ function main() {
     adapter: values.adapter,
     outputPath: values.output,
     final: values.final ?? false,
+    fromPath: values.from,
     resultsRoot: values['results-dir'] ?? join(HERE, 'results'),
     runId: `${stamp}-${values.set}-${values.target}-${values.adapter}`,
   }).then((result) => {

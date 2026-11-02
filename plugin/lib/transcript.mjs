@@ -1,0 +1,48 @@
+// 聞き取り記録の操作。ID の採番と、記録してはいけない内容の確認はプログラムが行う。
+// /hikitsugi と評価の両方で使う。
+
+export const QUESTION_LIMIT = 20;
+
+// パスワードや認証情報の本体を書いた形。保管場所の文には当たらない。
+const CREDENTIAL = /(?:パスワード|暗証番号|認証コード|password|passcode)(?:は|:|：|=|＝)\s*[「"']?[!-~]{4,}/iu;
+
+export const hasCredential = (text) => CREDENTIAL.test(text);
+
+export const emptyTranscript = (company) => ({ schema_version: 1, company, entries: [] });
+
+/** 次の質問が記録できる形かを確かめる。問題の一覧を返す。 */
+export function checkNextQuestion(next, gaps) {
+  if (next.action !== 'ask') return [];
+  const problems = [];
+  const known = new Set(gaps.gaps.map((gap) => gap.id));
+  const items = new Set(gaps.coverage.map((entry) => entry.item));
+  if (!known.has(next.gap)) problems.push(`存在しない空白です: ${next.gap}`);
+  if (!next.question.trim()) problems.push('質問が空です');
+  if (next.covers.length === 0) problems.push('埋める項目がありません');
+  for (const item of next.covers) if (!items.has(item)) problems.push(`存在しない必須項目です: ${item}`);
+  return problems;
+}
+
+/** 質問と回答を1件追加した、新しい記録を返す。パスワードの本体は記録しない。 */
+export function appendEntry(transcript, { next, answer, status, answeredAt }) {
+  if (transcript.entries.length >= QUESTION_LIMIT) throw new Error(`質問は ${QUESTION_LIMIT} 問までです`);
+  if (hasCredential(answer)) {
+    throw new Error('回答にパスワードの本体が含まれています。保管場所だけを記録してください');
+  }
+  const number = String(transcript.entries.length + 1).padStart(3, '0');
+  return {
+    ...transcript,
+    entries: [
+      ...transcript.entries,
+      {
+        id: `INT-${number}`,
+        gap: next.gap,
+        covers: [...new Set(next.covers)].sort(),
+        question: next.question,
+        answer,
+        status,
+        answered_at: answeredAt,
+      },
+    ],
+  };
+}

@@ -15,3 +15,6 @@
 - 聞き取り記録は手で編集せず、`node eval/tools/build-transcript.mjs okojo` で作り直す
 - `test/eval-sets.acceptance.test.mjs` の `OKOJO_SHA256` を同じコミットで更新する（オコジョ精工のデータの基準値のため）。夜間の生成が動いている間は変更しない
 - `test/renderer.acceptance.test.mjs` など、この日付に依存するテストがないか確かめる
+
+## 機能
+- [ ] 定期作業（routines）と機器の一覧（devices）を表示する。今は表示プログラムが受け付けないので、`plugin/lib/handover.mjs` が件数を示して外している

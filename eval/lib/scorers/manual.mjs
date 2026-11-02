@@ -1,27 +1,8 @@
 // 取扱説明書の中身の採点。根拠、1文の長さ、用語、認証情報を機械的に確かめる。
 
-const SENTENCE_LIMIT = 50;
-
-// 非 IT 向けの文章で、説明なしに使ってはいけない語（用語集に載せれば使える）
-const JARGON = [
-  'NAS', 'UTM', 'RAID', 'DNS', 'DHCP', 'VPN', 'AP',
-  'ルーター', 'ゲートウェイ', 'ネットワークドライブ', 'スイッチ', 'サーバー', 'ドメイン', 'バックアップ',
-  '多要素認証', 'ファームウェア',
-];
+import { JARGON, longSentences, usesTerm } from '../../../plugin/lib/plain-check.mjs';
 
 const CREDENTIAL = /(?:パスワード|暗証番号|認証コード|password|passcode)(?:は|:|：|=|＝)\s*[「"']?[!-~]{4,}/iu;
-
-const sentences = (text) =>
-  text
-    .split(/(?<=[。！？!?])|\n/u)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-/** 語が使われているかどうか。英字の語は単語の境界で判定する（AP が APP に当たらないように）。 */
-function usesTerm(text, term) {
-  if (/^[A-Za-z]+$/.test(term)) return new RegExp(`(?<![A-Za-z])${term}(?![A-Za-z])`).test(text);
-  return text.includes(term);
-}
 
 /** 画面側から参照している STM-ID をすべて集める。 */
 function referencedStatements(manual) {
@@ -54,19 +35,31 @@ export function score(output, _answers, context) {
     return {
       statement: statement.id,
       bad_evidence: badEvidence,
-      long_sentences: sentences(statement.text).filter((s) => [...s].length > SENTENCE_LIMIT).length,
+      long_sentences: longSentences(statement.text).length,
       unexplained_terms: JARGON.filter((term) => usesTerm(statement.text, term) && !glossary.has(term)),
       credential: CREDENTIAL.test(statement.text),
     };
   });
 
+  // 連絡先の名前と電話番号は文章ではなく Verifier の対象外なので、ここで根拠と照合する
+  const evidenceText = [
+    ...context.survey.items.filter((item) => item.status === 'ok').map((item) => String(item.value)),
+    ...context.transcript.entries.filter((entry) => entry.status === 'answered').map((entry) => entry.answer),
+  ].join('\n');
+  const contactRows = output.contacts.map((contact) => ({
+    kind: 'contact',
+    contact: contact.id,
+    unsupported_phone: !evidenceText.includes(contact.phone),
+  }));
+
   const refs = referencedStatements(output);
   const dangling = refs.filter((ref) => !seen.has(ref));
   if (dangling.length) throw new Error(`存在しない記述を参照しています: ${[...new Set(dangling)].join(', ')}`);
-  return rows;
+  return [...rows, ...contactRows];
 }
 
-export function summarize(rows) {
+export function summarize(allRows) {
+  const rows = allRows.filter((row) => row.kind !== 'contact');
   const unexplained = [...new Set(rows.flatMap((r) => r.unexplained_terms))];
   return {
     statements: rows.length,
@@ -74,7 +67,8 @@ export function summarize(rows) {
     long_sentences: rows.reduce((sum, r) => sum + r.long_sentences, 0),
     unexplained_terms: unexplained,
     credentials: rows.filter((r) => r.credential).map((r) => r.statement),
+    unsupported_phones: allRows.filter((r) => r.unsupported_phone).map((r) => r.contact),
     complete: true,
-    targets: { bad_evidence_max: 0, long_sentences_max: 0, unexplained_terms_max: 0, credentials_max: 0 },
+    targets: { bad_evidence_max: 0, long_sentences_max: 0, unexplained_terms_max: 0, credentials_max: 0, unsupported_phones_max: 0 },
   };
 }

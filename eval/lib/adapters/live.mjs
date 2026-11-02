@@ -1,5 +1,5 @@
-// API を呼ぶアダプター。今は Verifier だけに対応する。
-// 受け取るのは loadInput で読み込んだ input だけで、hidden と answers には触れない。
+// API を呼ぶアダプターの共通部分。エージェント定義（plugin/agents/*.md）を読み、1回呼び出して JSON を返す。
+// 各エージェントのアダプターは、loadInput の結果など、渡してよいものだけを受け取る。
 // SDK は実行時にだけ読み込むので、npm test は依存なしで動く。
 
 import { createHash } from 'node:crypto';
@@ -11,7 +11,9 @@ import { UsageError } from './errors.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 
-export const LIVE_MODEL = 'claude-opus-5-5';
+// 評価では別名のままにせず、モデルを固定する。結果を比べられるようにするため
+const MODELS = { opus: 'claude-opus-5-5', sonnet: 'claude-sonnet-5-5', haiku: 'claude-haiku-5-5' };
+export const LIVE_MODEL = MODELS.opus;
 // 上限に達しても 1 回あたりの費用が小さく、thinking の分も収まる長さにする
 const MAX_TOKENS = 64000;
 // 構造化出力が受け付けないキーワード。残すと API が 400 を返す
@@ -37,7 +39,14 @@ export function parseAgent(text) {
   return { frontmatter, prompt: match[2].trim() };
 }
 
-export const loadVerifierAgent = () => parseAgent(readFileSync(join(ROOT, 'plugin/agents/verifier.md'), 'utf8'));
+/** エージェント定義を読む。path はリポジトリの根からの相対パス。 */
+export const loadAgent = (path) => parseAgent(readFileSync(join(ROOT, path), 'utf8'));
+export const loadVerifierAgent = () => loadAgent('plugin/agents/verifier.md');
+export const modelOf = (agent) => {
+  const model = MODELS[agent.frontmatter.model];
+  if (!model) throw new Error(`モデルの指定が違います: ${agent.frontmatter.model}`);
+  return model;
+};
 
 function stripUnsupported(schema) {
   if (Array.isArray(schema)) return schema.map(stripUnsupported);
@@ -50,38 +59,46 @@ function stripUnsupported(schema) {
 }
 
 /**
- * モデルに書かせる部分のスキーマを、正本の verification.schema.json から作る。
- * schema_version、company、round はプログラムが付けるので results だけにする。
+ * モデルに書かせる部分のスキーマを、正本の plugin/schemas から作る。
+ * schema_version や company など、プログラムが付ける項目は keys に含めない。
  */
-export function verifierResponseSchema() {
-  const full = JSON.parse(readFileSync(join(ROOT, 'plugin/schemas/verification.schema.json'), 'utf8'));
+export function responseSchema(name, keys) {
+  const full = JSON.parse(readFileSync(join(ROOT, 'plugin/schemas', `${name}.schema.json`), 'utf8'));
   return {
     type: 'object',
     additionalProperties: false,
-    required: ['results'],
-    properties: { results: stripUnsupported(full.properties.results) },
+    required: keys,
+    properties: Object.fromEntries(keys.map((key) => [key, stripUnsupported(full.properties[key])])),
   };
 }
 
-/** リクエストを組み立てる。引数は input だけなので、正解を混ぜることができない。 */
-export function buildVerifierRequest(input, agent = loadVerifierAgent()) {
-  const content = [
-    `<survey>\n${JSON.stringify(input.survey)}\n</survey>`,
-    `<transcript>\n${JSON.stringify(input.transcript)}\n</transcript>`,
-    `<statements>\n${JSON.stringify(input.statements)}\n</statements>`,
-    'statements のすべての記述を検証してください。',
-  ].join('\n\n');
+export const verifierResponseSchema = () => responseSchema('verification', ['results']);
+
+/** 入力を、名前つきの区切りで並べる。 */
+export const tagged = (sections) =>
+  Object.entries(sections)
+    .map(([tag, value]) => `<${tag}>\n${typeof value === 'string' ? value : JSON.stringify(value)}\n</${tag}>`)
+    .join('\n\n');
+
+/** エージェント定義から、Messages API のリクエストを組み立てる。 */
+export function buildRequest(agent, schema, content) {
   return {
-    model: LIVE_MODEL,
+    model: modelOf(agent),
     max_tokens: MAX_TOKENS,
     system: agent.prompt,
     thinking: { type: 'adaptive' },
     output_config: {
       effort: agent.frontmatter.effort,
-      format: { type: 'json_schema', schema: verifierResponseSchema() },
+      format: { type: 'json_schema', schema },
     },
     messages: [{ role: 'user', content }],
   };
+}
+
+/** リクエストを組み立てる。引数は input だけなので、正解を混ぜることができない。 */
+export function buildVerifierRequest(input, agent = loadVerifierAgent()) {
+  const content = `${tagged({ survey: input.survey, transcript: input.transcript, statements: input.statements })}\n\nstatements のすべての記述を検証してください。`;
+  return buildRequest(agent, verifierResponseSchema(), content);
 }
 
 async function defaultClient() {
@@ -99,6 +116,9 @@ async function defaultClient() {
   return new Anthropic({ apiKey });
 }
 
+/** 渡されたクライアント、なければ SDK のクライアントを返す。 */
+export const clientOf = async (client) => client ?? (await defaultClient());
+
 const describeApiError = (error) => {
   const status = error?.status ? `HTTP ${error.status}：` : '';
   const requestId = error?.requestID ? `（request id：${error.requestID}）` : '';
@@ -112,15 +132,11 @@ const textOf = (message) =>
     .join('');
 
 /**
- * Verifier を1回実行し、検証結果を返す。
- * @param input loadInput の結果
- * @param client 省略時は SDK のクライアントを作る。テストでは偽物を渡す
- * @param record 呼び出しの記録（使用量、費用、生の出力）を受け取る関数
+ * エージェントを1回呼び出し、JSON を解析して返す。
+ * 使用量、費用、生の出力は、失敗したときも record に渡す。
+ * @param estimate 入力量を先に確かめるか。繰り返し呼ぶエージェントでは省く
  */
-export async function runVerifierLive({ input, client, record = () => {} }) {
-  const api = client ?? (await defaultClient());
-  const agent = loadVerifierAgent();
-  const params = buildVerifierRequest(input, agent);
+export async function callAgent({ api, agent, params, record = () => {}, estimate = true }) {
   const call = {
     agent: agent.frontmatter.name,
     requested_model: params.model,
@@ -131,16 +147,17 @@ export async function runVerifierLive({ input, client, record = () => {} }) {
   };
   const started = Date.now();
 
-  // 入力量の確認は無料。キーの誤りもここで分かる
-  let estimate;
-  try {
-    const { model, system, thinking, output_config, messages } = params;
-    estimate = await api.messages.countTokens({ model, system, thinking, output_config, messages });
-  } catch (error) {
-    record({ ...call, status: 'not_sent', cost_usd: 0 });
-    throw new LiveFailure('network', `入力量の確認に失敗しました。${describeApiError(error)}`);
+  if (estimate) {
+    // 入力量の確認は無料。キーの誤りもここで分かる
+    try {
+      const { model, system, thinking, output_config, messages } = params;
+      const { input_tokens: tokens } = await api.messages.countTokens({ model, system, thinking, output_config, messages });
+      call.input_tokens_estimate = tokens;
+    } catch (error) {
+      record({ ...call, status: 'not_sent', cost_usd: 0 });
+      throw new LiveFailure('network', `入力量の確認に失敗しました。${describeApiError(error)}`);
+    }
   }
-  call.input_tokens_estimate = estimate.input_tokens;
 
   let message;
   try {
@@ -173,17 +190,38 @@ export async function runVerifierLive({ input, client, record = () => {} }) {
   if (message.model !== params.model) {
     throw new LiveFailure('model', `指定と別のモデルが回答しました：${message.model}`);
   }
-
-  let parsed;
   try {
-    parsed = JSON.parse(raw);
+    return JSON.parse(raw);
   } catch (error) {
     throw new LiveFailure('parse', `出力が JSON ではありません：${error.message}`);
   }
-  return {
-    schema_version: 1,
-    company: input.survey.company,
-    round: 1,
-    results: parsed.results,
-  };
+}
+
+/**
+ * Verifier を1回実行し、検証結果を返す。
+ * @param input loadInput の結果
+ * @param client 省略時は SDK のクライアントを作る。テストでは偽物を渡す
+ * @param record 呼び出しの記録（使用量、費用、生の出力）を受け取る関数
+ */
+export async function runVerifierLive({ input, client, record = () => {}, round = 1 }) {
+  const api = await clientOf(client);
+  const agent = loadVerifierAgent();
+  const parsed = await callAgent({ api, agent, params: buildVerifierRequest(input, agent), record });
+  return { schema_version: 1, company: input.survey.company, round, results: parsed.results };
+}
+
+const CHECKLIST = join(ROOT, 'plugin/checklist/handover-items.json');
+export const loadChecklist = () => JSON.parse(readFileSync(CHECKLIST, 'utf8'));
+
+/** Gap Finder のリクエスト。調査データと必須項目だけを渡し、聞き取り記録は渡さない。 */
+export function buildGapFinderRequest(survey, checklist = loadChecklist(), agent = loadAgent('plugin/agents/gap-finder.md')) {
+  const content = `${tagged({ survey, checklist })}\n\nchecklist のすべての必須項目を判定してください。`;
+  return buildRequest(agent, responseSchema('gaps', ['coverage', 'gaps']), content);
+}
+
+export async function runGapFinderLive({ survey, client, record = () => {} }) {
+  const api = await clientOf(client);
+  const agent = loadAgent('plugin/agents/gap-finder.md');
+  const parsed = await callAgent({ api, agent, params: buildGapFinderRequest(survey, loadChecklist(), agent), record });
+  return { schema_version: 1, company: survey.company, coverage: parsed.coverage, gaps: parsed.gaps };
 }

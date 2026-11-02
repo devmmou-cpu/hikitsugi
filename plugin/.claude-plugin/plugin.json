@@ -1,0 +1,8 @@
+{
+  "name": "hikitsugi",
+  "displayName": "ヒキツギ",
+  "version": "0.1.0",
+  "description": "兼任の情シス担当者が退職するときに、聞かれたことに答えるだけで、IT 未経験の後任が使える取扱説明書を作ります",
+  "author": { "name": "Okojyo-Soft" },
+  "license": "MIT"
+}

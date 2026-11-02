@@ -4,7 +4,9 @@
 
 import { readFileSync } from 'node:fs';
 import { NotImplementedError, UsageError } from './errors.mjs';
-import { runVerifierLive } from './live.mjs';
+import { runInterviewLive } from '../interview-loop.mjs';
+import { runEditorLive, runWriterLive } from '../writing.mjs';
+import { runGapFinderLive, runVerifierLive } from './live.mjs';
 
 export { NotImplementedError, UsageError };
 
@@ -47,6 +49,37 @@ function live() {
 
 // 正解を渡せないよう、input、client、record だけを取り出して渡す
 const verifierLive = ({ input, client, record }) => runVerifierLive({ input, client, record });
+// Gap Finder には調査データだけを渡す。聞き取り記録は、これから作るものなので渡さない
+const gapFinderLive = ({ input, client, record }) => runGapFinderLive({ survey: input.survey, client, record });
+// 前の段階の出力は --from で受け取る。固定の聞き取り記録と正解は渡さない
+const requireFrom = (context, what) => {
+  if (!context.from) throw new UsageError(`live には --from で${what}を指定してください`);
+  return context.from;
+};
+const interviewLive = (context) =>
+  runInterviewLive({
+    survey: context.input.survey,
+    gaps: requireFrom(context, ' Gap Finder の出力（output.json）'),
+    hidden: context.hidden.facts,
+    client: context.client,
+    record: context.record,
+  });
+
+// 単体の評価では、固定の聞き取り記録から書く。入力が同じなら結果を比べられるため
+const writerLive = ({ input, companyName, client, record }) =>
+  runWriterLive({ survey: input.survey, transcript: input.transcript, companyName, client, record });
+// 事実が変わった文章を元に戻さず、そのまま採点に回す
+const editorLive = async (context) =>
+  (
+    await runEditorLive({
+      manual: requireFrom(context, ' Writer の出力（output.json）'),
+      survey: context.input.survey,
+      transcript: context.input.transcript,
+      revert: false,
+      client: context.client,
+      record: context.record,
+    })
+  ).manual;
 
 const ADAPTERS = {
   verifier: {
@@ -62,17 +95,21 @@ const ADAPTERS = {
     'all-correct': (c) => gapsOutput(c, () => 'filled', () => false),
     'all-flag': (c) => gapsOutput(c, () => 'gap', () => true),
     fixture: fromFile,
-    live,
+    live: gapFinderLive,
   },
   interview: {
     oracle: (c) => c.input.transcript,
     empty: (c) => envelope(c, { entries: [] }),
     fixture: fromFile,
-    live,
+    live: interviewLive,
   },
   manual: {
     fixture: fromFile,
-    live,
+    live: writerLive,
+  },
+  editor: {
+    fixture: fromFile,
+    live: editorLive,
   },
   troubles: {
     oracle: (c) => ({
