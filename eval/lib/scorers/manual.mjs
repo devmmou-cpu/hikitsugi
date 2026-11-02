@@ -54,7 +54,7 @@ export function score(output, _answers, context) {
   const contactRows = output.contacts.map((contact) => ({
     kind: 'contact',
     contact: contact.id,
-    unsupported_phone: !evidenceText.includes(contact.phone),
+    unsupported_phone: Boolean(contact.phone) && !evidenceText.includes(contact.phone),
   }));
 
   const refs = referencedStatements(output);

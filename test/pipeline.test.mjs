@@ -12,11 +12,12 @@ import * as manualScorer from '../eval/lib/scorers/manual.mjs';
 import { buildWriterRequest, runWriterLive } from '../eval/lib/writing.mjs';
 import { runPipeline } from '../eval/pipeline.mjs';
 import { applyEdits, missingTokens } from '../plugin/lib/apply-edits.mjs';
-import { buildRevision, carryForward, prepareForRender, summarizeVerification, UnapprovedPartsError } from '../plugin/lib/handover.mjs';
+import { assembleManual, commonStatementIds, mergeRewritten, ownersOf, previousPiece } from '../plugin/lib/assemble.mjs';
+import { buildRevision, carryForward, markReviewed, mergeVerification, prepareForRender, summarizeVerification, UnapprovedPartsError, verificationScope } from '../plugin/lib/handover.mjs';
 import { longSentences, plainProblems } from '../plugin/lib/plain-check.mjs';
 import { composeProcedures, libraryForAgents, loadLibrary, unapprovedParts } from '../plugin/lib/procedures.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
-import { parseDriveRow } from '../plugin/lib/page-check.mjs';
+import { pageStatementIds, parseInfoRow } from '../plugin/lib/page-check.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { nextStep, run } from '../plugin/scripts/hikitsugi.mjs';
 
@@ -140,8 +141,8 @@ test('Writer が説明と同じ ID を別の文章に使っていたら、説明
 });
 
 test('部品を使った文章は、変わった文章として Editor に渡さない', () => {
-  const previous = { statements: [{ id: 'STM-001', text: '前', evidence: ['LIB-001'], library: { id: 'LIB-001', values: [] } }], glossary: [] };
-  const written = { statements: [{ id: 'STM-001', text: '後', evidence: ['LIB-001'], library: { id: 'LIB-001', values: [] } }], glossary: [] };
+  const previous = { statements: [{ id: 'STM-001', text: '前', evidence: ['LIB-001'], library: 'LIB-001' }], glossary: [] };
+  const written = { statements: [{ id: 'STM-001', text: '後', evidence: ['LIB-001'], library: 'LIB-001' }], glossary: [] };
   assert.deepEqual(carryForward(previous, [], written).changed, []);
 });
 
@@ -149,14 +150,42 @@ test('部品を使った文章は、変わった文章として Editor に渡さ
 
 const USAGE = { input_tokens: 10, output_tokens: 10, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
 
+/** T1 の見本を、Writer が書く共通部分とページに分ける。 */
+const pieces = () => {
+  const manual = fixture();
+  const page = manual.symptom_pages[0];
+  const pick = (ids) => manual.statements.filter((statement) => ids.includes(statement.id));
+  const { contacts, routines, devices } = manual;
+  return {
+    common: {
+      page_plan: [{ id: page.id, category: page.category, symptom: '共有フォルダが見えない' }],
+      statements: pick(commonStatementIds(manual)),
+      contacts,
+      routines,
+      devices,
+    },
+    page: { statements: pick(pageStatementIds(page)), page },
+  };
+};
+
+const glossaryEdits = () => {
+  const manual = fixture();
+  return manual.glossary.map(({ term, explanation }) => {
+    const statement = manual.statements.find((s) => s.id === explanation);
+    return { term, text: statement.text, evidence: statement.evidence };
+  });
+};
+
+const taggedIn = (params, tag) => {
+  const text = params.messages[0].content.map?.((block) => block.text).join('\n') ?? params.messages[0].content;
+  return JSON.parse(text.match(new RegExp(`<${tag}>\\n([\\s\\S]*?)\\n</${tag}>`))[1]);
+};
+
 /** 各エージェントを、プロンプトの先頭の名前で見分けて応答する偽のクライアント。 */
 function pipelineClient({ verdicts }) {
   const sent = [];
   let verifierCalls = 0;
-  const manualBody = () => {
-    const { schema_version, company, company_name, as_of, ...body } = fixture();
-    return body;
-  };
+  let editorCalls = 0;
   const reply = (params) => {
     const system = params.system;
     if (system.includes('Gap Finder')) {
@@ -170,14 +199,23 @@ function pipelineClient({ verdicts }) {
       const items = gold.gaps.items.filter((i) => i.state !== 'filled').map((i) => i.item);
       return first ? { action: 'ask', gap: 'GAP-001', covers: items, question: '質問' } : { action: 'finish', gap: '', covers: [], question: '' };
     }
-    if (system.includes('模擬の担当者')) return { fact_ids: ['F-01'] };
-    if (system.includes('Writer')) return manualBody();
-    if (system.includes('Plain-Japanese Editor')) return { rewrites: [], glossary: [] };
+    // 連絡先の名前と番号は根拠と照合されるので、それを含む事実を選ぶ
+    if (system.includes('模擬の担当者')) return { fact_ids: ['F-05'] };
+    if (system.includes('Writer')) {
+      const task = taggedIn(params, 'task');
+      // 書き直しでは、前の版をそのまま返す
+      if (task.revision) return task.revision.previous;
+      return task.part === 'common' ? pieces().common : pieces().page;
+    }
+    if (system.includes('Plain-Japanese Editor')) {
+      editorCalls += 1;
+      return { rewrites: [], glossary: editorCalls === 1 ? glossaryEdits() : [] };
+    }
     if (system.includes('Verifier')) {
       const verdict = verdicts[verifierCalls] ?? 'correct';
       verifierCalls += 1;
       // 指摘は最初の文章だけにする。用語の説明は合格のまま残る
-      return { results: fixture().statements.map((s, i) => ({ statement: s.id, verdict: i === 0 ? verdict : 'correct', reason: '', checked: [], conflicts_with: [] })) };
+      return { results: taggedIn(params, 'statements').statements.map((s, i) => ({ statement: s.id, verdict: i === 0 ? verdict : 'correct', reason: '', checked: [], conflicts_with: [] })) };
     }
     throw new Error('想定外のエージェントです');
   };
@@ -208,7 +246,14 @@ test('通し：合格すれば HTML を作り、エージェントごとの費�
     assert.equal(summary.resends, 0);
     assert.equal(summary.label, '模擬評価');
     assert.ok(existsSync(join(dir, 'manual.html')));
-    assert.ok(summary.agents.verifier.calls === 1 && summary.agents.writer.calls === 1);
+    assert.ok(summary.agents.verifier.calls === 1);
+    // 共通部分に1回、ページごとに1回
+    assert.equal(summary.agents.writer.calls, 2);
+    assert.equal(summary.review.pages, 1);
+    assert.match(summary.review.mode, /模擬/);
+    const final = JSON.parse(readFileSync(join(dir, 'manual-final.json'), 'utf8'));
+    assert.equal(final.review.reviewer, '田中');
+    assert.ok(readFileSync(join(dir, 'manual.html'), 'utf8').includes('田中 確認'));
     assert.ok(summary.cost_usd > 0);
   }));
 
@@ -219,9 +264,14 @@ test('通し：不合格なら指摘を Writer に渡して差し戻す', () =>
     assert.equal(summary.status, 'passed', summary.error);
     assert.equal(summary.resends, 1);
     const writers = client.sent.filter((p) => p.system.includes('Writer'));
-    assert.equal(writers.length, 2);
-    assert.ok(!JSON.stringify(writers[0].messages).includes('<revision>'));
-    assert.ok(JSON.stringify(writers[1].messages).includes('<revision>'));
+    // 指摘のあった部分だけを書き直す
+    assert.equal(writers.length, 3);
+    assert.ok(!taggedIn(writers[0], 'task').revision);
+    assert.ok(taggedIn(writers[2], 'task').revision.findings.length);
+    // 変わっていない文章は Verifier にかけ直さない
+    const verifiers = client.sent.filter((p) => p.system.includes('Verifier'));
+    assert.ok(taggedIn(verifiers[1], 'statements').statements.length < taggedIn(verifiers[0], 'statements').statements.length);
+    assert.equal(summary.rounds[1].counts.correct, summary.rounds[0].counts.correct + 1);
   }));
 
 test('通し：差し戻しで何も変わらなければ、Editor を呼び直さず用語の説明も作り直さない', () =>
@@ -237,7 +287,7 @@ test('通し：差し戻しは最大2回で、合格しなければ HTML を作�
     const client = pipelineClient({ verdicts: ['dangerous', 'dangerous', 'dangerous', 'dangerous'] });
     const summary = await runPipeline({ set: 'okojo', setDir: SET, dir, client });
     assert.equal(summary.status, 'not_passed');
-    assert.equal(client.sent.filter((p) => p.system.includes('Writer')).length, 3);
+    assert.equal(client.sent.filter((p) => p.system.includes('Writer')).length, 4);
     assert.ok(!existsSync(join(dir, 'manual.html')));
     assert.ok(summary.unresolved.length > 0);
   }));
@@ -264,11 +314,6 @@ test('通し：どのエージェントにも正解と隠し設定を渡さな�
 
 // ---- /hikitsugi:start の進行 ----
 
-const manualBody = () => {
-  const { schema_version, company, company_name, as_of, ...body } = fixture();
-  return body;
-};
-
 test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途中から再開できる', () =>
   withTemp(async (dir) => {
     const work = join(dir, 'work');
@@ -294,7 +339,7 @@ test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途�
     assert.equal(hikitsugi('check-next'), '契約先を教えてください');
     assert.equal(nextStep(work).pending_question, true);
     assert.throws(() => hikitsugi('record', ['answered'], 'パスワードは abcd1234 です'), /保管場所/);
-    hikitsugi('record', ['answered'], '回答です');
+    hikitsugi('record', ['answered'], '保守はカワウソシステムサービスで、連絡先は 03-0000-0102 です。');
     assert.equal(nextStep(work).asked, 1);
     assert.equal(nextStep(work).pending_question, false);
 
@@ -309,36 +354,99 @@ test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途�
     assert.throws(() => hikitsugi('check-next'), /まだ聞いていない/);
     write('gaps.json', { schema_version: 1, company: input.survey.company, coverage, gaps: [{ id: 'GAP-001', items: ['CHK-01', 'CHK-02'], why: '理由', priority: 'high', question_hint: 'ヒント' }] });
     assert.match(hikitsugi('check-next'), /終えました/);
-    assert.deepEqual(nextStep(work), { step: 'writer', round: 1 });
-
-    // サブエージェントが会社の情報を書いても、プログラムの値で上書きする
-    write('manual-1.json', { ...manualBody(), company_name: '仮の名前', company: '仮', as_of: '2000-01-01', schema_version: 1 });
-    hikitsugi('check-writer', ['1']);
+    // 共通部分、ページの順に、1回に1つずつ書く
+    assert.deepEqual(nextStep(work), { step: 'writer', round: 1, part: 'common' });
+    hikitsugi('writer-task', ['1', 'common']);
+    assert.equal(JSON.parse(readFileSync(join(work, 'writer-task.json'), 'utf8')).part, 'common');
+    write('writer-1-common.json', pieces().common);
+    assert.match(hikitsugi('check-writer', ['1', 'common']), /残り 1 件/);
+    assert.deepEqual(nextStep(work), { step: 'writer', round: 1, part: 'T1' });
+    hikitsugi('writer-task', ['1', 'T1']);
+    const task = JSON.parse(readFileSync(join(work, 'writer-task.json'), 'utf8'));
+    assert.equal(task.entry.id, 'T1');
+    assert.equal(task.contacts[0].name, 'カワウソシステムサービス');
+    const broken = pieces().page;
+    broken.statements.find((s) => s.id === broken.page.steps[0]).text = 'NAS は事務所にあります。';
+    write('writer-1-T1.json', broken);
+    assert.throws(() => hikitsugi('check-writer', ['1', 'T1']), /1つの操作ではありません/);
+    write('writer-1-T1.json', pieces().page);
+    assert.match(hikitsugi('check-writer', ['1', 'T1']), /書きました/);
     const written = JSON.parse(readFileSync(join(work, 'manual-1.json'), 'utf8'));
     assert.equal(written.company_name, 'テスト 会社');
     assert.equal(written.company, input.survey.company);
     assert.equal(written.as_of, input.survey.as_of);
     assert.equal(nextStep(work).step, 'editor');
-    write('editor-1.json', { rewrites: [], glossary: [] });
+    write('editor-1.json', { rewrites: [], glossary: glossaryEdits() });
     hikitsugi('merge-edits', ['1']);
     assert.equal(nextStep(work).step, 'verifier');
 
     assert.throws(() => hikitsugi('render'), /合格していない/);
-    const results = (verdict) => ({ results: fixture().statements.map((s, i) => ({ statement: s.id, verdict: i === 0 ? verdict : 'correct', reason: '', checked: [], conflicts_with: [] })) });
-    write('verification-1.json', results('unsupported'));
-    assert.match(hikitsugi('check-verification', ['1']), /差し戻します/);
-    assert.deepEqual(nextStep(work), { step: 'writer', round: 2 });
+    const edited = (round) => JSON.parse(readFileSync(join(work, `edited-${round}.json`), 'utf8'));
+    const results = (ids, verdict) => ({ results: ids.map((id, i) => ({ statement: id, verdict: i === 0 ? verdict : 'correct', reason: '', checked: [], conflicts_with: [] })) });
+    const firstAt = edited(1).symptom_pages[0].title;
+    write('verification-1.json', results([firstAt, ...edited(1).statements.map((s) => s.id).filter((id) => id !== firstAt)], 'unsupported'));
+    assert.match(hikitsugi('check-verification', ['1']), /差し戻します（直す部分：T1）/);
+    assert.deepEqual(nextStep(work), { step: 'writer', round: 2, part: 'T1' });
     assert.ok(existsSync(join(work, 'findings-1.json')));
 
     // 差し戻しで何も変わらなければ、Editor の作業は不要になる
-    write('manual-2.json', manualBody());
-    assert.match(hikitsugi('check-writer', ['2']), /Editor の作業は不要/);
+    hikitsugi('writer-task', ['2', 'T1']);
+    const again = JSON.parse(readFileSync(join(work, 'writer-task.json'), 'utf8'));
+    assert.equal(again.revision.findings.length, 1);
+    write('writer-2-T1.json', again.revision.previous);
+    assert.match(hikitsugi('check-writer', ['2', 'T1']), /Editor の作業は不要/);
     assert.equal(nextStep(work).step, 'verifier');
-    write('verification-2.json', results('correct'));
+    // 前回「正しい」で変わっていない文章は、かけ直さない
+    const scope = JSON.parse(readFileSync(join(work, 'verify-scope-2.json'), 'utf8')).statements;
+    assert.deepEqual(scope, [firstAt]);
+    write('verification-2.json', results(scope, 'correct'));
     assert.match(hikitsugi('check-verification', ['2']), /合格/);
+
+    // 前任者の確認。終わるまでは下書き
+    assert.deepEqual(nextStep(work), { step: 'review', reviewer: null, page: 'T1', pages: 1 });
+    assert.throws(() => hikitsugi('review-ok', ['T1']), /確認を始められる段階ではありません/);
+    hikitsugi('review-start', ['田中']);
+    assert.match(hikitsugi('render'), /下書きを作りました/);
+    const draft = readFileSync(join(work, 'manual.html'), 'utf8');
+    assert.ok(draft.includes('下書き（前任者の確認前）'));
+    assert.ok(!draft.includes('田中 確認'));
+    assert.match(hikitsugi('review-show', ['T1']), /共有フォルダが見えない/);
+
+    // 直すと聞き取りの記録になり、そのページだけ書き直して検証し直す
+    assert.throws(() => hikitsugi('review-fix', ['T1'], 'パスワードは abcd1234 です'), /パスワードの本体/);
+    assert.match(hikitsugi('review-fix', ['T1'], '受付は平日だけです。'), /T1 を書き直します/);
+    const afterFix = JSON.parse(readFileSync(join(work, 'transcript.json'), 'utf8'));
+    const entry = afterFix.entries.at(-1);
+    assert.equal(entry.answer, '受付は平日だけです。');
+    assert.equal(entry.status, 'answered');
+    assert.deepEqual(nextStep(work), { step: 'writer', round: 3, part: 'T1' });
+    assert.throws(() => hikitsugi('render'), /合格していない/);
+    hikitsugi('writer-task', ['3', 'T1']);
+    const fixTask = JSON.parse(readFileSync(join(work, 'writer-task.json'), 'utf8'));
+    assert.deepEqual(fixTask.revision.page_fix, { page: 'T1', comment: '受付は平日だけです。', evidence: entry.id });
+    const fixed = fixTask.revision.previous;
+    const reassurance = fixed.statements.find((s) => s.id === fixed.page.reassurance);
+    reassurance.text = 'データが消えることはありません。受付は平日だけです。';
+    reassurance.evidence = [...reassurance.evidence, entry.id];
+    write('writer-3-T1.json', fixed);
+    assert.match(hikitsugi('check-writer', ['3', 'T1']), /やさしくする文章 1 件/);
+    write('editor-3.json', { rewrites: [], glossary: [] });
+    hikitsugi('merge-edits', ['3']);
+    const scope3 = JSON.parse(readFileSync(join(work, 'verify-scope-3.json'), 'utf8')).statements;
+    assert.deepEqual(scope3, [fixed.page.reassurance]);
+    write('verification-3.json', results(scope3, 'correct'));
+    assert.match(hikitsugi('check-verification', ['3']), /合格/);
+
+    // 全ページが「このままでよい」で、確認の印が付く
+    assert.equal(nextStep(work).page, 'T1');
+    assert.match(hikitsugi('review-ok', ['T1']), /全ページの確認が終わりました/);
     assert.equal(nextStep(work).step, 'render');
-    assert.match(hikitsugi('render'), /作りました/);
-    assert.ok(readFileSync(join(work, 'manual.html'), 'utf8').includes('<html'));
+    assert.match(hikitsugi('render'), /取扱説明書を作りました/);
+    const finalHtml = readFileSync(join(work, 'manual.html'), 'utf8');
+    assert.ok(finalHtml.includes('<html'));
+    assert.ok(!finalHtml.includes('下書き（前任者の確認前）'));
+    assert.ok(finalHtml.includes('田中 確認'));
+    assert.ok(finalHtml.includes('この取扱説明書は、AIがもとの情報と照らし合わせ、前任の田中さんが全ページを確認したものです。'));
     assert.equal(nextStep(work).step, 'done');
   }));
 
@@ -378,12 +486,45 @@ test('スキルとプラグインの定義がそろっている', () => {
 const library = loadLibrary();
 const sources = { survey: input.survey, transcript: input.transcript };
 const driveItem = input.survey.items.find((item) => item.status === 'ok' && typeof item.value === 'string' && item.value.startsWith('\\\\'));
-const withSteps = (statements, steps = statements.map((s) => s.id)) => ({
+const FRAME = [
+  ['STM-901', '共有フォルダが見えない'],
+  ['STM-902', '手順どおりに進めれば直せます。'],
+  ['STM-903', 'データは消えません。'],
+  ['STM-904', '共有フォルダが見えません。'],
+  ['STM-905', 'PC とサーバーの保守'],
+  ['STM-906', '受付は平日です。'],
+  ['STM-907', '控えは書庫にあります。'],
+  ['STM-908', '見えないフォルダの名前を伝えてください。'],
+].map(([id, text]) => ({ id, text, evidence: ['INT-002'] }));
+/** 部品の検査のための、ページ1つの取扱説明書。 */
+const withSteps = (statements, steps = statements.map((s) => s.id), fields = {}) => ({
   ...fixture(),
-  statements,
-  symptom_pages: [{ ...fixture().symptom_pages[0], steps }],
+  statements: [...statements, ...FRAME],
+  symptom_pages: [{
+    id: 'T1',
+    category: 'file',
+    title: 'STM-901',
+    badge: { value: 'self', statement: 'STM-902' },
+    minutes: 2,
+    reassurance: 'STM-903',
+    notes: [],
+    first_steps: [],
+    first_goal: null,
+    branches: [],
+    steps,
+    goal: null,
+    exceptions: [],
+    info_rows: [],
+    fallback: { contact: 'VEN-02', message: 'STM-904' },
+    ...fields,
+  }],
+  contacts: [{ id: 'VEN-02', name: 'カワウソシステムサービス', phone: '03-0000-0102', role: 'STM-905', hours: 'STM-906', contract_location: 'STM-907', what_to_tell: 'STM-908' }],
+  routines: [],
+  devices: [],
+  glossary: [],
 });
-const step = (id, partId, values = []) => ({ id, text: '', evidence: [], library: { id: partId, values } });
+const step = (id, partId) => ({ id, text: '', evidence: [], library: partId });
+const problemsOf = (manual) => composeProcedures(manual, sources).problems.join('\n');
 
 test('部品の形式が正しく、すべて確認済みで、順番は実在する部品だけを指す', () => {
   assert.deepEqual(validate(JSON.parse(readFileSync(join(ROOT, 'plugin/schemas/procedures.schema.json'), 'utf8')), library), []);
@@ -391,171 +532,287 @@ test('部品の形式が正しく、すべて確認済みで、順番は実在�
   for (const part of library.procedures) {
     assert.equal(part.status, 'approved', part.id);
     assert.equal(part.reviewed_by, 'Okojyo-Soft', part.id);
-    assert.equal(part.reviewed_on, '2026-11-02', part.id);
-    // 枠と文面が食い違っていないこと
-    assert.deepEqual([...part.text.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]), part.slots, part.id);
-    // 値を入れる前の文面が、1文50字以内であること
+    assert.match(part.reviewed_on, /^2026-11-0[23]$/, part.id);
+    // 値を入れる枠はない。会社の値は表に置く
+    assert.doesNotMatch(part.text, /[{}]/, part.id);
     assert.deepEqual(longSentences(part.text), [], part.id);
+    // 表を指す部品だけが、表の言葉を使う
+    if (/会社の情報の表/.test(part.text)) assert.equal(part.needs_table, true, part.id);
   }
-  for (const sequence of library.sequences) for (const id of sequence.order) assert.ok(ids.has(id), id);
+  for (const sequence of library.sequences) {
+    const used = [...sequence.first, ...(sequence.first_goal ? [sequence.first_goal] : []), ...sequence.branches, ...sequence.steps, ...(sequence.goal ? [sequence.goal] : []), ...sequence.exceptions];
+    for (const id of used) assert.ok(ids.has(id), id);
+    const kindsOf = (id) => library.procedures.find((part) => part.id === id).kinds;
+    for (const id of sequence.first) assert.ok(kindsOf(id).includes('first_steps'), id);
+    for (const id of sequence.steps) assert.ok(kindsOf(id).includes('steps'), id);
+    if (sequence.goal) assert.ok(kindsOf(sequence.goal).includes('goal'));
+    if (sequence.first_goal) assert.ok(kindsOf(sequence.first_goal).includes('first_goal'));
+  }
+});
+
+test('操作の部品は1つの操作を書き、確認や例外はゴールや例外に置く', () => {
+  for (const part of library.procedures) {
+    if (part.kinds.includes('goal') || part.kinds.includes('first_goal')) assert.doesNotMatch(part.text, /ください。$/, part.id);
+    if (part.kinds.includes('steps') || part.kinds.includes('first_steps')) assert.match(part.text.split('。')[0], /ください$/, part.id);
+  }
+  const drive = library.sequences.find((sequence) => sequence.id === 'network-drive');
+  assert.deepEqual(drive.first, ['LIB-001', 'LIB-002', 'LIB-013']);
+  assert.equal(drive.first_goal, 'LIB-023');
+  assert.equal(drive.goal, 'LIB-007');
 });
 
 test('部品に評価セットの値や、許可されていない製品名が入っていない', () => {
   const text = JSON.stringify(library);
   for (const name of ['オコジョ', 'OKOJO', 'okojo', 'クロテン', 'カワウソ', 'イタチ', 'イイズナ', 'フェレット', '田中', '佐藤']) assert.ok(!text.includes(name), name);
   assert.ok(!/192\.168\.|03-0000-01/.test(text));
-  const allowed = new Set(['list_values', 'Windows', 'E', 'Enter', 'Wi-Fi', 'PC', 'LIB-', 'network-drive', 'free-space', 'admin-screen', 'wifi', 'restart', 'schema_version', 'sequences', 'id', 'title', 'order', 'procedures', 'use_for', 'text', 'slots', 'status', 'approved', 'reviewed_by', 'Okojyo-Soft', 'reviewed_on']);
+  const allowed = new Set(['Windows', 'first', 'first_goal', 'branches', 'steps', 'goal', 'exceptions', 'kinds', 'first_steps', 'needs_table', 'true', 'false', 'null', 'E', 'Enter', 'Wi-Fi', 'PC', 'LIB-', 'network-drive', 'free-space', 'admin-screen', 'wifi', 'restart', 'schema_version', 'sequences', 'id', 'title', 'procedures', 'use_for', 'text', 'status', 'approved', 'reviewed_by', 'Okojyo-Soft', 'reviewed_on']);
   const words = (text.match(/[A-Za-z][A-Za-z_-]*/g) ?? []).filter((word) => !allowed.has(word));
   assert.deepEqual(words, []);
 });
 
-test('部品の文面はプログラムが組み立て、根拠に部品と値の根拠を入れる', () => {
-  const { manual, problems } = composeProcedures(
-    withSteps([step('STM-001', 'LIB-001'), step('STM-002', 'LIB-005', [{ slot: '接続先', value: driveItem.value, evidence: [driveItem.id] }])]),
-    sources,
-  );
+test('部品の文面はプログラムが組み立て、根拠に部品を入れる', () => {
+  const { manual, problems } = composeProcedures(withSteps([step('STM-001', 'LIB-001'), step('STM-002', 'LIB-005'), { id: 'STM-003', text: `Z ドライブは ${driveItem.value} です。`, evidence: [driveItem.id] }], ['STM-001', 'STM-002'], { info_rows: ['STM-003'] }), sources);
   assert.deepEqual(problems, []);
   assert.equal(manual.statements[0].text, library.procedures[0].text);
   assert.deepEqual(manual.statements[0].evidence, ['LIB-001']);
-  assert.ok(manual.statements[1].text.includes(driveItem.value));
-  assert.ok(!manual.statements[1].text.includes('{'));
-  assert.deepEqual(manual.statements[1].evidence, ['LIB-005', driveItem.id]);
+  assert.deepEqual(manual.statements[1].evidence, ['LIB-005']);
   assert.deepEqual(validate(JSON.parse(readFileSync(join(ROOT, 'plugin/schemas/manual.schema.json'), 'utf8')), manual), []);
 });
 
-test('調査データの項目名の側にある値も、部品に入れる値として認める', () => {
-  const survey = { items: [{ id: 'INV-001', status: 'ok', key: 'drive.Z', value: 'path' }] };
-  const { problems } = composeProcedures(withSteps([step('STM-001', 'LIB-004', [{ slot: 'ドライブ文字', value: 'Z', evidence: ['INV-001'] }])]), { survey, transcript: { entries: [] } });
-  assert.deepEqual(problems, []);
-});
-
-test('部品の指定の誤りと、根拠にない値を見つける', () => {
-  const problemsOf = (statements) => composeProcedures(withSteps(statements), sources).problems.join('\n');
-  assert.match(problemsOf([step('STM-001', 'LIB-999')]), /存在しない部品/);
-  assert.match(problemsOf([step('STM-001', 'LIB-005')]), /入れる値が違います/);
-  assert.match(problemsOf([step('STM-001', 'LIB-005', [{ slot: '接続先', value: '\\\\実在しない', evidence: [driveItem.id] }])]), /根拠 .* にありません/);
-  assert.match(problemsOf([step('STM-001', 'LIB-005', [{ slot: '接続先', value: driveItem.value, evidence: [] }])]), /根拠がありません/);
-  assert.match(problemsOf([step('STM-001', 'LIB-005', [{ slot: '接続先', value: 'x', evidence: ['INV-999'] }])]), /使えない根拠/);
+test('部品の指定の誤りを見つける', () => {
+  assert.match(problemsOf(withSteps([step('STM-001', 'LIB-999')])), /存在しない部品/);
   // 部品の指定がないのに部品を根拠にして、自分の文で手順を書く形
-  assert.match(problemsOf([{ id: 'STM-001', text: '自分の文です。', evidence: ['LIB-001'] }]), /部品の指定がない/);
-  // unknown の回答は、値の根拠にできない
-  const unknown = input.transcript.entries.find((entry) => entry.status !== 'answered');
-  assert.match(problemsOf([step('STM-001', 'LIB-005', [{ slot: '接続先', value: 'x', evidence: [unknown.id] }])]), /使えない根拠/);
+  assert.match(problemsOf(withSteps([{ id: 'STM-001', text: '自分の文で押してください。', evidence: ['LIB-001'] }])), /部品の指定がない/);
+  // 置けない項目に置いた部品
+  assert.match(problemsOf(withSteps([step('STM-001', 'LIB-007')])), /LIB-007 は steps に置けません/);
+  assert.match(problemsOf(withSteps([step('STM-001', 'LIB-013')], [], { first_steps: ['STM-001'], steps: [] })), /^$/);
+  assert.match(problemsOf(withSteps([step('STM-001', 'LIB-013')])), /LIB-013 は steps に置けません/);
 });
 
-test('対象だけが違う手順は、表を指す値で1ページにまとめられる。表がなければ見つける', () => {
-  const list = library.list_values;
-  const parts = [
-    step('STM-010', 'LIB-004', [{ slot: 'ドライブ文字', value: list['ドライブ文字'], evidence: [] }]),
-    step('STM-011', 'LIB-005', [{ slot: '接続先', value: list['接続先'], evidence: [] }]),
-    step('STM-012', 'LIB-007', [{ slot: 'フォルダ名', value: list['フォルダ名'], evidence: [] }]),
-  ];
-  const rows = [
-    { id: 'STM-001', text: 'X ドライブは \\\\NAS\\経理 です。', evidence: [driveItem.id] },
-    { id: 'STM-002', text: '総務の PC の Y ドライブは \\\\NAS\\総務 です。', evidence: [driveItem.id] },
-  ];
-  const base = withSteps([...rows, ...parts], parts.map((part) => part.id));
-  base.symptom_pages[0].drive_rows = rows.map((row) => row.id);
-  const { manual, problems } = composeProcedures(base, sources);
-  assert.deepEqual(problems, []);
-  const text = (id) => manual.statements.find((s) => s.id === id).text;
-  assert.ok(text('STM-010').includes(list['ドライブ文字']));
-  assert.ok(text('STM-011').includes(list['接続先']));
-  assert.ok(!text('STM-010').includes('{'));
-  assert.match(composeProcedures(withSteps(parts), sources).problems.join('\n'), /共有フォルダの表/);
+test('表を指す部品のページには、会社の情報の表が必要', () => {
+  assert.match(problemsOf(withSteps([step('STM-001', 'LIB-004')])), /会社の情報の表を指しますが/);
 });
 
-test('手順に置いた事実や禁止は、notes へ移すよう Writer に伝える', () => {
+test('連絡先へ案内する部品のページには、fallback が必要', () => {
+  const page = withSteps([step('STM-001', 'LIB-015')], [], { exceptions: ['STM-001'], fallback: null });
+  assert.match(problemsOf(page), /連絡先へ案内しますが/);
+});
+
+test('ゴール、分岐、例外を手順と別の項目に置ける。手順は1文の操作だけ', () => {
   const statements = [
     { id: 'STM-001', text: 'NAS は事務所にあります。', evidence: [driveItem.id] },
     { id: 'STM-002', text: 'ルーターは初期化しないでください。', evidence: [driveItem.id] },
     { id: 'STM-003', text: 'ルーターの電源を確かめてください。', evidence: [driveItem.id] },
+    { id: 'STM-005', text: '画面が消えます。そのあと電源を入れてください。', evidence: [driveItem.id] },
     step('STM-004', 'LIB-001'),
   ];
-  const found = composeProcedures(withSteps(statements), sources).problems.join('\n');
-  assert.match(found, /STM-001 はやることではありません/);
-  assert.match(found, /STM-002 はやることではありません/);
+  const found = problemsOf(withSteps(statements, ['STM-001', 'STM-002', 'STM-003', 'STM-005', 'STM-004']));
+  assert.match(found, /STM-001 は1つの操作ではありません/);
+  assert.match(found, /STM-002 は1つの操作ではありません/);
+  assert.match(found, /STM-005 は1つの操作ではありません/);
   assert.doesNotMatch(found, /STM-003/);
   assert.doesNotMatch(found, /STM-004/);
-  const moved = withSteps(statements, ['STM-003', 'STM-004']);
-  moved.symptom_pages[0].notes = ['STM-001', 'STM-002'];
-  assert.deepEqual(composeProcedures(moved, sources).problems, []);
+  const moved = withSteps(statements.filter((s) => s.id !== 'STM-005'), ['STM-003', 'STM-004'], { notes: ['STM-001', 'STM-002'] });
+  assert.equal(problemsOf(moved), '');
+});
+
+test('まずこれだけは3つまで。ゴールだけのページや、操作のゴールを見つける', () => {
+  const steps = [1, 2, 3, 4].map((n) => ({ id: `STM-00${n}`, text: '押してください。', evidence: [driveItem.id] }));
+  assert.match(problemsOf(withSteps(steps, [], { first_steps: steps.map((s) => s.id) })), /first_steps は3つまで/);
+  const goal = { id: 'STM-005', text: '開くか確かめてください。', evidence: [driveItem.id] };
+  assert.match(problemsOf(withSteps([goal], [], { goal: 'STM-005' })), /goal があるのに steps がありません/);
+  assert.match(problemsOf(withSteps([steps[0], goal], ['STM-001'], { goal: 'STM-005' })), /STM-005 はゴールなので/);
+  assert.match(problemsOf(withSteps([goal], [], { first_goal: 'STM-005' })), /first_goal があるのに/);
 });
 
 test('後任が読む文章に、作り方の言葉があれば見つける', () => {
   const statements = [{ id: 'STM-001', text: '聞き取りに記録がありません。', evidence: [driveItem.id] }, step('STM-002', 'LIB-001')];
-  const page = withSteps(statements, ['STM-002']);
-  page.symptom_pages[0].notes = ['STM-001'];
-  assert.match(composeProcedures(page, sources).problems.join('\n'), /作り方の言葉/);
+  assert.match(problemsOf(withSteps(statements, ['STM-002'], { notes: ['STM-001'] })), /作り方の言葉/);
 });
 
 test('途中で書くのをやめた出力は、手順ページがないことと空の文章で見つける', () => {
   const base = withSteps([{ id: 'STM-001', text: '', evidence: [driveItem.id] }], []);
   base.symptom_pages = [];
-  const found = composeProcedures(base, sources).problems.join('\n');
+  const found = problemsOf(base);
   assert.match(found, /手順ページが1つもありません/);
   assert.match(found, /STM-001: 文章が空です/);
 });
 
-test('業者の連絡先がない vendor のページは、internal を案内する。internal は連絡先がなくてよい', () => {
-  const statements = [step('STM-001', 'LIB-001')];
-  const noContact = withSteps(statements);
-  noContact.symptom_pages[0] = { ...noContact.symptom_pages[0], fallback: null, badge: { ...noContact.symptom_pages[0].badge, value: 'vendor' } };
-  assert.match(composeProcedures(noContact, sources).problems.join('\n'), /internal/);
+test('業者の連絡先がない vendor のページと、社内の相談先がない internal のページを見つける', () => {
+  const noContact = withSteps([step('STM-001', 'LIB-001')], ['STM-001'], { fallback: null, badge: { value: 'vendor', statement: 'STM-902' } });
+  assert.match(problemsOf(noContact), /vendor のページには業者の連絡先/);
   noContact.symptom_pages[0].badge.value = 'internal';
-  assert.deepEqual(composeProcedures(noContact, sources).problems, []);
+  assert.match(problemsOf(noContact), /internal のページには社内の相談先/);
 });
 
-test('共有フォルダの表の行は文章から値を読む。形が違えば見つけ、表示プログラムも止まる', () => {
-  assert.deepEqual(parseDriveRow('Z ドライブは \\\\NAS\\図面 です。'), { target: null, drive: 'Z', path: '\\\\NAS\\図面' });
-  assert.deepEqual(parseDriveRow('総務用 PC（A-01）の S ドライブは \\\\NAS\\スキャン です。'), { target: '総務用 PC（A-01）', drive: 'S', path: '\\\\NAS\\スキャン' });
-  for (const text of ['Z ドライブは \\NAS\\図面 です。', 'Z ドライブは \\\\NAS です。', 'ドライブは \\\\NAS\\図面 です。', '経理は X ドライブです。']) assert.equal(parseDriveRow(text), null, text);
-  const statements = [{ id: 'STM-001', text: '経理は X ドライブです。', evidence: [driveItem.id] }, step('STM-002', 'LIB-001')];
-  const wrong = withSteps(statements, ['STM-002']);
-  wrong.symptom_pages[0].drive_rows = ['STM-001'];
-  assert.match(composeProcedures(wrong, sources).problems.join('\n'), /表の行の形ではありません/);
+test('自分で直せるのに操作がないページと、確認してからなのに連絡先がないページを見つける', () => {
+  const noWork = withSteps([], []);
+  assert.match(problemsOf(noWork), /self のページには、後任が行う操作/);
+  const noContact = withSteps([step('STM-001', 'LIB-001')], ['STM-001'], { fallback: null, badge: { value: 'check_first', statement: 'STM-902' } });
+  assert.match(problemsOf(noContact), /check_first のページには、確かめたあとの連絡先/);
+});
+
+test('社内の相談先は電話番号や受付の記録がなくてよい。名前は根拠が必要', () => {
+  const inside = withSteps([step('STM-001', 'LIB-001')], ['STM-001'], { badge: { value: 'internal', statement: 'STM-902' }, fallback: { contact: 'INH-01', message: 'STM-904' } });
+  inside.contacts = [{ id: 'INH-01', name: '総務課', phone: '', role: 'STM-905', hours: null, contract_location: null, what_to_tell: 'STM-908' }];
+  inside.statements = inside.statements.filter((s) => !['STM-906', 'STM-907'].includes(s.id));
+  assert.equal(problemsOf(inside), '');
+  assert.deepEqual(validate(JSON.parse(readFileSync(join(ROOT, 'plugin/schemas/manual.schema.json'), 'utf8')), composeProcedures(inside, sources).manual), []);
+  inside.contacts[0].name = '架空の部署';
+  assert.match(problemsOf(inside), /名前「架空の部署」が根拠にありません/);
+  const vendor = withSteps([step('STM-001', 'LIB-001')]);
+  vendor.contacts[0] = { ...vendor.contacts[0], phone: '', hours: null };
+  assert.match(problemsOf(vendor), /業者には電話番号が必要/);
+  assert.match(problemsOf(vendor), /hours と contract_location/);
+});
+
+test('連絡先の役割は短いラベルにする', () => {
+  const long = withSteps([step('STM-001', 'LIB-001')]);
+  long.statements.find((s) => s.id === 'STM-905').text = 'ルーターの保守をお願いしている会社です。';
+  assert.match(problemsOf(long), /role は15字以内/);
+});
+
+test('会社の情報の表は文章から値を読む。形が違うか、根拠にない値なら見つけ、表示プログラムも止まる', () => {
+  assert.deepEqual(parseInfoRow('Z ドライブは \\\\NAS\\図面 です。'), { type: 'drive', target: null, drive: 'Z', path: '\\\\NAS\\図面' });
+  assert.deepEqual(parseInfoRow('総務用 PC（A-01）の S ドライブは \\\\NAS\\スキャン です。'), { type: 'drive', target: '総務用 PC（A-01）', drive: 'S', path: '\\\\NAS\\スキャン' });
+  assert.deepEqual(parseInfoRow('工場の Wi-Fi の名前は NET-01 です。'), { type: 'value', label: '工場の Wi-Fi の名前', value: 'NET-01' });
+  for (const text of ['経理は X ドライブです。', 'ドライブがあります。', '受付は平日です。']) assert.equal(parseInfoRow(text), null, text);
+  const row = (text) => withSteps([{ id: 'STM-001', text, evidence: [driveItem.id] }, step('STM-002', 'LIB-001')], ['STM-002'], { info_rows: ['STM-001'] });
+  assert.match(problemsOf(row('経理は X ドライブです。')), /表の行の形ではありません/);
+  assert.match(problemsOf(row('Z ドライブは \\\\実在しない\\名前 です。')), /根拠にありません/);
+  assert.equal(problemsOf(row(`Z ドライブは ${driveItem.value} です。`)).includes('根拠にありません'), false);
   const page = fixture();
-  const [first, ...others] = page.symptom_pages[0].steps;
-  page.symptom_pages[0].steps = others;
-  page.symptom_pages[0].drive_rows = [first];
-  assert.throws(() => renderManual(page), /共有フォルダの表/);
+  page.symptom_pages[0].info_rows = [page.symptom_pages[0].steps[0]];
+  page.symptom_pages[0].steps = page.symptom_pages[0].steps.slice(1);
+  assert.throws(() => renderManual(page), /会社の情報の表/);
 });
 
-test('Writer の形の問題は1回だけ伝えて直してもらい、直らなければ失敗にする', async () => {
-  const { schema_version, company, company_name, as_of, ...good } = fixture();
-  const bad = JSON.parse(JSON.stringify(good));
-  bad.statements.find((s) => s.id === bad.symptom_pages[0].steps[0]).text = 'NAS は事務所にあります。';
-  const clientOf = (replies) => {
+// ---- ページ単位の Writer ----
+
+test('部分を組み立てると、番号を全体で振り直し、参照も一緒に変わる。参照されない文章は捨てる', () => {
+  const { common, page } = pieces();
+  page.statements.push({ id: 'STM-950', text: 'どこからも使わない文章です。', evidence: ['INT-018'] });
+  const manual = assembleManual(common, { T1: page }, { schema_version: 1, company: 'c', company_name: 'n', as_of: '2026-11-05' });
+  const ids = manual.statements.map((s) => s.id);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.equal(ids[0], 'STM-001');
+  assert.ok(!manual.statements.some((s) => s.text.includes('どこからも')));
+  const textOf = (id) => manual.statements.find((s) => s.id === id).text;
+  const original = fixture();
+  assert.equal(textOf(manual.symptom_pages[0].title), original.statements.find((s) => s.id === original.symptom_pages[0].title).text);
+  assert.equal(textOf(manual.contacts[0].role), original.statements.find((s) => s.id === original.contacts[0].role).text);
+  assert.deepEqual(manual.glossary, []);
+});
+
+test('指摘の持ち主を見つけ、書き直した部分だけを差し替える。ほかの文章と ID は変わらない', () => {
+  const { common, page } = pieces();
+  const second = JSON.parse(JSON.stringify(page));
+  second.page.id = 'T2';
+  const plan = [...common.page_plan, { id: 'T2', category: 'file', symptom: '別の症状' }];
+  const manual = assembleManual({ ...common, page_plan: plan }, { T1: page, T2: second }, { schema_version: 1, company: 'c', company_name: 'n', as_of: '2026-11-05' });
+  const [t1, t2] = manual.symptom_pages;
+  const owners = ownersOf(manual, [{ statement: t2.title, verdict: 'unsupported' }, { statement: manual.contacts[0].role, verdict: 'unsupported' }, { statement: 'STM-999', verdict: 'unsupported' }]);
+  assert.deepEqual([...owners.keys()].sort(), ['T2', 'common']);
+
+  const rewrite = previousPiece(manual, 'T2');
+  rewrite.statements.find((s) => s.id === t2.title).text = '書き直した症状';
+  rewrite.statements.push({ id: 'STM-001', text: '新しい説明です。', evidence: ['INT-018'] });
+  rewrite.page = { ...rewrite.page, notes: ['STM-001'] };
+  const merged = mergeRewritten(manual, { pages: { T2: rewrite } });
+  assert.deepEqual(merged.symptom_pages[0], t1);
+  // 新しい文章は、ほかの部分と重ならない番号になる
+  const ids = merged.statements.map((s) => s.id);
+  assert.equal(new Set(ids).size, ids.length);
+  const newId = merged.symptom_pages[1].notes[0];
+  assert.notEqual(newId, 'STM-001');
+  assert.equal(merged.statements.find((s) => s.id === newId).text, '新しい説明です。');
+  assert.equal(merged.statements.find((s) => s.id === t2.title).text, '書き直した症状');
+  assert.equal(merged.statements.find((s) => s.id === t1.title).text, '共有フォルダが見えない');
+});
+
+test('Verifier にかけ直すのは、前回「正しい」でない文章と、変わった文章だけ', () => {
+  const before = { statements: [{ id: 'STM-001', text: 'あ' }, { id: 'STM-002', text: 'い' }, { id: 'STM-003', text: 'う' }] };
+  const verification = { results: [{ statement: 'STM-001', verdict: 'correct' }, { statement: 'STM-002', verdict: 'unsupported' }, { statement: 'STM-003', verdict: 'correct' }] };
+  const after = { statements: [{ id: 'STM-001', text: 'あ' }, { id: 'STM-002', text: 'い' }, { id: 'STM-003', text: '変えた' }, { id: 'STM-004', text: '新しい' }] };
+  const scope = verificationScope(before, verification, after);
+  assert.deepEqual(scope, ['STM-002', 'STM-003', 'STM-004']);
+  const merged = mergeVerification(verification, scope.map((statement) => ({ statement, verdict: 'correct' })), after, scope);
+  assert.equal(summarizeVerification(merged, after).passed, true);
+  assert.equal(merged.results.length, 4);
+});
+
+test('確認の印は、確認した人と日付を取扱説明書に付ける', () => {
+  const reviewed = markReviewed(fixture(), '田中', '2026-11-06');
+  assert.deepEqual(reviewed.review, { reviewer: '田中', confirmed_on: '2026-11-06' });
+  assert.deepEqual(validate(JSON.parse(readFileSync(join(ROOT, 'plugin/schemas/manual.schema.json'), 'utf8')), reviewed), []);
+});
+
+test('Writer の形の問題は部分ごとに1回だけ伝えて直してもらい、直らなければ失敗にする', async () => {
+  const bad = pieces().page;
+  bad.statements.find((s) => s.id === bad.page.steps[0]).text = 'NAS は事務所にあります。';
+  const clientOf = (pageReplies) => {
     const sent = [];
+    let pageCalls = 0;
     return {
       sent,
       messages: {
         countTokens: async () => ({ input_tokens: 1 }),
         stream: (params) => {
           sent.push(params);
-          const reply = replies[sent.length - 1];
+          const reply = taggedIn(params, 'task').part === 'common' ? pieces().common : pageReplies[pageCalls++];
           return { finalMessage: async () => ({ id: 'msg', model: params.model, stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: 'text', text: JSON.stringify(reply) }] }) };
         },
       },
     };
   };
   const args = { survey: input.survey, transcript: input.transcript, companyName: 'オコジョ精工' };
-  const fixed = clientOf([bad, good]);
+  const fixed = clientOf([bad, pieces().page]);
   const result = await runWriterLive({ ...args, client: fixed });
-  assert.equal(fixed.sent.length, 2);
-  assert.ok(JSON.stringify(fixed.sent[1].messages).includes('structure_problems'));
+  // 共通部分は書き直さない
+  assert.equal(fixed.sent.length, 3);
+  assert.ok(JSON.stringify(fixed.sent[2].messages).includes('structure_problems'));
   assert.equal(result.company_name, 'オコジョ精工');
   const stuck = clientOf([bad, bad]);
-  await assert.rejects(runWriterLive({ ...args, client: stuck }), /やることではありません/);
-  assert.equal(stuck.sent.length, 2);
+  await assert.rejects(runWriterLive({ ...args, client: stuck }), /1つの操作ではありません/);
+  assert.equal(stuck.sent.length, 3);
 });
 
-test('Editor は共有フォルダの表の文章を変えられない', () => {
+test('Writer は書き終えた部分を保存し、再開するとその部分を呼び直さない', async () => {
+  const saved = new Map();
+  const store = { get: (name) => saved.get(name), set: (name, value) => saved.set(name, value) };
+  const sent = [];
+  const client = {
+    messages: {
+      stream: (params) => {
+        sent.push(params);
+        const reply = taggedIn(params, 'task').part === 'common' ? pieces().common : pieces().page;
+        return { finalMessage: async () => ({ id: 'msg', model: params.model, stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: 'text', text: JSON.stringify(reply) }] }) };
+      },
+    },
+  };
+  const args = { survey: input.survey, transcript: input.transcript, companyName: 'オコジョ精工', client, store };
+  await runWriterLive(args);
+  assert.deepEqual([...saved.keys()].sort(), ['T1', 'common']);
+  assert.equal(sent.length, 2);
+  await runWriterLive(args);
+  assert.equal(sent.length, 2);
+});
+
+test('Writer の前置きはキャッシュし、調査データと聞き取りを部分ごとに送り直さない', () => {
+  const request = buildWriterRequest({ survey: input.survey, transcript: input.transcript, task: { part: 'common' } });
+  const [stable, dynamic] = request.messages[0].content;
+  assert.deepEqual(stable.cache_control, { type: 'ephemeral' });
+  assert.ok(stable.text.includes('<survey>') && stable.text.includes('<transcript>') && stable.text.includes('<library>'));
+  assert.ok(dynamic.text.includes('<task>'));
+  assert.ok(!dynamic.text.includes('<survey>'));
+});
+
+test('Editor は会社の情報の表の文章を変えられない', () => {
   const manual = fixture();
   const id = manual.symptom_pages[0].steps[4];
   const before = manual.statements.find((s) => s.id === id).text;
   manual.symptom_pages[0].steps = manual.symptom_pages[0].steps.filter((step) => step !== id);
-  manual.symptom_pages[0].drive_rows = [id];
+  manual.symptom_pages[0].info_rows = [id];
   const { manual: edited, changes } = applyEdits(manual, { rewrites: [{ id, text: '言い換えた文です。' }], glossary: [] });
   assert.equal(edited.statements.find((s) => s.id === id).text, before);
   assert.deepEqual(changes, [{ statement: id, missing: ['表の文章'] }]);
@@ -563,8 +820,8 @@ test('Editor は共有フォルダの表の文章を変えられない', () => {
 
 test('部品の順番が決まった順と逆なら見つける', () => {
   const statements = [step('STM-001', 'LIB-002'), step('STM-002', 'LIB-001')];
-  assert.match(composeProcedures(withSteps(statements), sources).problems.join('\n'), /順番/);
-  assert.deepEqual(composeProcedures(withSteps(statements, ['STM-002', 'STM-001']), sources).problems, []);
+  assert.match(problemsOf(withSteps(statements)), /順番/);
+  assert.doesNotMatch(problemsOf(withSteps(statements, ['STM-002', 'STM-001'])), /順番/);
 });
 
 test('Editor は部品の文面を変えられない', () => {
@@ -577,10 +834,7 @@ test('Editor は部品の文面を変えられない', () => {
 });
 
 test('未承認の部品があれば取扱説明書を作らず、承認済みなら作れる', () => {
-  const { manual } = composeProcedures(withSteps([step('STM-001', 'LIB-001')]), sources);
-  const page = manual.symptom_pages[0];
-  const refs = new Set([page.title, page.badge.statement, page.reassurance, page.fallback?.message, ...fixture().contacts.flatMap((c) => [c.role, c.hours, c.contract_location, c.what_to_tell]), ...fixture().glossary.map((g) => g.explanation)]);
-  const complete = { ...manual, statements: [...manual.statements, ...fixture().statements.filter((s) => refs.has(s.id) && s.id !== 'STM-001')] };
+  const { manual: complete } = composeProcedures(withSteps([step('STM-001', 'LIB-001')]), sources);
   const unapproved = { ...library, procedures: library.procedures.map((part) => (part.id === 'LIB-001' ? { ...part, status: 'unapproved', reviewed_by: null, reviewed_on: null } : part)) };
   assert.deepEqual(unapprovedParts(complete, unapproved), ['LIB-001']);
   assert.throws(() => prepareForRender(complete, unapproved), UnapprovedPartsError);

@@ -833,6 +833,18 @@ html.js .panel + .panel {
   border-top: 0;
 }
 
+/* 3部構成の部品。見た目の作り直しまでの最小の形 */
+.first { margin: 1rem 0; padding: 1rem; border: 2px solid var(--color-accent, currentColor); border-radius: 12px; }
+.first-kicker { margin: 0 0 0.5rem; }
+.first .eta { margin-left: 0.5rem; font-weight: 400; }
+.first-body { margin: 0 0 0.5rem; }
+.goal { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0.75rem 0; padding: 0.75rem 1rem; border-left: 4px solid currentColor; }
+.band { margin: 0.75rem 0; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid currentColor; }
+.step-note { margin: 0.25rem 0 0.5rem; }
+.contact-role { display: block; font-weight: 400; }
+.draft-band { margin: 0 0 0.5rem; padding: 0.5rem 1rem; border: 2px solid currentColor; border-radius: 8px; font-weight: 700; }
+.seal { display: inline-block; margin-right: 0.5rem; padding: 0 0.5rem; border: 2px solid currentColor; border-radius: 6px; font-weight: 700; }
+
 @media print {
   :root {
     color-scheme: light;

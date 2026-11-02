@@ -88,7 +88,7 @@
     },
     {
       "id": "STM-012",
-      "text": "社内ネットワークの機器を保守している会社です。",
+      "text": "PC の保守の会社",
       "evidence": [
         "INT-002",
         "INT-018"
@@ -143,8 +143,14 @@
       },
       "minutes": 2,
       "reassurance": "STM-003",
+      "fallback": {
+        "contact": "VEN-02",
+        "message": "STM-011"
+      },
       "notes": [],
-      "drive_rows": [],
+      "first_steps": [],
+      "first_goal": null,
+      "branches": [],
       "steps": [
         "STM-004",
         "STM-005",
@@ -154,10 +160,9 @@
         "STM-009",
         "STM-010"
       ],
-      "fallback": {
-        "contact": "VEN-02",
-        "message": "STM-011"
-      }
+      "goal": null,
+      "exceptions": [],
+      "info_rows": []
     }
   ],
   "contacts": [
@@ -182,5 +187,9 @@
       "term": "ネットワークドライブ",
       "explanation": "STM-017"
     }
-  ]
+  ],
+  "review": {
+    "reviewer": "田中",
+    "confirmed_on": "2026-11-05"
+  }
 }

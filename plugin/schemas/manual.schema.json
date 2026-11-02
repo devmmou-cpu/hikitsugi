@@ -58,48 +58,12 @@
             }
           },
           "library": {
+            "$comment": "部品の ID。文面はプログラムが組み立てる",
             "type": [
-              "object",
+              "string",
               "null"
             ],
-            "additionalProperties": false,
-            "required": [
-              "id",
-              "values"
-            ],
-            "properties": {
-              "id": {
-                "type": "string",
-                "pattern": "^LIB-\\d{3}$"
-              },
-              "values": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "slot",
-                    "value",
-                    "evidence"
-                  ],
-                  "properties": {
-                    "slot": {
-                      "type": "string"
-                    },
-                    "value": {
-                      "type": "string"
-                    },
-                    "evidence": {
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "pattern": "^(INV|INT)-\\d{3}$"
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "pattern": "^LIB-\\d{3}$"
           }
         }
       }
@@ -117,8 +81,13 @@
           "minutes",
           "reassurance",
           "notes",
-          "drive_rows",
+          "first_steps",
+          "first_goal",
+          "branches",
           "steps",
+          "goal",
+          "exceptions",
+          "info_rows",
           "fallback"
         ],
         "properties": {
@@ -171,15 +140,31 @@
             "pattern": "^STM-\\d{3}$"
           },
           "notes": {
-            "$comment": "手順の前に読む説明。番号もチェック欄も付かない",
+            "$comment": "知っておく事実や禁止。番号もチェック欄も付かない",
             "type": "array",
             "items": {
               "type": "string",
               "pattern": "^STM-\\d{3}$"
             }
           },
-          "drive_rows": {
-            "$comment": "共有フォルダの表の行。「<PC>の Z ドライブは \\\\\\\\NAS\\\\名前 です。」の形の文章で、表示プログラムが文章から値を読む",
+          "first_steps": {
+            "$comment": "① まずこれだけ。1分で済む操作だけ。最大3つ",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^STM-\\d{3}$"
+            }
+          },
+          "first_goal": {
+            "$comment": "① で直ったと分かる状態",
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^STM-\\d{3}$"
+          },
+          "branches": {
+            "$comment": "② の前に読む条件",
             "type": "array",
             "items": {
               "type": "string",
@@ -187,6 +172,31 @@
             }
           },
           "steps": {
+            "$comment": "② それでも直らなければ。人がやる操作だけで、1手順1文",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^STM-\\d{3}$"
+            }
+          },
+          "goal": {
+            "$comment": "② で直ったと分かる状態",
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^STM-\\d{3}$"
+          },
+          "exceptions": {
+            "$comment": "② の途中で起こりうることと、止まり方",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^STM-\\d{3}$"
+            }
+          },
+          "info_rows": {
+            "$comment": "この症状で使う会社の情報。決まった形の文章で、表示プログラムが文章から値を読む",
             "type": "array",
             "items": {
               "type": "string",
@@ -206,7 +216,7 @@
             "properties": {
               "contact": {
                 "type": "string",
-                "pattern": "^VEN-\\d{2}$"
+                "pattern": "^(VEN|INH)-\\d{2}$"
               },
               "message": {
                 "type": "string",
@@ -234,7 +244,8 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^VEN-\\d{2}$"
+            "pattern": "^(VEN|INH)-\\d{2}$",
+            "$comment": "VEN は業者、INH は社内の相談先"
           },
           "name": {
             "type": "string",
@@ -242,18 +253,27 @@
           },
           "phone": {
             "type": "string",
-            "minLength": 1
+            "$comment": "社内の相談先で番号の記録がなければ空文字"
           },
           "role": {
             "type": "string",
-            "pattern": "^STM-\\d{3}$"
+            "pattern": "^STM-\\d{3}$",
+            "$comment": "役割の短いラベル"
           },
           "hours": {
-            "type": "string",
+            "$comment": "受付の時間。社内の相談先で記録がなければ null",
+            "type": [
+              "string",
+              "null"
+            ],
             "pattern": "^STM-\\d{3}$"
           },
           "contract_location": {
-            "type": "string",
+            "$comment": "契約番号の控えの場所。社内の相談先は null",
+            "type": [
+              "string",
+              "null"
+            ],
             "pattern": "^STM-\\d{3}$"
           },
           "what_to_tell": {
@@ -358,6 +378,25 @@
             "type": "string",
             "pattern": "^STM-\\d{3}$"
           }
+        }
+      }
+    },
+    "review": {
+      "$comment": "前任者の確認。全ページの確認が済んだときだけプログラムが付ける。ないあいだは下書きとして表示する",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewer",
+        "confirmed_on"
+      ],
+      "properties": {
+        "reviewer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confirmed_on": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         }
       }
     }

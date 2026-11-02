@@ -1,60 +1,132 @@
 // 手順ページの形の検査。後任が迷わないように、Writer の出力をプログラムで確かめる。
 // /hikitsugi:start と評価の両方で使う。
 
-/** 手順の文か。部品を使わない文章は、最後の文が「〜してください」で終わるものだけを手順と認める。禁止は説明に置く。 */
+const FIRST_STEPS_MAX = 3;
+const ROLE_LENGTH_MAX = 15;
+
+/** ページの本文の項目。ゴールは1つか null なので、配列にそろえて返す。 */
+export const bodyFields = (page) => ({
+  notes: page.notes,
+  first_steps: page.first_steps,
+  first_goal: page.first_goal ? [page.first_goal] : [],
+  branches: page.branches,
+  steps: page.steps,
+  goal: page.goal ? [page.goal] : [],
+  exceptions: page.exceptions,
+  info_rows: page.info_rows,
+});
+
+/** ページが使う文章の ID をすべて返す。 */
+export const pageStatementIds = (page) => [
+  page.title,
+  page.badge.statement,
+  page.reassurance,
+  ...Object.values(bodyFields(page)).flat(),
+  ...(page.fallback ? [page.fallback.message] : []),
+];
+
+const sentencesOf = (text) => text.split('。').map((sentence) => sentence.trim()).filter(Boolean);
+
+/** 操作の文か。1文で、「〜してください」で終わるものだけを認める。禁止は説明に置く。 */
 export function isActionText(text) {
-  const last = text.split('。').map((sentence) => sentence.trim()).filter(Boolean).at(-1) ?? '';
-  return /ください$/.test(last) && !/ないでください$/.test(last);
+  const sentences = sentencesOf(text);
+  return sentences.length === 1 && /ください$/.test(sentences[0]) && !/ないでください$/.test(sentences[0]);
 }
 
-/** 手順に置かれた、やることではない文章の一覧。部品の文面は確認済みなので対象にしない。 */
+/** 操作の欄に置かれた、1つの操作ではない文章の一覧。部品の文面は確認済みなので対象にしない。 */
 export function nonActionSteps(manual) {
   const byId = new Map(manual.statements.map((statement) => [statement.id, statement]));
   return manual.symptom_pages.flatMap((page) =>
-    page.steps
+    [...page.first_steps, ...page.steps]
       .filter((id) => byId.has(id) && !byId.get(id).library && !isActionText(byId.get(id).text))
       .map((id) => ({ page: page.id, statement: id })),
   );
 }
 
 const DRIVE_ROW = /^(?:(.+)の )?([A-Z]) ドライブは (\\\\[^\\]+\\.+) です。$/;
+const VALUE_ROW = /^(.+?)は (\S(?:.*\S)?) です。$/;
 
 /**
- * 共有フォルダの表の行を、文章から読む。形が違えば null。
+ * 会社の情報の表の行を、文章から読む。形が違えば null。
  * 値を別に持たないので、画面に出す値と検証した文章がずれない。
  */
-export function parseDriveRow(text) {
-  const match = text.match(DRIVE_ROW);
-  return match ? { target: match[1] ?? null, drive: match[2], path: match[3] } : null;
+export function parseInfoRow(text) {
+  const drive = text.match(DRIVE_ROW);
+  if (drive) return { type: 'drive', target: drive[1] ?? null, drive: drive[2], path: drive[3] };
+  const row = text.match(VALUE_ROW);
+  return row ? { type: 'value', label: row[1], value: row[2] } : null;
 }
 
-/** ページの形の問題を、Writer に伝えられる文で返す。 */
-export function pageProblems(manual) {
-  const byId = new Map(manual.statements.map((statement) => [statement.id, statement]));
-  const problems = nonActionSteps(manual).map(
-    ({ page, statement }) => `${page}: ${statement} はやることではありません。事実や注意は notes へ移してください`,
-  );
-  // 途中で書くのをやめた出力を、合格させない
-  if (manual.symptom_pages.length === 0) problems.push('手順ページが1つもありません。最初から全体を書いてください');
-  for (const { id, text, library } of manual.statements) {
+/** 文章そのものの問題。 */
+export function statementProblems(statements) {
+  const problems = [];
+  for (const { id, text, library } of statements) {
     if (!library && !text.trim()) problems.push(`${id}: 文章が空です`);
     if (!library && /聞き取り|調査データ/.test(text)) problems.push(`${id}: 作り方の言葉（聞き取り、調査データ）を書かないでください`);
   }
+  return problems;
+}
+
+/** ページの形の問題を、Writer に伝えられる文で返す。contacts は連絡先の照合に使う。 */
+export function pageProblems(manual) {
+  const byId = new Map(manual.statements.map((statement) => [statement.id, statement]));
+  const contacts = new Set(manual.contacts.map((contact) => contact.id));
+  const problems = nonActionSteps(manual).map(
+    ({ page, statement }) => `${page}: ${statement} は1つの操作ではありません。手順は「〜してください」で終わる1文にしてください。確認は goal、条件は branches、例外は exceptions、事実や注意は notes に置いてください`,
+  );
   for (const page of manual.symptom_pages) {
-    if (page.badge.value === 'vendor' && !page.fallback) {
-      problems.push(`${page.id}: vendor のページには業者の連絡先（fallback）が必要です。相談相手が社内の人なら internal にしてください`);
+    const missing = pageStatementIds(page).filter((id) => !byId.has(id));
+    if (missing.length) problems.push(`${page.id}: statements にない文章を参照しています: ${[...new Set(missing)].join(', ')}`);
+    const body = Object.values(bodyFields(page)).flat();
+    const repeated = body.filter((id, index) => body.indexOf(id) !== index);
+    if (repeated.length) problems.push(`${page.id}: 同じ文章を2か所に置いています: ${[...new Set(repeated)].join(', ')}`);
+    if (page.first_steps.length > FIRST_STEPS_MAX) problems.push(`${page.id}: first_steps は${FIRST_STEPS_MAX}つまでです。1分で済む操作だけにしてください`);
+    if (page.first_goal && !page.first_steps.length) problems.push(`${page.id}: first_goal があるのに first_steps がありません`);
+    if (page.goal && !page.steps.length) problems.push(`${page.id}: goal があるのに steps がありません`);
+    for (const id of [page.first_goal, page.goal]) {
+      if (id && /ください。?$/.test(byId.get(id)?.text ?? '')) problems.push(`${page.id}: ${id} はゴールなので、直ったと分かる状態を書いてください`);
     }
-    for (const id of page.notes) {
-      if (page.steps.includes(id)) problems.push(`${page.id}: ${id} が手順と notes の両方にあります`);
-      if (byId.get(id)?.library) problems.push(`${page.id}: ${id} は部品なので notes に置けません`);
-    }
-    for (const id of page.drive_rows) {
-      if (page.steps.includes(id) || page.notes.includes(id)) problems.push(`${page.id}: ${id} は表の行なので、手順や notes に置けません`);
+    for (const id of page.info_rows) {
       const statement = byId.get(id);
-      if (statement && !parseDriveRow(statement.text)) {
-        problems.push(`${page.id}: ${id} は表の行の形ではありません。「<PC>の Z ドライブは <接続先> です。」の形にしてください（すべての PC で同じなら PC は書きません）`);
+      if (statement && !parseInfoRow(statement.text)) {
+        problems.push(`${page.id}: ${id} は表の行の形ではありません。「<PC>の Z ドライブは <接続先> です。」か「<項目>は <値> です。」の形にしてください`);
       }
     }
+    if (page.fallback && !contacts.has(page.fallback.contact)) problems.push(`${page.id}: 存在しない連絡先です: ${page.fallback.contact}`);
+    if (page.badge.value === 'self' && !page.first_steps.length && !page.steps.length) {
+      problems.push(`${page.id}: self のページには、後任が行う操作（first_steps か steps）が必要です。操作がなければ vendor か internal にしてください`);
+    }
+    if (page.badge.value === 'check_first' && !page.fallback) {
+      problems.push(`${page.id}: check_first のページには、確かめたあとの連絡先（fallback）が必要です。業者の連絡先がなければ社内の相談先（INH-）にしてください`);
+    }
+    if (page.badge.value === 'vendor' && !page.fallback?.contact.startsWith('VEN-')) {
+      problems.push(`${page.id}: vendor のページには、使える連絡先の中の業者（VEN-）の fallback が必要です。電話番号の記録がない業者は連絡先にありません。その場合は internal にして、社内の相談先（INH-）を fallback にし、記録がないことを notes に書いてください`);
+    }
+    if (page.badge.value === 'internal' && !page.fallback?.contact.startsWith('INH-')) {
+      problems.push(`${page.id}: internal のページには社内の相談先（INH-）の fallback が必要です`);
+    }
   }
+  return problems;
+}
+
+/** 連絡先の形の問題。 */
+export function contactProblems(manual) {
+  const byId = new Map(manual.statements.map((statement) => [statement.id, statement]));
+  const problems = [];
+  for (const contact of manual.contacts) {
+    const vendor = contact.id.startsWith('VEN-');
+    if (vendor && !contact.phone) problems.push(`${contact.id}: 業者には電話番号が必要です`);
+    if (vendor && (!contact.hours || !contact.contract_location)) problems.push(`${contact.id}: 業者の hours と contract_location は文章の ID にしてください。記録がなければ「記録がありません」と書きます`);
+    const role = byId.get(contact.role)?.text ?? '';
+    if (role.length > ROLE_LENGTH_MAX || role.includes('。')) problems.push(`${contact.id}: role は${ROLE_LENGTH_MAX}字以内の短いラベルにしてください（「。」を付けません）`);
+  }
+  return problems;
+}
+
+/** 取扱説明書の全体の形の問題。 */
+export function manualProblems(manual) {
+  const problems = [...statementProblems(manual.statements), ...pageProblems(manual), ...contactProblems(manual)];
+  // 途中で書くのをやめた出力を、合格させない
+  if (manual.symptom_pages.length === 0) problems.push('手順ページが1つもありません。最初から全体を書いてください');
   return problems;
 }

@@ -233,7 +233,7 @@ test('手順ページは決まった順番で並ぶ', () => {
     ['安心のひとこと', textOf(manual, page.reassurance)],
     ['最初の手順', textOf(manual, page.steps[0])],
     ['最後の手順', textOf(manual, page.steps.at(-1))],
-    ['直らなかったら', '直らなかったら'],
+    ['それでもだめなら', 'それでもだめなら'],
     ['業者に送る文面', textOf(manual, page.fallback.message)],
     ['根拠', '確認済み'],
   ];
@@ -270,9 +270,9 @@ test('チェックは label の中にあり、文字を押しても切り替わ�
   for (const label of labels) assert.match(label, /<input\b[^>]*type="checkbox"/i);
 });
 
-test('直らなかったら：電話ボタンとコピーボタンがあり、文面は JavaScript なしで読める', () => {
+test('それでもだめなら：電話ボタンとコピーボタンがあり、文面は JavaScript なしで読める', () => {
   const section = SECTION_OF_T1();
-  const fallback = section.slice(section.indexOf('直らなかったら'));
+  const fallback = section.slice(section.indexOf('それでもだめなら'));
   const tel = startTags(fallback, 'a').find((tag) => /href="tel:/.test(tag));
   assert.ok(tel, '電話のリンクがありません');
   assert.match(tel, /href="tel:03-?0000-?0102"/);
@@ -291,7 +291,7 @@ test('直らなかったときの連絡先がないページは、その欄を�
     m.contacts = [];
     m.statements = m.statements.filter((s) => !['STM-011', 'STM-012', 'STM-013', 'STM-014', 'STM-015'].includes(s.id));
   });
-  assert.ok(!visibleText(output).includes('直らなかったら'));
+  assert.ok(!visibleText(output).includes('それでもだめなら'));
   assert.doesNotMatch(output, /href="tel:/);
 });
 

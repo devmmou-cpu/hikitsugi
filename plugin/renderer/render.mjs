@@ -8,7 +8,7 @@
 import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { parseDriveRow } from '../lib/page-check.mjs';
+import { bodyFields, pageStatementIds, parseInfoRow } from '../lib/page-check.mjs';
 import { validate } from '../lib/validate.mjs';
 import { CLIENT_SCRIPT } from './client.mjs';
 import { STYLES } from './styles.mjs';
@@ -135,8 +135,8 @@ function assertUnique(ids, label) {
 /** 画面に出す記述の ID をすべて集める。 */
 function referencedStatements(manual) {
   return [
-    ...manual.symptom_pages.flatMap((p) => [p.title, p.badge.statement, p.reassurance, ...p.notes, ...p.drive_rows, ...p.steps, ...(p.fallback ? [p.fallback.message] : [])]),
-    ...manual.contacts.flatMap((c) => [c.role, c.hours, c.contract_location, c.what_to_tell]),
+    ...manual.symptom_pages.flatMap(pageStatementIds),
+    ...manual.contacts.flatMap((c) => [c.role, c.hours, c.contract_location, c.what_to_tell].filter(Boolean)),
     ...manual.routines.flatMap((r) => [r.title, ...r.steps]),
     ...manual.devices.flatMap((d) => [d.name, d.location, d.purpose, d.impact]),
     ...manual.glossary.map((g) => g.explanation),
@@ -166,8 +166,8 @@ function checkInput(manual) {
 
   // 表の行は文章から値を読むので、読めない形なら止める
   const textOf = new Map(manual.statements.map((s) => [s.id, s.text]));
-  const badRows = manual.symptom_pages.flatMap((p) => p.drive_rows.filter((id) => !parseDriveRow(textOf.get(id))));
-  if (badRows.length) throw new Error(`共有フォルダの表の文章の形が違います: ${badRows.join(', ')}`);
+  const badRows = manual.symptom_pages.flatMap((p) => p.info_rows.filter((id) => !parseInfoRow(textOf.get(id))));
+  if (badRows.length) throw new Error(`会社の情報の表の文章の形が違います: ${badRows.join(', ')}`);
 
   // どの画面からも参照されない記述は読めなくなるので、止める
   const unused = [...known].filter((id) => !refs.has(id));
@@ -205,6 +205,10 @@ function helpPanel(ctx) {
     );
     return `<h3>${esc(label)}</h3>\n<ul class="symptoms">\n${items.join('\n')}\n</ul>`;
   }).filter(Boolean);
+  // 一覧に当てはまらないときの行き先を、必ず残す。社内の相談先は連絡先の先頭にある
+  if (groups.length) {
+    groups.push(`<h3>そのほか</h3>\n<ul class="symptoms">\n<li><a class="tap symptom-link no-match" href="#tab-contacts"><span><span class="symptom-name">当てはまる症状がないとき</span>${badgeHtml('internal')}</span>${icon('next')}</a></li>\n</ul>`);
+  }
 
   const body = groups.length
     ? `<p class="lead">いま困っていることを押してください。</p>\n<p class="note">開いて読むだけなら、PC や機器には何も起きません。</p>\n${groups.join('\n')}`
@@ -225,61 +229,91 @@ function pageTerms(ctx, page, contact) {
     return terms;
   };
   const steps = page.steps.map(pick);
-  const others = [page.title, page.badge.statement, page.reassurance, ...page.notes, ...(contact ? [contact.hours, page.fallback.message] : [])];
-  return { steps, rest: others.flatMap(pick) };
+  const { notes, first_steps: first, first_goal: firstGoal, branches, goal, exceptions } = bodyFields(page);
+  const others = [page.title, page.badge.statement, page.reassurance, ...first, ...firstGoal, ...notes, ...branches, ...goal, ...exceptions, ...(contact ? [page.fallback.message] : [])];
+  return { steps, rest: [...others, ...(contact?.hours ? [contact.hours] : [])].flatMap(pick) };
 }
 
-/** 手順の前の説明欄。番号もチェック欄も付けない。 */
-function notesHtml(ctx, page) {
-  const notes = page.notes.length
-    ? `<h3>先に知っておくこと</h3>\n<ul class="page-notes" role="list">\n${page.notes.map((id) => `<li>${ctx.text(id)}</li>`).join('\n')}\n</ul>`
-    : '';
-  const rows = page.drive_rows.map((id) => {
-    const row = parseDriveRow(ctx.raw(id));
-    const target = row.target ? `<span class="drive-target">使う PC：${esc(row.target)}</span>` : '';
-    return `<tr><td class="drive-letter">${esc(row.drive)}</td><td><span class="path">${esc(row.path)}</span>${target}</td></tr>`;
-  });
-  const table = rows.length
-    ? `<h3>この会社の共有フォルダ</h3>\n<div class="card drive-box"><table class="drive-table">\n<thead><tr><th scope="col">ドライブ</th><th scope="col">接続先</th></tr></thead>\n<tbody>\n${rows.join('\n')}\n</tbody>\n</table></div>`
-    : '';
-  return [notes, table].filter(Boolean).join('\n');
+/** 帯。分岐と例外を手順の外に置く。 */
+const bandsHtml = (ctx, ids, kind) => ids.map((id) => `<p class="band band-${kind}">${ctx.text(id)}</p>`).join('\n');
+
+/** 直ったと分かる状態。チェック欄を付けない。 */
+const goalHtml = (ctx, id) => (id ? `<p class="goal">${icon('check')}<span>${ctx.text(id)}</span></p>` : '');
+
+/** ① まずこれだけ。手順ページの最初に見る場所。 */
+function firstHtml(ctx, page, number) {
+  if (!page.first_steps.length) return '';
+  return [
+    '<section class="first">',
+    `<h3 class="first-kicker">${number} まずこれだけ<span class="eta">1分</span></h3>`,
+    page.first_steps.map((id) => `<p class="first-body">${ctx.text(id)}</p>`).join('\n'),
+    goalHtml(ctx, page.first_goal),
+    '</section>',
+  ].filter(Boolean).join('\n');
 }
 
-function stepsHtml(ctx, page, stepTerms) {
+const notesHtml = (ctx, page) =>
+  page.notes.length ? `<h3>先に知っておくこと</h3>\n<ul class="page-notes" role="list">\n${page.notes.map((id) => `<li>${ctx.text(id)}</li>`).join('\n')}\n</ul>` : '';
+
+/** この症状で使う会社の情報。値は検証した文章から読む。 */
+function infoHtml(ctx, page) {
+  if (!page.info_rows.length) return '';
+  const rows = page.info_rows.map((id) => parseInfoRow(ctx.raw(id)));
+  const drives = rows.filter((row) => row.type === 'drive');
+  const values = rows.filter((row) => row.type === 'value');
+  const driveTable = drives.length
+    ? `<table class="drive-table">\n<thead><tr><th scope="col">PC</th><th scope="col">ドライブ</th><th scope="col">接続先</th></tr></thead>\n<tbody>\n${drives.map((row) => `<tr><td>${esc(row.target ?? '全員')}</td><td class="drive-letter">${esc(row.drive)}</td><td><span class="path">${esc(row.path)}</span></td></tr>`).join('\n')}\n</tbody>\n</table>`
+    : '';
+  const valueTable = values.length
+    ? `<table class="drive-table">\n<thead><tr><th scope="col">項目</th><th scope="col">値</th></tr></thead>\n<tbody>\n${values.map((row) => `<tr><td>${esc(row.label)}</td><td><span class="path">${esc(row.value)}</span></td></tr>`).join('\n')}\n</tbody>\n</table>`
+    : '';
+  return `<h3>この症状で使う会社の情報</h3>\n<div class="card drive-box">\n${[driveTable, valueTable].filter(Boolean).join('\n')}\n</div>`;
+}
+
+/** 部品の補足は、手順の下に分けて出す。チェックの対象は最初の1文の操作だけ。 */
+function stepParts(text) {
+  const end = text.indexOf('。');
+  return end < 0 || end === text.length - 1 ? [text, ''] : [text.slice(0, end + 1), text.slice(end + 1)];
+}
+
+function stepsHtml(ctx, page, stepTerms, heading) {
   const items = page.steps.map((id, index) => {
     const terms = stepTerms[index].length ? `<div class="step-terms">${stepTerms[index].map((term) => termHtml(ctx, term)).join('')}</div>` : '';
+    const [body, note] = stepParts(ctx.raw(id));
     // チェック欄を先に置くのは、チェックしたときに番号と文の色を CSS で変えるため。見た目では右端に並ぶ
     // 短い手順だけ文節で折り返す。長い文を文節で切ると、かえって行の長さがばらつくため
-    const textClass = ctx.raw(id).length <= SHORT_STEP_LENGTH ? 'step-text is-short' : 'step-text';
-    return `<li><label class="tap step"><input type="checkbox" data-check="${esc(page.id)}:${esc(id)}"><span class="step-number">${index + 1}</span><span class="${textClass}">${ctx.text(id)}</span></label>${terms}</li>`;
+    const textClass = body.length <= SHORT_STEP_LENGTH ? 'step-text is-short' : 'step-text';
+    const noteHtml = note ? `<p class="step-note">${statementHtml(note)}</p>` : '';
+    return `<li><label class="tap step"><input type="checkbox" data-check="${esc(page.id)}:${esc(id)}"><span class="step-number">${index + 1}</span><span class="${textClass}">${statementHtml(body)}</span></label>${noteHtml}${terms}</li>`;
   });
   return [
-    '<div class="steps-head"><h3>やること</h3><span class="js-only progress"></span></div>',
+    `<div class="steps-head"><h3>${heading}</h3><span class="js-only progress"></span></div>`,
+    bandsHtml(ctx, page.branches, 'branch'),
     '<p class="note">上から順に進めます。終わった手順にチェックを入れてください。</p>',
     `<ol class="steps" role="list">\n${items.join('\n')}\n</ol>`,
+    goalHtml(ctx, page.goal),
+    bandsHtml(ctx, page.exceptions, 'exception'),
     '<button type="button" class="tap js-only reset" data-reset>チェックをすべて外す</button>',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }
 
-function fallbackHtml(ctx, page, contact) {
+function fallbackHtml(ctx, page, contact, heading) {
   const messageId = `message-${esc(page.id)}`;
   const statusId = `copy-status-${esc(page.id)}`;
-  // 業者へ連絡する判定のページは、まず連絡するのが手順なので、見出しを変える
-  const isVendor = page.badge.value === 'vendor';
-  const isInternal = page.badge.value === 'internal';
+  const internal = contact.id.startsWith('INH-');
   // 連絡先の「伝えること」は1社に1文で、別の症状の文のことがある。ここではこのページの文面だけを出す
   return [
-    `<h3>${isVendor ? '連絡してください' : isInternal ? '相談のあとの連絡先' : '直らなかったら'}</h3>`,
+    `<h3>${heading}</h3>`,
     '<div class="card contact-box">',
-    `<p class="contact-name">${esc(contact.name)}</p>`,
-    callHtml(contact.phone),
-    `<dl class="facts"><dt>受付の時間</dt><dd>${ctx.text(contact.hours)}</dd></dl>`,
+    `<p class="contact-name">${esc(contact.name)}<span class="contact-role">${ctx.text(contact.role)}</span></p>`,
+    contact.phone ? callHtml(contact.phone) : '',
+    contact.hours ? `<dl class="facts"><dt>受付の時間</dt><dd>${ctx.text(contact.hours)}</dd></dl>` : '',
     '</div>',
-    '<h4>業者に送る文面</h4>',
+    `<h4>${internal ? '相談のときに伝える文面' : '業者に送る文面'}</h4>`,
     `<p class="message" id="${messageId}">${ctx.text(page.fallback.message)}</p>`,
     `<button type="button" class="tap js-only button" data-copy="${messageId}" data-status="${statusId}">文面をコピーする</button>`,
     `<span class="js-only copy-status" id="${statusId}" role="status"></span>`,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }
 
 /** ページに表示した記述の根拠から、確かめ方の一文を作る。 */
@@ -292,23 +326,33 @@ function evidenceHtml(ctx, ids) {
     ...(has('PUB-') ? ['公開資料'] : []),
     ...(has('LIB-') ? ['確認済みの標準手順'] : []),
   ];
-  return `<p class="evidence"><span>この手順は確認済みです。</span><span>もとにした情報：${sources.join('、')}</span></p>`;
+  const review = ctx.manual.review;
+  const state = review ? `この手順は、前任の${esc(review.reviewer)}さんが確認済みです。` : 'この手順は、前任者の確認前です。';
+  return `<p class="evidence"><span>${state}</span><span>もとにした情報：${sources.join('、')}</span></p>`;
 }
+
+const CIRCLED = ['①', '②', '③', '④'];
 
 function symptomPanel(ctx, page) {
   const contact = page.fallback ? ctx.contacts.get(page.fallback.contact) : null;
   const terms = pageTerms(ctx, page, contact);
   const shownIds = [
-    page.title,
-    page.badge.statement,
-    page.reassurance,
-    ...page.notes,
-    ...page.drive_rows,
-    ...page.steps,
+    ...pageStatementIds(page),
     ...terms.steps.flat().map((term) => term.explanation),
     ...terms.rest.map((term) => term.explanation),
-    ...(contact ? [contact.hours, page.fallback.message] : []),
+    ...(contact?.hours ? [contact.hours] : []),
   ];
+  // 3部構成。部がないページは番号を詰め、見出しもそのページに合う言葉にする
+  const hasFirst = page.first_steps.length > 0;
+  const hasSteps = page.steps.length > 0;
+  let part = 0;
+  const number = () => CIRCLED[part++];
+  const first = hasFirst ? firstHtml(ctx, page, number()) : '';
+  const steps = hasSteps ? stepsHtml(ctx, page, terms.steps, `${number()} ${hasFirst ? 'それでも直らなければ' : 'やること'}`) : '';
+  const lastLabel = hasFirst || hasSteps ? 'それでもだめなら' : contact?.id.startsWith('INH-') ? '相談してください' : '連絡してください';
+  const last = contact ? fallbackHtml(ctx, page, contact, `${number()} ${lastLabel}`) : '';
+  // 手順がないページの分岐と例外も、落とさず出す
+  const looseBands = hasSteps ? '' : [bandsHtml(ctx, page.branches, 'branch'), bandsHtml(ctx, page.exceptions, 'exception')].filter(Boolean).join('\n');
   const backLink = `<a class="tap back" href="#tab-help">${icon('back')}症状の一覧に戻る</a>`;
   const parts = [
     `<article id="symptom-${esc(page.id)}" class="panel" data-tab="tab-help">`,
@@ -319,10 +363,13 @@ function symptomPanel(ctx, page) {
     `<p class="verdict-text">${ctx.text(page.badge.statement)}</p>`,
     '</div>',
     `<p class="reassure">${ctx.text(page.reassurance)}</p>`,
+    first,
     notesHtml(ctx, page),
-    page.steps.length ? stepsHtml(ctx, page, terms.steps) : '',
-    contact ? fallbackHtml(ctx, page, contact) : '',
-    !contact && page.badge.value !== 'internal' && ctx.manual.contacts.length ? '<p class="tab-link"><a class="tap button button-quiet" href="#tab-contacts">連絡先の一覧を見る</a></p>' : '',
+    looseBands,
+    steps,
+    last,
+    !contact && ctx.manual.contacts.length ? '<p class="tab-link"><a class="tap button button-quiet" href="#tab-contacts">連絡先の一覧を見る</a></p>' : '',
+    infoHtml(ctx, page),
     terms.rest.length ? `<h4>このページのことば</h4>\n<div class="terms">\n${terms.rest.map((term) => termHtml(ctx, term)).join('\n')}\n</div>` : '',
     evidenceHtml(ctx, shownIds),
     backLink,
@@ -333,23 +380,32 @@ function symptomPanel(ctx, page) {
 
 // ---- 連絡先 ----
 function contactCard(ctx, contact) {
+  const internal = contact.id.startsWith('INH-');
+  const rows = [
+    ...(contact.hours ? [['受付の時間', contact.hours]] : []),
+    [internal ? '相談のときに伝えること' : '電話で伝えること', contact.what_to_tell],
+  ];
   return [
     '<div class="card contact-box">',
-    `<h3 class="contact-name">${esc(contact.name)}</h3>`,
-    callHtml(contact.phone),
-    factsHtml(ctx, [
-      ['どんな会社か', contact.role],
-      ['受付の時間', contact.hours],
-      ['契約番号の控えの場所', contact.contract_location],
-      ['電話で伝えること', contact.what_to_tell],
-    ]),
+    `<h3 class="contact-name">${esc(contact.name)}<span class="contact-role">${ctx.text(contact.role)}</span></h3>`,
+    contact.phone ? callHtml(contact.phone) : '',
+    factsHtml(ctx, rows),
+    contact.contract_location ? `<details class="term contact-more"><summary class="tap">契約番号の控えの場所</summary><p>${ctx.text(contact.contract_location)}</p></details>` : '',
     '</div>',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }
 
 function contactsPanel(ctx) {
+  // まず誰に言うかの順に、社内の相談先を先に並べる
+  const inside = ctx.manual.contacts.filter((c) => c.id.startsWith('INH-'));
+  const vendors = ctx.manual.contacts.filter((c) => !c.id.startsWith('INH-'));
   const body = ctx.manual.contacts.length
-    ? `<p class="lead">困ったときに連絡する会社です。</p>\n<p class="note">押すと、電話をかける画面が開きます。</p>\n${ctx.manual.contacts.map((c) => contactCard(ctx, c)).join('\n')}`
+    ? [
+        '<p class="lead">困ったときに連絡する相手です。</p>',
+        '<p class="note">押すと、電話をかける画面が開きます。</p>',
+        ...(inside.length ? ['<h3>社内の相談先</h3>', ...inside.map((c) => contactCard(ctx, c))] : []),
+        ...(vendors.length ? [inside.length ? '<h3>業者</h3>' : '', ...vendors.map((c) => contactCard(ctx, c))] : []),
+      ].filter(Boolean).join('\n')
     : emptyHtml('連絡先は、まだこの説明書に入っていません。');
   return `<section id="tab-contacts" class="panel">\n<h2 tabindex="-1">連絡先</h2>\n${body}\n</section>`;
 }
@@ -419,6 +475,15 @@ function navHtml() {
   return `<nav class="tabs" aria-label="画面の切り替え">\n${links.join('\n')}\n</nav>`;
 }
 
+/** 前任者の確認が終わるまで、下書きだと分かるようにする。 */
+const reviewBand = (manual) => (manual.review ? '' : '<p class="draft-band" role="note">下書き（前任者の確認前）</p>\n');
+
+/** 全ページの確認が済んだら、確認した人と日付を示す。 */
+const reviewNote = ({ review }) =>
+  review
+    ? `<p class="confirmed"><span class="seal">${esc(review.reviewer)} 確認 ${esc(formatDate(review.confirmed_on))}</span>この取扱説明書は、AIがもとの情報と照らし合わせ、前任の${esc(review.reviewer)}さんが全ページを確認したものです。</p>\n`
+    : '';
+
 /** 取扱説明書の中身から HTML の文字列を作る。入力に異常があれば例外を投げる。 */
 export function renderManual(manual) {
   checkInput(manual);
@@ -445,10 +510,10 @@ ${STYLES}
 </head>
 <body>
 <header class="masthead">
-<p class="confidential"><strong>社外秘</strong>${company}</p>
+${reviewBand(manual)}<p class="confidential"><strong>社外秘</strong>${company}</p>
 <h1>ITの取扱説明書</h1>
 <p>${esc(formatDate(manual.as_of))}時点の内容です。</p>
-</header>
+${reviewNote(manual)}</header>
 <main>
 ${helpPanel(ctx)}
 ${manual.symptom_pages.map((page) => symptomPanel(ctx, page)).join('\n')}

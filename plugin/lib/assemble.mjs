@@ -1,0 +1,171 @@
+// Writer をページ単位で呼ぶための、分けて組み立てる処理。/hikitsugi:start と評価の両方で使う。
+// 共通部分（連絡先、定期作業、機器と、手順ページの一覧）を1回、手順ページを1つにつき1回書く。
+// 差し戻しや前任者の直しでは、問題のあった部分だけを書き直す。
+
+import { readFileSync } from 'node:fs';
+import { contactProblems, pageProblems, pageStatementIds, statementProblems } from './page-check.mjs';
+import { composeStatements, contactEvidenceProblems, loadLibrary, pageDetailProblems } from './procedures.mjs';
+
+const MANUAL_SCHEMA = JSON.parse(readFileSync(new URL('../schemas/manual.schema.json', import.meta.url), 'utf8'));
+const CATEGORY = MANUAL_SCHEMA.properties.symptom_pages.items.properties.category;
+const STM = /^STM-\d{3}$/;
+
+const objectOf = (properties) => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
+
+/** 共通部分の出力の形。 */
+export const commonSchema = () => {
+  const { statements, contacts, routines, devices } = MANUAL_SCHEMA.properties;
+  return objectOf({
+    page_plan: {
+      $comment: '作る手順ページの一覧。symptom はページを書く担当へ渡す、症状の短い説明',
+      type: 'array',
+      items: objectOf({ id: { type: 'string', pattern: '^T\\d+$' }, category: CATEGORY, symptom: { type: 'string', minLength: 1 } }),
+    },
+    statements,
+    contacts,
+    routines,
+    devices,
+  });
+};
+
+/** 手順ページ1つの出力の形。 */
+export const pageSchema = () => objectOf({ statements: MANUAL_SCHEMA.properties.statements, page: MANUAL_SCHEMA.properties.symptom_pages.items });
+
+/** 共通部分が使う文章の ID を返す。 */
+export const commonStatementIds = ({ contacts, routines, devices }) => [
+  ...contacts.flatMap((c) => [c.role, c.hours, c.contract_location, c.what_to_tell].filter(Boolean)),
+  ...routines.flatMap((r) => [r.title, ...r.steps]),
+  ...devices.flatMap((d) => [d.name, d.location, d.purpose, d.impact]),
+];
+
+/** 共通部分の出力を確かめる。 */
+export function checkCommon(output, sources, library = loadLibrary()) {
+  const { statements, problems } = composeStatements(output.statements, library);
+  const known = new Set(statements.map((s) => s.id));
+  const missing = commonStatementIds(output).filter((id) => !known.has(id));
+  if (missing.length) problems.push(`statements にない文章を参照しています: ${[...new Set(missing)].join(', ')}`);
+  if (output.page_plan.length === 0) problems.push('手順ページの一覧（page_plan）が空です。最初から全体を書いてください');
+  const ids = output.page_plan.map((entry) => entry.id);
+  if (new Set(ids).size !== ids.length) problems.push('page_plan の id が重複しています');
+  const piece = { statements, contacts: output.contacts };
+  problems.push(...statementProblems(statements), ...contactProblems(piece), ...contactEvidenceProblems(output.contacts, sources));
+  return { output: { ...output, statements }, problems };
+}
+
+/** ページの出力を確かめる。id と category は一覧の値に固定する。連絡先の照合には共通部分を使う。 */
+export function checkPage(output, entry, contacts, sources, library = loadLibrary()) {
+  const page = { ...output.page, id: entry.id, category: entry.category };
+  const { statements, problems } = composeStatements(output.statements, library);
+  problems.push(
+    ...statementProblems(statements),
+    ...pageProblems({ statements, symptom_pages: [page], contacts }),
+    ...pageDetailProblems(page, statements, sources, library),
+  );
+  return { output: { statements, page }, problems };
+}
+
+/** 文章の ID を置き換える。参照も一緒に変える。 */
+function renameRefs(value, names) {
+  if (typeof value === 'string') return STM.test(value) && names.has(value) ? names.get(value) : value;
+  if (Array.isArray(value)) return value.map((item) => renameRefs(item, names));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, renameRefs(item, names)]));
+  return value;
+}
+
+/**
+ * 部分の出力を、全体の番号へ振り直す。参照されない文章は画面に出ないので捨てる。
+ * @param keep 前の版でこの部分が使っていた ID。同じ ID はそのまま使うので、変わった文章だけを追える
+ */
+function place(piece, refsOf, keep, allocate) {
+  const used = new Set(refsOf(piece));
+  const names = new Map();
+  for (const { id } of piece.statements) {
+    if (!used.has(id)) continue;
+    names.set(id, keep.has(id) ? id : allocate());
+  }
+  const { statements, ...rest } = piece;
+  return {
+    statements: statements.filter((s) => names.has(s.id)).map((s) => ({ ...s, id: names.get(s.id) })),
+    rest: renameRefs(rest, names),
+  };
+}
+
+const counter = (start) => {
+  let next = start;
+  return () => {
+    next += 1;
+    return `STM-${String(next).padStart(3, '0')}`;
+  };
+};
+
+/** 最初の版を組み立てる。 */
+export function assembleManual(common, pages, header) {
+  const allocate = counter(0);
+  const none = new Set();
+  const { page_plan: plan, ...commonPiece } = common;
+  const placedCommon = place(commonPiece, commonStatementIds, none, allocate);
+  const placedPages = plan.map((entry) => place(pages[entry.id], (piece) => pageStatementIds(piece.page), none, allocate));
+  return {
+    ...header,
+    statements: [...placedCommon.statements, ...placedPages.flatMap((piece) => piece.statements)],
+    symptom_pages: placedPages.map((piece) => piece.rest.page),
+    contacts: placedCommon.rest.contacts,
+    routines: placedCommon.rest.routines,
+    devices: placedCommon.rest.devices,
+    glossary: [],
+  };
+}
+
+/** 指摘の文章が、どの部分のものかを返す。用語の説明は Editor が作り直すので含めない。 */
+export function ownersOf(manual, findings) {
+  const owner = new Map();
+  for (const page of manual.symptom_pages) for (const id of pageStatementIds(page)) owner.set(id, page.id);
+  for (const id of commonStatementIds(manual)) owner.set(id, 'common');
+  const byOwner = new Map();
+  for (const finding of findings) {
+    const name = owner.get(finding.statement);
+    if (!name) continue;
+    byOwner.set(name, [...(byOwner.get(name) ?? []), finding]);
+  }
+  return byOwner;
+}
+
+/** 書き直しのときに Writer へ見せる、前の版の部分を返す。 */
+export function previousPiece(manual, owner) {
+  const byId = new Map(manual.statements.map((statement) => [statement.id, statement]));
+  const pick = (ids) => [...new Set(ids)].map((id) => byId.get(id));
+  if (owner === 'common') {
+    const { contacts, routines, devices } = manual;
+    return { statements: pick(commonStatementIds(manual)), contacts, routines, devices };
+  }
+  const page = manual.symptom_pages.find((candidate) => candidate.id === owner);
+  return { statements: pick(pageStatementIds(page)), page };
+}
+
+/**
+ * 書き直した部分を、前の版へ差し替える。ほかの部分の文章と ID は変わらない。
+ * @param previous 用語の説明を外した前の版
+ * @param rewritten { common?, pages: { T1: 出力 } }
+ */
+export function mergeRewritten(previous, rewritten) {
+  const allocate = counter(Math.max(0, ...previous.statements.map((s) => Number(s.id.slice(4)))));
+  const owners = [...(rewritten.common ? ['common'] : []), ...Object.keys(rewritten.pages)];
+  const removed = new Set(owners.flatMap((owner) => previousPiece(previous, owner).statements.map((s) => s.id)));
+  const statements = previous.statements.filter((s) => !removed.has(s.id));
+  let merged = { ...previous };
+  if (rewritten.common) {
+    const { page_plan: _plan, ...piece } = rewritten.common;
+    const placed = place(piece, commonStatementIds, new Set(previousPiece(previous, 'common').statements.map((s) => s.id)), allocate);
+    statements.push(...placed.statements);
+    merged = { ...merged, ...placed.rest };
+  }
+  const pages = merged.symptom_pages.map((page) => {
+    const output = rewritten.pages[page.id];
+    if (!output) return page;
+    const placed = place(output, (piece) => pageStatementIds(piece.page), new Set(previousPiece(previous, page.id).statements.map((s) => s.id)), allocate);
+    statements.push(...placed.statements);
+    return placed.rest.page;
+  });
+  return { ...merged, symptom_pages: pages, statements };
+}
+

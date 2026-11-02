@@ -2,11 +2,13 @@
 
 import { applyEdits } from '../../plugin/lib/apply-edits.mjs';
 import { plainProblems } from '../../plugin/lib/plain-check.mjs';
+import { assembleManual, checkCommon, checkPage, commonSchema, mergeRewritten, ownersOf, pageSchema, previousPiece } from '../../plugin/lib/assemble.mjs';
 import { composeProcedures, libraryForAgents } from '../../plugin/lib/procedures.mjs';
-import { buildRequest, callAgent, clientOf, LiveFailure, loadAgent, responseSchema, tagged } from './adapters/live.mjs';
+import { buildRequest, callAgent, clientOf, LiveFailure, loadAgent, stripUnsupported, tagged } from './adapters/live.mjs';
 
-const WRITER_KEYS = ['statements', 'symptom_pages', 'contacts', 'routines', 'devices', 'glossary'];
-const MAX_STRUCTURE_RETRIES = 1;
+// 共通部分のあとにページを同時に書く数。前置きのキャッシュが効くので、費用は同時に書いても変わらない
+const PAGE_CONCURRENCY = 4;
+const MAX_ATTEMPTS = 2;
 
 const EDITOR_SCHEMA = {
   type: 'object',
@@ -38,13 +40,20 @@ const EDITOR_SCHEMA = {
   },
 };
 
-export function buildWriterRequest({ survey, transcript, revision, structure, agent = loadAgent('plugin/agents/writer.md') }) {
-  const sections = { survey, transcript, library: libraryForAgents() };
-  if (revision) sections.revision = revision;
-  if (structure) sections.structure_problems = structure;
-  const ask = structure || revision ? '指摘された問題を直して、取扱説明書の全体を返してください。' : '取扱説明書の中身を書いてください。';
-  const content = `${tagged(sections)}\n\n${ask}`;
-  return buildRequest(agent, responseSchema('manual', WRITER_KEYS), content);
+/**
+ * Writer のリクエスト。調査データ、聞き取り、部品は全部分で同じなので、先頭に置いてキャッシュする。
+ * @param task 書く部分。{ part: 'common' } か { part: 'page', entry, contacts }。書き直しなら revision を持つ
+ */
+export function buildWriterRequest({ survey, transcript, task = { part: 'common' }, structure, agent = loadAgent('plugin/agents/writer.md') }) {
+  const stable = tagged({ survey, transcript, library: libraryForAgents() });
+  const dynamic = { task: JSON.stringify(task) };
+  if (structure) dynamic.structure_problems = structure;
+  const what = task.part === 'common' ? '共通部分' : `手順ページ ${task.entry.id}`;
+  const schema = stripUnsupported(task.part === 'common' ? commonSchema() : pageSchema());
+  return buildRequest(agent, schema, [
+    { type: 'text', text: stable, cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: `${tagged(dynamic)}\n\n${structure || task.revision ? `${what}の問題を直して、この部分の全体を返してください。` : `${what}を書いてください。`}` },
+  ]);
 }
 
 export function buildEditorRequest({ manual, survey, transcript, findings, agent = loadAgent('plugin/agents/plain-japanese-editor.md') }) {
@@ -54,22 +63,92 @@ export function buildEditorRequest({ manual, survey, transcript, findings, agent
   return buildRequest(agent, EDITOR_SCHEMA, content);
 }
 
-export async function runWriterLive({ survey, transcript, companyName, revision, client, record = () => {} }) {
+/** 1つの部分を書く。形の問題や途中で切れた出力は、1回だけ直してもらう。 */
+async function writePiece({ api, agent, survey, transcript, task, check, record }) {
+  let structure;
+  let last;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    const params = buildWriterRequest({ survey, transcript, task, structure, agent });
+    try {
+      const { output, problems } = check(await callAgent({ api, agent, params, record, estimate: false }));
+      if (!problems.length) return output;
+      last = new LiveFailure('library', problems.slice(0, 10).join(' / '));
+      structure = { previous_output: output, problems };
+    } catch (error) {
+      if (error.stage !== 'incomplete' && error.stage !== 'parse') throw error;
+      last = error;
+      structure = undefined;
+    }
+  }
+  throw last;
+}
+
+/** 件数を絞って順に実行する。 */
+async function pool(items, limit, work) {
+  const queue = [...items];
+  await Promise.all(Array.from({ length: Math.min(limit, queue.length) }, async () => {
+    while (queue.length) await work(queue.shift());
+  }));
+}
+
+const contactsForPages = (common) => {
+  const text = new Map(common.statements.map((statement) => [statement.id, statement.text]));
+  return common.contacts.map(({ id, name, role }) => ({ id, name, role: text.get(role) }));
+};
+
+/**
+ * Writer をページ単位で実行する。
+ * revision がなければ全部を書く。あれば、指摘や直しのあった部分だけを書き直す。
+ * @param revision { previous_manual, findings }
+ * @param store { get(name), set(name, value) }。書き終えた部分を保存して、止まっても続きから再開するため
+ */
+export async function runWriterLive({ survey, transcript, companyName, revision, client, record = () => {}, store = { get: () => undefined, set: () => {} } }) {
   const api = await clientOf(client);
   const agent = loadAgent('plugin/agents/writer.md');
-  // 部品の文面はプログラムが組み立てる。部品の指定やページの形の問題は、1回だけ伝えて直してもらう
-  let structure;
-  let problems = [];
-  for (let attempt = 0; attempt <= MAX_STRUCTURE_RETRIES; attempt += 1) {
-    const parsed = await callAgent({ api, agent, params: buildWriterRequest({ survey, transcript, revision, structure, agent }), record });
-    const composed = composeProcedures(parsed, { survey, transcript });
-    problems = composed.problems;
+  const sources = { survey, transcript };
+  const once = async (name, task, check) => {
+    const saved = store.get(name);
+    if (saved) return saved;
+    const output = await writePiece({ api, agent, survey, transcript, task, check, record });
+    store.set(name, output);
+    return output;
+  };
+
+  if (!revision) {
+    const common = await once('common', { part: 'common' }, (output) => checkCommon(output, sources));
+    const contacts = contactsForPages(common);
+    const pages = {};
+    await pool(common.page_plan, PAGE_CONCURRENCY, async (entry) => {
+      pages[entry.id] = await once(entry.id, { part: 'page', entry, contacts }, (output) => checkPage(output, entry, common.contacts, sources));
+    });
     // 会社の情報はプログラムが付ける。モデルの出力で上書きさせない
-    if (!problems.length) return { ...composed.manual, schema_version: 1, company: survey.company, company_name: companyName, as_of: survey.as_of };
-    // ページが1つもない出力は途中でやめたものなので、見せずに最初から書いてもらう
-    structure = parsed.symptom_pages.length ? { previous_output: parsed, problems } : undefined;
+    const manual = assembleManual(common, pages, { schema_version: 1, company: survey.company, company_name: companyName, as_of: survey.as_of });
+    return finishWriter(manual, sources);
   }
-  throw new LiveFailure('library', problems.slice(0, 10).join(' / '));
+
+  const previous = revision.previous_manual;
+  const owners = ownersOf(previous, revision.findings);
+  const rewritten = { pages: {} };
+  const contacts = previous.contacts.map(({ id, name, role }) => ({ id, name, role: previous.statements.find((s) => s.id === role)?.text }));
+  await pool([...owners], PAGE_CONCURRENCY, async ([owner, findings]) => {
+    const taskRevision = { previous: previousPiece(previous, owner), findings };
+    if (owner === 'common') {
+      const plan = previous.symptom_pages.map(({ id, category, title }) => ({ id, category, symptom: previous.statements.find((s) => s.id === title).text }));
+      rewritten.common = await once('common', { part: 'common', revision: { ...taskRevision, previous: { ...taskRevision.previous, page_plan: plan } } }, (output) => checkCommon({ ...output, page_plan: plan }, sources));
+      return;
+    }
+    const page = previous.symptom_pages.find((candidate) => candidate.id === owner);
+    const entry = { id: page.id, category: page.category, symptom: previous.statements.find((s) => s.id === page.title).text };
+    rewritten.pages[owner] = await once(owner, { part: 'page', entry, contacts, revision: taskRevision }, (output) => checkPage(output, entry, previous.contacts, sources));
+  });
+  return finishWriter(mergeRewritten(previous, rewritten), sources);
+}
+
+/** 全体を確かめる。部分ごとの検査を通っているので、ここで見つかるのは組み立ての誤りだけ。 */
+function finishWriter(manual, sources) {
+  const { manual: composed, problems } = composeProcedures(manual, sources);
+  if (problems.length) throw new LiveFailure('library', problems.slice(0, 10).join(' / '));
+  return composed;
 }
 
 /**

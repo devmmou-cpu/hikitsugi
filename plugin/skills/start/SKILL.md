@@ -53,13 +53,14 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/hikitsugi.mjs" <コマンド>
    「分からない」は `hikitsugi record unknown < /dev/null`、「あとで調べる」は `hikitsugi record later < /dev/null` です。
 
 ### writer
-`status` の `round` を使います。`hikitsugi:writer` に次を依頼します。
-> `hikitsugi-work/survey.json`、`hikitsugi-work/transcript.json`、`hikitsugi-work/library.json` を読み、結果の JSON（`statements`、`symptom_pages`、`contacts`、`routines`、`devices`、`glossary`）を `hikitsugi-work/manual-<round>.json` に保存してください。
+Writer は1回に1つの部分だけを書きます。`status` の `round` と `part` を使います。`part` は `common`（連絡先や手順ページの一覧など）か、手順ページの ID（`T1` など）です。
 
-`round` が 2 以上のときは、次も加えます。
-> 差し戻しです。`hikitsugi-work/findings-<round-1>.json` を revision として読んでください。
+1. `hikitsugi writer-task <round> <part>` を実行します。
+2. `hikitsugi:writer` に次を依頼します。
+   > `hikitsugi-work/survey.json`、`hikitsugi-work/transcript.json`、`hikitsugi-work/library.json`、`hikitsugi-work/writer-task.json` を読み、`writer-task.json` を task として、その部分の結果の JSON だけを `hikitsugi-work/writer-<round>-<part>.json` に保存してください。
+3. `hikitsugi check-writer <round> <part>` を実行します。問題が表示されたら、その内容を Writer に structure_problems として伝えて直してもらいます。
 
-終わったら `hikitsugi check-writer <round>` を実行します。手順部品の指定やページの形に問題があると表示されたら、その内容を Writer に伝えて直してもらいます。
+`status` が次の部分を示すあいだ、繰り返します。1ページごとに、いくつ終わったかを短く伝えます。
 
 ### editor
 `hikitsugi:plain-japanese-editor` に次を依頼します。
@@ -72,9 +73,26 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/hikitsugi.mjs" <コマンド>
 
 ### verifier
 `hikitsugi:verifier` に次を依頼します。
-> `hikitsugi-work/survey.json`、`hikitsugi-work/transcript.json`、`hikitsugi-work/library.json`、`hikitsugi-work/edited-<round>.json` を読み、`edited-<round>.json` の `statements` のすべてを検証して、結果の JSON（`results`）を `hikitsugi-work/verification-<round>.json` に保存してください。
+> `hikitsugi-work/survey.json`、`hikitsugi-work/transcript.json`、`hikitsugi-work/library.json`、`hikitsugi-work/edited-<round>.json`、`hikitsugi-work/verify-scope-<round>.json` を読み、`verify-scope-<round>.json` にある ID の記述を、`edited-<round>.json` の `statements` から探して検証し、結果の JSON（`results`）を `hikitsugi-work/verification-<round>.json` に保存してください。
 
-終わったら `hikitsugi check-verification <round>` を実行します。不合格なら、自動で次の回の writer に戻ります。差し戻しは最大2回です。
+終わったら `hikitsugi check-verification <round>` を実行します。不合格なら、自動で次の回の writer に戻り、指摘のあった部分だけを書き直します。差し戻しは最大2回です。
+
+### review
+前任者本人に、ページごとに確認してもらいます。**全文を精読してもらう必要はありません。** 確認が終わるまで、取扱説明書には「下書き（前任者の確認前）」の帯が付き、確認の印は出ません。
+
+1. `reviewer` が `null` のときは、確認する人の名前を聞いて `hikitsugi review-start <名前>` を実行します。続けて `hikitsugi render` を実行し、下書きの HTML の場所を伝えます。
+2. `status` の `page` について `hikitsugi review-show <page>` を実行し、表示された内容を見せます。
+3. AskUserQuestion で聞きます。選択肢は「このままでよい」と「直す」の2つです。何ページ目かも伝えます。
+4. 「このままでよい」なら `hikitsugi review-ok <page>` を実行します。
+5. 「直す」なら、直す内容を一言で聞いて、本人の言葉のまま標準入力で渡します。
+   ```
+   hikitsugi review-fix <page> <<'EOF_ANSWER'
+   （直す内容）
+   EOF_ANSWER
+   ```
+   この内容は聞き取りの記録になり、そのページだけを書き直して検証し直します。`status` の段階に従います。合格すると、同じページの確認に戻ります。
+
+全ページが「このままでよい」になると、確認の印が付きます。
 
 ### render
 `hikitsugi render` を実行し、できた HTML のパスを伝えます。未承認の手順部品があると表示されたら、取扱説明書は作れません。そのまま本人に伝えて止まります。「会社の OneDrive や Teams に置くと、後任がスマホで開けます」と案内します。

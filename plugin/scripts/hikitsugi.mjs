@@ -7,10 +7,12 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyEdits } from '../lib/apply-edits.mjs';
-import { buildRevision, carryForward, prepareForRender, summarizeVerification, UnapprovedPartsError } from '../lib/handover.mjs';
+import { assembleManual, checkCommon, checkPage, commonSchema, mergeRewritten, ownersOf, pageSchema, previousPiece } from '../lib/assemble.mjs';
+import { buildRevision, carryForward, markReviewed, mergeVerification, prepareForRender, summarizeVerification, UnapprovedPartsError, verificationScope } from '../lib/handover.mjs';
+import { bodyFields } from '../lib/page-check.mjs';
 import { plainProblems } from '../lib/plain-check.mjs';
 import { composeProcedures, libraryForAgents } from '../lib/procedures.mjs';
-import { appendEntry, checkNextQuestion, emptyTranscript, QUESTION_LIMIT } from '../lib/transcript.mjs';
+import { appendEntry, appendReviewEntry, checkNextQuestion, emptyTranscript, QUESTION_LIMIT } from '../lib/transcript.mjs';
 import { validate } from '../lib/validate.mjs';
 import { renderManual } from '../renderer/render.mjs';
 
@@ -45,12 +47,29 @@ export function nextStep(work) {
     return { step: 'interview', asked: count, limit: QUESTION_LIMIT, pending_question: has('next.json') };
   }
   const round = state.round ?? 1;
-  if (!has(`manual-${round}.json`)) return { step: 'writer', round };
+  if (!has(`manual-${round}.json`)) {
+    const part = writerParts(work, state, round).find((name) => !has(partFile(round, name)));
+    return { step: 'writer', round, part };
+  }
   if (!has(`edited-${round}.json`)) return { step: 'editor', round };
   if (!has(`verification-${round}.json`)) return { step: 'verifier', round };
+  if (state.passed && !state.review?.done) {
+    const manual = readJson(join(work, 'manual-final.json'));
+    const page = manual.symptom_pages.find((candidate) => !state.review?.pages?.[candidate.id]);
+    return { step: 'review', reviewer: state.review?.reviewer ?? null, page: page?.id ?? null, pages: manual.symptom_pages.length };
+  }
   if (!has('manual.html') && state.passed) return { step: 'render', round };
   if (state.passed) return { step: 'done' };
   return { step: 'not_passed', round };
+}
+
+const partFile = (round, name) => `writer-${round}-${name}.json`;
+
+/** この回に Writer が書く部分の一覧。最初の回は共通部分とページの全部、差し戻しでは指摘のあった部分だけ。 */
+function writerParts(work, state, round) {
+  if (Number(round) > 1) return state.todo ?? [];
+  const common = join(work, partFile(1, 'common'));
+  return ['common', ...(existsSync(common) ? readJson(common).page_plan.map((entry) => entry.id) : [])];
 }
 
 function init(work, [surveyPath, ...nameParts]) {
@@ -119,25 +138,107 @@ function record(work, [status], stdin) {
 }
 const rmNext = (work) => rmSync(join(work, 'next.json'), { force: true });
 
-function checkWriter(work, [round]) {
+const contactsForPages = (statements, contacts) => {
+  const text = new Map(statements.map((statement) => [statement.id, statement.text]));
+  return contacts.map(({ id, name, role }) => ({ id, name, role: text.get(role) }));
+};
+
+/** 指定の部分を書くための指示を、writer-task.json に保存する。 */
+function writerTask(work, [round, part]) {
+  if (!round || !part) throw new UsageError('使い方：writer-task <回> <部分>');
+  const state = readJson(join(work, 'state.json'));
+  let task;
+  if (Number(round) === 1) {
+    if (part === 'common') task = { part: 'common' };
+    else {
+      const common = readJson(join(work, partFile(1, 'common')));
+      const entry = common.page_plan.find((candidate) => candidate.id === part);
+      if (!entry) throw new Problem(`手順ページの一覧にありません：${part}`);
+      task = { part: 'page', entry, contacts: contactsForPages(common.statements, common.contacts) };
+    }
+  } else {
+    const { previous_manual: previous, findings } = readJson(join(work, `findings-${Number(round) - 1}.json`));
+    const revision = { previous: previousPiece(previous, part), findings: ownersOf(previous, findings).get(part) ?? [] };
+    if (state.page_fix?.page === part) revision.page_fix = state.page_fix;
+    if (part === 'common') {
+      revision.previous.page_plan = planOf(previous);
+      task = { part: 'common', revision };
+    } else {
+      const entry = planOf(previous).find((candidate) => candidate.id === part);
+      task = { part: 'page', entry, contacts: contactsForPages(previous.statements, previous.contacts), revision };
+    }
+  }
+  writeJson(join(work, 'writer-task.json'), task);
+  return `${part} を書く準備ができました（writer-task.json）`;
+}
+
+const planOf = (manual) => {
+  const text = new Map(manual.statements.map((statement) => [statement.id, statement.text]));
+  return manual.symptom_pages.map(({ id, category, title }) => ({ id, category, symptom: text.get(title) }));
+};
+
+/** 書いた部分を確かめる。全部そろったら、取扱説明書の形に組み立てる。 */
+function checkWriter(work, [round, part]) {
+  if (!round || !part) throw new UsageError('使い方：check-writer <回> <部分>');
+  const state = readJson(join(work, 'state.json'));
+  const sources = { survey: readJson(join(work, 'survey.json')), transcript: readJson(join(work, 'transcript.json')) };
+  const path = join(work, partFile(round, part));
+  const raw = readJson(path);
+  const previous = Number(round) > 1 ? readJson(join(work, `findings-${Number(round) - 1}.json`)).previous_manual : null;
+  const plan = previous ? planOf(previous) : part === 'common' ? null : readJson(join(work, partFile(1, 'common'))).page_plan;
+  const contacts = previous ? previous.contacts : part === 'common' ? null : readJson(join(work, partFile(1, 'common'))).contacts;
+  let checked;
+  if (part === 'common') {
+    const output = previous ? { ...raw, page_plan: plan } : raw;
+    const schemaProblems = validate(commonSchema(), output);
+    if (schemaProblems.length) throw new Problem(`形式が違います（共通部分）：\n${schemaProblems.slice(0, 10).join('\n')}`);
+    checked = checkCommon(output, sources);
+  } else {
+    const schemaProblems = validate(pageSchema(), raw);
+    if (schemaProblems.length) throw new Problem(`形式が違います（${part}）：\n${schemaProblems.slice(0, 10).join('\n')}`);
+    const entry = plan.find((candidate) => candidate.id === part);
+    if (!entry) throw new Problem(`手順ページの一覧にありません：${part}`);
+    checked = checkPage(raw, entry, contacts, sources);
+  }
+  if (checked.problems.length) throw new Problem(`手順部品の指定やページの形に問題があります：\n${checked.problems.join('\n')}`);
+  writeJson(path, checked.output);
+  const parts = writerParts(work, state, round);
+  const left = parts.filter((name) => !existsSync(join(work, partFile(round, name))));
+  if (left.length) return `${part} を確かめました（残り ${left.length} 件）`;
+  return assembleRound(work, Number(round));
+}
+
+/** 部分をまとめて、この回の取扱説明書にする。 */
+function assembleRound(work, round) {
   const state = readJson(join(work, 'state.json'));
   const survey = readJson(join(work, 'survey.json'));
-  const path = join(work, `manual-${round}.json`);
-  const raw = readJson(path);
-  // 会社の情報はプログラムが付ける。サブエージェントが書いた値で上書きさせない
-  const stamped = { ...raw, schema_version: 1, company: state.company, company_name: state.company_name, as_of: survey.as_of };
-  checkSchema('manual', stamped);
-  // 部品の文面はプログラムが組み立てる。部品の指定やページの形に問題があれば、Writer に直してもらう
-  const { manual, problems } = composeProcedures(stamped, { survey, transcript: readJson(join(work, 'transcript.json')) });
+  const sources = { survey, transcript: readJson(join(work, 'transcript.json')) };
+  const load = (name) => readJson(join(work, partFile(round, name)));
+  const header = { schema_version: 1, company: state.company, company_name: state.company_name, as_of: survey.as_of };
+  const assembled = round === 1
+    ? (() => {
+        const common = load('common');
+        return assembleManual(common, Object.fromEntries(common.page_plan.map((entry) => [entry.id, load(entry.id)])), header);
+      })()
+    : (() => {
+        const previous = readJson(join(work, `findings-${round - 1}.json`)).previous_manual;
+        const parts = state.todo ?? [];
+        return mergeRewritten(previous, {
+          ...(parts.includes('common') ? { common: load('common') } : {}),
+          pages: Object.fromEntries(parts.filter((name) => name !== 'common').map((name) => [name, load(name)])),
+        });
+      })();
+  const { manual, problems } = composeProcedures(assembled, sources);
   if (problems.length) throw new Problem(`手順部品の指定やページの形に問題があります：\n${problems.join('\n')}`);
   checkSchema('manual', manual);
-  if (Number(round) === 1) {
+  const path = join(work, `manual-${round}.json`);
+  if (round === 1) {
     writeJson(path, manual);
     return `書きました（文章 ${manual.statements.length} 件、手順ページ ${manual.symptom_pages.length} 件）`;
   }
   // 差し戻しでは合格済みの用語の説明を引き継ぎ、変わった文章だけを Editor に渡す
-  const before = readJson(join(work, `edited-${Number(round) - 1}.json`));
-  const verification = readJson(join(work, `verification-${Number(round) - 1}.json`));
+  const before = readJson(join(work, `edited-${round - 1}.json`));
+  const verification = readJson(join(work, `verification-${round - 1}.json`));
   const { findings } = summarizeVerification(verification, before);
   const { manual: carried, changed } = carryForward(before, findings, manual);
   checkSchema('manual', carried);
@@ -146,10 +247,20 @@ function checkWriter(work, [round]) {
   if (changed.length === 0 && remaining.long_sentences.length === 0 && remaining.unexplained_terms.length === 0) {
     writeJson(join(work, `editor-${round}.json`), { rewrites: [], glossary: [] });
     writeJson(join(work, `edited-${round}.json`), carried);
+    writeScope(work, round);
     return `直しました。Editor の作業は不要です（文章 ${carried.statements.length} 件）`;
   }
   writeJson(join(work, `editor-findings-${round}.json`), { changed_statements: changed, ...remaining });
   return `直しました（文章 ${carried.statements.length} 件、やさしくする文章 ${changed.length} 件）`;
+}
+
+/** Verifier にかける文章の一覧を保存する。差し戻しのあとは、変わった文章だけ。 */
+function writeScope(work, round) {
+  const manual = readJson(join(work, `edited-${round}.json`));
+  const scope = Number(round) === 1
+    ? manual.statements.map((statement) => statement.id)
+    : verificationScope(readJson(join(work, `edited-${Number(round) - 1}.json`)), readJson(join(work, `verification-${Number(round) - 1}.json`)), manual);
+  writeJson(join(work, `verify-scope-${round}.json`), { statements: scope });
 }
 
 function mergeEdits(work, [round]) {
@@ -157,6 +268,7 @@ function mergeEdits(work, [round]) {
   const { manual: edited, changes } = applyEdits(manual, readJson(join(work, `editor-${round}.json`)));
   checkSchema('manual', edited);
   writeJson(join(work, `edited-${round}.json`), edited);
+  writeScope(work, round);
   const problems = plainProblems(edited);
   const remaining = { long_sentences: problems.long_sentences, unexplained_terms: problems.unexplained_terms };
   writeJson(join(work, `plain-findings-${round}.json`), remaining);
@@ -172,20 +284,117 @@ function checkVerification(work, [round]) {
   const manual = readJson(join(work, `edited-${round}.json`));
   const path = join(work, `verification-${round}.json`);
   const raw = readJson(path);
-  const verification = { schema_version: 1, company: state.company, round: Number(round), results: raw.results };
+  let results = raw.results;
+  // 差し戻しのあとは変わった文章だけをかけ直すので、ほかは前回の結果を使う
+  if (Number(round) > 1 && existsSync(join(work, `verify-scope-${round}.json`))) {
+    const scope = readJson(join(work, `verify-scope-${round}.json`)).statements;
+    const inScope = new Set(scope);
+    results = mergeVerification(readJson(join(work, `verification-${Number(round) - 1}.json`)), raw.results.filter((result) => inScope.has(result.statement)), manual, scope).results;
+  }
+  const verification = { schema_version: 1, company: state.company, round: Number(round), results };
   checkSchema('verification', verification);
   writeJson(path, verification);
   const result = summarizeVerification(verification, manual);
   if (result.passed) {
-    writeJson(join(work, 'state.json'), { ...state, passed: true });
+    const { page_fix: _fix, todo: _todo, ...rest } = state;
+    writeJson(join(work, 'state.json'), { ...rest, passed: true });
     writeJson(join(work, 'manual-final.json'), manual);
     return `合格しました（文章 ${manual.statements.length} 件）`;
   }
   const line = `不合格：矛盾 ${result.counts.contradiction} 件、根拠なし ${result.counts.unsupported} 件、危険 ${result.counts.dangerous} 件、判定なし ${result.unanswered.length} 件`;
-  writeJson(join(work, `findings-${round}.json`), buildRevision(manual, result.findings));
-  if (Number(round) > MAX_RESENDS) return `${line}\n差し戻しの上限に達しました`;
-  writeJson(join(work, 'state.json'), { ...state, round: Number(round) + 1 });
-  return `${line}\n差し戻します（findings-${round}.json）`;
+  const revision = buildRevision(manual, result.findings);
+  writeJson(join(work, `findings-${round}.json`), revision);
+  if (Number(round) - (state.round_base ?? 0) > MAX_RESENDS) return `${line}\n差し戻しの上限に達しました`;
+  const todo = [...ownersOf(revision.previous_manual, revision.findings).keys()];
+  const next = Number(round) + 1;
+  writeJson(join(work, 'state.json'), { ...state, round: next, todo });
+  // 用語の説明だけの指摘なら、Writer の仕事はない。すぐに組み立てて Editor へ進む
+  if (!todo.length) return `${line}\n${assembleRound(work, next)}`;
+  return `${line}\n差し戻します（直す部分：${todo.join('、')}）`;
+}
+
+// ---- 前任者の確認 ----
+const textsOf = (manual, ids) => {
+  const text = new Map(manual.statements.map((statement) => [statement.id, statement.text]));
+  return ids.map((id) => text.get(id));
+};
+
+function reviewStart(work, nameParts) {
+  const reviewer = nameParts.join(' ').trim();
+  if (!reviewer) throw new UsageError('使い方：review-start <確認する人の名前>');
+  const state = readJson(join(work, 'state.json'));
+  writeJson(join(work, 'state.json'), { ...state, review: { reviewer, pages: {}, done: false } });
+  return `${reviewer} さんの確認を始めます`;
+}
+
+/** ページの中身を、確認しやすい文章にして返す。 */
+function reviewShow(work, [pageId]) {
+  const manual = readJson(join(work, 'manual-final.json'));
+  const page = manual.symptom_pages.find((candidate) => candidate.id === pageId);
+  if (!page) throw new Problem(`手順ページがありません：${pageId}`);
+  const fields = bodyFields(page);
+  const section = (label, ids) => (ids.length ? [`【${label}】`, ...textsOf(manual, ids)] : []);
+  const contact = page.fallback ? manual.contacts.find((candidate) => candidate.id === page.fallback.contact) : null;
+  return [
+    `${pageId}：${textsOf(manual, [page.title])[0]}`,
+    ...textsOf(manual, [page.badge.statement, page.reassurance]),
+    ...section('まずこれだけ', [...fields.first_steps, ...fields.first_goal]),
+    ...section('先に知っておくこと', fields.notes),
+    ...section('手順', [...fields.branches, ...fields.steps, ...fields.goal, ...fields.exceptions]),
+    ...(contact ? ['【それでもだめなら】', `${contact.name} ${contact.phone}`.trim(), ...textsOf(manual, [page.fallback.message])] : []),
+    ...section('この症状で使う会社の情報', fields.info_rows),
+  ].join('\n');
+}
+
+function reviewOk(work, [pageId]) {
+  const state = readJson(join(work, 'state.json'));
+  if (!state.passed || !state.review?.reviewer) throw new Problem('確認を始められる段階ではありません');
+  const finalPath = join(work, 'manual-final.json');
+  const manual = readJson(finalPath);
+  if (!manual.symptom_pages.some((page) => page.id === pageId)) throw new Problem(`手順ページがありません：${pageId}`);
+  const pages = { ...state.review.pages, [pageId]: 'ok' };
+  const left = manual.symptom_pages.filter((page) => !pages[page.id]);
+  if (left.length) {
+    writeJson(join(work, 'state.json'), { ...state, review: { ...state.review, pages } });
+    return `${pageId} を確認しました（残り ${left.length} ページ）`;
+  }
+  // 全ページが済んだので、確認の印を付ける。下書きの HTML は作り直す
+  const today = new Date().toLocaleDateString('sv');
+  writeJson(finalPath, checkSchema('manual', markReviewed(manual, state.review.reviewer, today)));
+  rmSync(join(work, 'manual.html'), { force: true });
+  writeJson(join(work, 'state.json'), { ...state, review: { ...state.review, pages, done: true, confirmed_on: today } });
+  return '全ページの確認が終わりました';
+}
+
+/** 直す内容は標準入力で受け取り、聞き取りの記録にする。そのページだけを書き直して、検証し直す。 */
+function reviewFix(work, [pageId], stdin) {
+  const state = readJson(join(work, 'state.json'));
+  if (!state.passed || !state.review?.reviewer) throw new Problem('確認を始められる段階ではありません');
+  const manual = readJson(join(work, 'manual-final.json'));
+  const page = manual.symptom_pages.find((candidate) => candidate.id === pageId);
+  if (!page) throw new Problem(`手順ページがありません：${pageId}`);
+  const transcriptPath = join(work, 'transcript.json');
+  let added;
+  try {
+    added = appendReviewEntry(readJson(transcriptPath), { pageId, title: textsOf(manual, [page.title])[0], comment: stdin, answeredAt: new Date().toISOString() });
+  } catch (error) {
+    throw new Problem(error.message);
+  }
+  checkSchema('transcript', added.transcript);
+  writeJson(transcriptPath, added.transcript);
+  const round = state.round;
+  writeJson(join(work, `findings-${round}.json`), buildRevision(manual, []));
+  const { [pageId]: _done, ...pages } = state.review.pages;
+  writeJson(join(work, 'state.json'), {
+    ...state,
+    passed: false,
+    round: round + 1,
+    round_base: round,
+    todo: [pageId],
+    page_fix: { page: pageId, comment: added.entry.answer, evidence: added.entry.id },
+    review: { ...state.review, pages },
+  });
+  return `記録しました（${added.entry.id}）。${pageId} を書き直します`;
 }
 
 function render(work, [outPath]) {
@@ -202,7 +411,7 @@ function render(work, [outPath]) {
   const target = resolve(outPath ?? join(work, 'manual.html'));
   writeFileSync(target, renderManual(manual));
   if (target !== resolve(join(work, 'manual.html'))) writeFileSync(join(work, 'manual.html'), renderManual(manual));
-  const notes = [`取扱説明書を作りました：${target}`];
+  const notes = [manual.review ? `取扱説明書を作りました：${target}` : `下書きを作りました：${target}`];
   if (omitted.routines || omitted.devices) notes.push(`表示プログラムが未対応のため外した項目：定期作業 ${omitted.routines} 件、機器 ${omitted.devices} 件`);
   return notes.join('\n');
 }
@@ -215,9 +424,14 @@ const COMMANDS = {
   'check-gaps': checkGaps,
   'check-next': checkNext,
   record,
+  'writer-task': writerTask,
   'check-writer': checkWriter,
   'merge-edits': mergeEdits,
   'check-verification': checkVerification,
+  'review-start': reviewStart,
+  'review-show': reviewShow,
+  'review-ok': reviewOk,
+  'review-fix': reviewFix,
   render,
 };
 
@@ -232,7 +446,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const [command, ...args] = process.argv.slice(2);
   const work = resolve(process.env.HIKITSUGI_WORK ?? 'hikitsugi-work');
   try {
-    const stdin = command === 'record' ? readFileSync(0, 'utf8') : '';
+    const stdin = command === 'record' || command === 'review-fix' ? readFileSync(0, 'utf8') : '';
     console.log(run(command, args, { work, stdin }));
   } catch (error) {
     if (error instanceof Problem) {

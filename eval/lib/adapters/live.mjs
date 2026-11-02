@@ -49,7 +49,7 @@ export const modelOf = (agent) => {
   return model;
 };
 
-function stripUnsupported(schema) {
+export function stripUnsupported(schema) {
   if (Array.isArray(schema)) return schema.map(stripUnsupported);
   if (schema === null || typeof schema !== 'object') return schema;
   return Object.fromEntries(

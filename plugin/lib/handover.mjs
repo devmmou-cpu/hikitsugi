@@ -75,3 +75,24 @@ export function carryForward(previous, findings, written) {
     .map((statement) => statement.id);
   return { manual: { ...written, statements: [...written.statements, ...carried], glossary }, changed };
 }
+
+/**
+ * 差し戻しのあと、Verifier にかけ直す文章を選ぶ。
+ * 前回「正しい」と判定され、文面が変わっていない文章は、かけ直さない。
+ */
+export function verificationScope(previousManual, previousVerification, manual) {
+  const before = new Map(previousManual.statements.map((statement) => [statement.id, statement.text]));
+  const correct = new Set(previousVerification.results.filter((result) => result.verdict === 'correct').map((result) => result.statement));
+  return manual.statements.filter((statement) => !(correct.has(statement.id) && before.get(statement.id) === statement.text)).map((statement) => statement.id);
+}
+
+/** かけ直した結果に、変わっていない文章の前回の結果を足して、全文の結果にする。 */
+export function mergeVerification(previousVerification, results, manual, scope) {
+  const inScope = new Set(scope);
+  const known = new Set(manual.statements.map((statement) => statement.id));
+  const carried = previousVerification.results.filter((result) => known.has(result.statement) && !inScope.has(result.statement));
+  return { ...previousVerification, results: [...carried, ...results] };
+}
+
+/** 全ページの確認が済んだ印を付ける。 */
+export const markReviewed = (manual, reviewer, confirmedOn) => ({ ...manual, review: { reviewer, confirmed_on: confirmedOn } });

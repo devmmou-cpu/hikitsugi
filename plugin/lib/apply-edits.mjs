@@ -29,8 +29,8 @@ export function applyEdits(manual, edits, { revert = true } = {}) {
     if (!known.has(id)) throw new Error(`存在しない文章を直しています: ${id}`);
     rewrites.set(id, text);
   }
-  // 共有フォルダの表の文章は、決まった形から値を読むので直さない
-  const tableStatements = new Set(manual.symptom_pages.flatMap((page) => page.drive_rows));
+  // 会社の情報の表の文章は、決まった形から値を読むので直さない
+  const tableStatements = new Set(manual.symptom_pages.flatMap((page) => page.info_rows));
   const changes = [];
   const statements = manual.statements.map((statement) => {
     const text = rewrites.get(statement.id);
