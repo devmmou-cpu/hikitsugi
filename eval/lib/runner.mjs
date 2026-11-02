@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { validate } from '../../plugin/lib/validate.mjs';
 import { getAdapter, NotImplementedError, UsageError } from './adapters/index.mjs';
 import { CREDENTIAL } from './integrity.mjs';
-import { loadAnswers, loadHidden, loadInput, readJson } from './load-set.mjs';
+import { loadAnswers, loadCase, loadHidden, loadInput, readJson } from './load-set.mjs';
 import * as verifier from './scorers/verifier.mjs';
 import * as gaps from './scorers/gaps.mjs';
 import * as interview from './scorers/interview.mjs';
@@ -90,10 +90,15 @@ function summarizeCalls(calls) {
  * 1回分の評価を実行して結果を保存する。
  * 設定の誤り（UsageError）と未実装（NotImplementedError）は実行として記録せず、そのまま投げる。
  */
-export async function runEval({ set, setDir, target, adapter: adapterName, outputPath, resultsRoot, runId, client }) {
+export async function runEval({ set, setDir, target, adapter: adapterName, outputPath, resultsRoot, runId, client, final = false }) {
   const spec = TARGETS[target];
   if (!spec) throw new UsageError(`${target} という対象はありません（使えるもの：${targetNames.join('、')}）`);
   const adapter = getAdapter(target, adapterName);
+  // 保留の会社は最終確認にだけ使う。うっかり実行して調整に使わないよう、明示の指定がなければ止める
+  const { split } = loadCase(setDir);
+  if (split === 'holdout' && !final) {
+    throw new UsageError(`${set} は保留の会社です。最終確認のときだけ --final を付けて実行してください`);
+  }
 
   const calls = [];
   const rawTexts = [];
@@ -113,7 +118,7 @@ export async function runEval({ set, setDir, target, adapter: adapterName, outpu
       calls.push({ ...call, credentials_masked: count });
     },
   };
-  const meta = { set, target, adapter: adapterName, run_id: runId, label: '模擬評価' };
+  const meta = { set, split, target, adapter: adapterName, run_id: runId, label: '模擬評価' };
 
   let rows = [];
   let summary = null;

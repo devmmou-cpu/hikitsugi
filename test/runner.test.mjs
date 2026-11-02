@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -147,6 +147,19 @@ test('未対応の対象の live は未実装で止まり、対応しないア�
     await assert.rejects(run('manual', 'oracle', dir), UsageError);
     await assert.rejects(run('存在しない', 'oracle', dir), UsageError);
     await assert.rejects(run('verifier', 'fixture', dir), UsageError);
+  }));
+
+test('保留の会社は --final がなければ実行できず、結果には split を残す', () =>
+  withResults(async (dir) => {
+    const copy = join(dir, 'holdout-set');
+    cpSync(SET, copy, { recursive: true });
+    const casePath = join(copy, 'case.json');
+    writeFileSync(casePath, JSON.stringify({ ...JSON.parse(readFileSync(casePath, 'utf8')), split: 'holdout' }));
+    const options = { set: 'holdout-set', setDir: copy, target: 'verifier', adapter: 'oracle', resultsRoot: dir, runId: 'holdout' };
+    await assert.rejects(runEval(options), UsageError);
+    const final = await runEval({ ...options, final: true });
+    assert.equal(final.split, 'holdout');
+    assert.equal(final.status, 'ok');
   }));
 
 function cli(...args) {

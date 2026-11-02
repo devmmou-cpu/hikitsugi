@@ -2,7 +2,7 @@
 // 問題の一覧（文字列の配列）を返す。空なら合格。
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { basename, join, relative, sep } from 'node:path';
 import { validate } from '../../plugin/lib/validate.mjs';
 import { buildTranscript } from './build-transcript.mjs';
 import { readJson } from './load-set.mjs';
@@ -29,12 +29,41 @@ const ALLOWED_WORDS = new Set([
   // 許可された実在の名前（製品名として使ってよいのはこの範囲だけ）
   'Windows', 'Microsoft', 'Teams', 'OneDrive', 'Outlook', 'Excel', 'PowerShell', 'Apps', 'Pro', 'Update',
   // 一般的な用語
-  'AP', 'CAD', 'DHCP', 'DNS', 'IT', 'LAN', 'NAS', 'OS', 'PC', 'PDF', 'UTM', 'USB', 'Web', 'Wi-Fi',
-  'RAID1', 'RAID5', 'X', 'Y', 'Z', 'S', 'A', 'B',
+  'AP', 'CAD', 'DHCP', 'DNS', 'IP', 'IT', 'LAN', 'NAS', 'OS', 'PC', 'PDF', 'UTM', 'USB', 'VPN', 'Web', 'Wi-Fi',
+  'RAID1', 'RAID5', 'RAID6', 'X', 'Y', 'Z', 'S', 'A', 'B',
   // 予約済みドメイン
   'example',
 ]);
-const ALLOWED_WORD_PATTERNS = [/^OKJ-/, /^OKOJO-/, /^okojo-seiko$/, /^Okojo$/, /^MODEL-[A-Z]\d$/];
+const ALLOWED_WORD_PATTERNS = [/^MODEL-[A-Z]\d$/];
+
+// 使ってよい架空の名前（CLAUDE.md の「架空のルール」と同じもの）
+const COMPANY_NAMES = {
+  okojo: 'オコジョ精工株式会社',
+  kuzuri: 'クズリ運輸株式会社',
+  kinodoten: 'キノドテン建設株式会社',
+  rater: 'ラーテル商事株式会社',
+  kenaga: 'ケナガ印刷株式会社',
+};
+const VENDOR_NAMES = new Set(['クロテン通信', 'カワウソシステムサービス', 'イタチ事務機', 'イイズナソフト', 'フェレット企画']);
+const PERSON_NAMES = new Set(['田中さん', '佐藤さん']);
+const PERSON = /[一-龠ァ-ヶー々]{1,6}さん/gu;
+const LEGAL_NAME = /[一-龠ァ-ヶー々A-Za-z]*(?:株式会社|有限会社|合同会社)[一-龠ァ-ヶー々A-Za-z]*/gu;
+const IPV4 = /(?<![\d.])\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?![\d.])/g;
+const FICTIONAL_IP = /^192\.168\.10\.\d{1,3}$/;
+const DOMAIN = /[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.(?:example|com|net|org|jp|io|co)(?![A-Za-z0-9-])/g;
+
+// オコジョ精工のデータは変更しないので、機器名などの決まりをここに置く。他の会社は case.json の identifiers に書く
+const OKOJO_IDENTIFIERS = { host_prefix: 'OKJ', brand: 'OKOJO', domain: 'okojo-seiko', latin: 'Okojo' };
+
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function identifierPatterns({ host_prefix, brand, domain, latin }) {
+  return [
+    new RegExp(`^${escapeRegExp(host_prefix)}-`),
+    new RegExp(`^${escapeRegExp(brand)}-`),
+    new RegExp(`^${escapeRegExp(domain)}$`),
+    new RegExp(`^${escapeRegExp(latin)}$`),
+  ];
+}
 const WORD = /(?<![0-9A-Za-z.\\-])[A-Za-z][A-Za-z0-9-]*/g;
 
 // 入力に漏れてはいけない語（正解や仕掛けを示す語）
@@ -62,7 +91,7 @@ function collectStrings(value, out = []) {
 // 識別子や区分だけを入れる項目。人が読む文章ではないので、語の検査から外す。
 const IDENTIFIER_FIELDS = new Set([
   'action', 'category', 'company', 'contact', 'covers', 'error', 'evidence', 'expected', 'facts', 'gap', 'group',
-  'id', 'item', 'key', 'kind', 'ref', 'split', 'state', 'status',
+  'id', 'item', 'key', 'kind', 'ref', 'split', 'state', 'status', 'host_prefix', 'brand', 'domain', 'latin',
 ]);
 
 /** 人が読む文章の文字列だけを集める。 */
@@ -121,6 +150,20 @@ export function checkSet(setDir, { repoRoot, checklistPath, schemaRoot = repoRoo
   }
   // 形式が壊れていると以降の検査が意味を持たないので、ここで返す
   if (problems.length) return problems;
+
+  // ---- 会社の定義 ----
+  const company = data.case.company;
+  if (basename(setDir) !== company) problems.push(`フォルダ名と会社 ID が違います: ${company}`);
+  for (const [name, content] of Object.entries(data)) {
+    if (content.company !== company) problems.push(`${name} の会社 ID が違います: ${content.company}`);
+  }
+  if (COMPANY_NAMES[company] !== data.case.name) problems.push(`使えない会社名です: ${data.case.name}`);
+  for (const vendor of data.case.vendors) {
+    if (!VENDOR_NAMES.has(vendor.name)) problems.push(`使えない業者名です: ${vendor.name}`);
+  }
+  const identifiers = company === 'okojo' ? OKOJO_IDENTIFIERS : data.case.identifiers;
+  if (!identifiers) problems.push('case.json に identifiers がありません');
+  const wordPatterns = [...ALLOWED_WORD_PATTERNS, ...(identifiers ? identifierPatterns(identifiers) : [])];
 
   // ---- 必須項目 ----
   const expectedChk = Array.from({ length: 40 }, (_, i) => `CHK-${String(i + 1).padStart(2, '0')}`);
@@ -265,7 +308,7 @@ export function checkSet(setDir, { repoRoot, checklistPath, schemaRoot = repoRoo
   for (const source of textSources) {
     for (const text of collectValues(source)) {
       for (const [word] of text.matchAll(WORD)) {
-        if (ALLOWED_WORDS.has(word) || ALLOWED_WORD_PATTERNS.some((p) => p.test(word))) continue;
+        if (ALLOWED_WORDS.has(word) || wordPatterns.some((p) => p.test(word))) continue;
         // 正解の説明文では E 番号を使ってよい
         if (/^E(?:[1-9]|10)$/.test(word)) continue;
         problems.push(`許可リストにない英字の語があります: ${word}（${text}）`);
@@ -281,12 +324,55 @@ export function checkSet(setDir, { repoRoot, checklistPath, schemaRoot = repoRoo
       }
     }
   }
+  // ---- 架空性：人名、法人名、IP、ドメイン ----
+  const allowedDomain = identifiers ? `${identifiers.domain}.example` : null;
+  for (const source of [data.case, data.survey, data.transcript, data.statements, data.facts, data.verifier, data.gaps, data.troubles]) {
+    for (const text of collectValues(source)) {
+      for (const [person] of text.matchAll(PERSON)) {
+        if (!PERSON_NAMES.has(person)) problems.push(`使えない人名です: ${person}（${text}）`);
+      }
+      for (const [name] of text.matchAll(LEGAL_NAME)) {
+        if (name !== data.case.name) problems.push(`使えない法人名です: ${name}（${text}）`);
+      }
+      for (const [ip] of text.matchAll(IPV4)) {
+        if (!FICTIONAL_IP.test(ip)) problems.push(`架空の形式ではない IP です: ${ip}`);
+      }
+      for (const [domain] of text.matchAll(DOMAIN)) {
+        if (!domain.endsWith(allowedDomain)) problems.push(`架空の形式ではないドメインです: ${domain}`);
+      }
+    }
+  }
+
   // E4 の電話番号は、どの根拠にもあってはいけない
   const e4 = seeded.find((a) => a.error === 'E4');
   const e4Phone = statements.find((s) => s.id === e4?.id)?.text.match(PHONE)?.[0];
   if (!e4Phone) problems.push('E4 の記述に電話番号がありません');
   else if ([data.survey, data.transcript, data.facts, data.case].some((src) => JSON.stringify(src).includes(e4Phone))) {
     problems.push(`E4 の電話番号が根拠側に存在します: ${e4Phone}`);
+  }
+
+  // 例外のない会社の E4 は、ほかの事実と矛盾しない純粋な「根拠なし」にする。
+  // 実在する業者について、記録にない電話番号を書いた形だけを認める。
+  if (e4 && !VERDICT_EXCEPTIONS[company]?.E4) {
+    const e4Text = statements.find((s) => s.id === e4.id)?.text ?? '';
+    const vendor = data.case.vendors.find((v) => e4Text.includes(v.name));
+    if (!vendor) problems.push('E4 の記述に業者名がありません');
+    else {
+      if ([data.survey, data.transcript].some((src) => JSON.stringify(src).includes(vendor.phone))) {
+        problems.push(`E4 の業者の本当の電話番号が調査データか聞き取りにあります（番号の矛盾になります）: ${vendor.name}`);
+      }
+      if (data.troubles.troubles.some((t) => t.contact === vendor.id)) {
+        problems.push(`E4 の業者を T1〜T5 の連絡先にしないでください: ${vendor.name}`);
+      }
+      const supported = e4.support.some(({ ref }) => evidenceText(ref)?.includes(vendor.name));
+      if (!supported) problems.push(`E4 の正解の根拠に、業者の存在を示す記録がありません: ${vendor.name}`);
+    }
+    for (const { ref } of e4.support) {
+      const text = evidenceText(ref) ?? '';
+      if (/契約(?:は|を)?(?:ありません|していません|なし)|窓口はありません|連絡先はありません/.test(text)) {
+        problems.push(`E4 の根拠が記述を否定しています（矛盾になります）: ${ref}`);
+      }
+    }
   }
 
   // ---- 認証情報：E5 の1件以外に存在しないこと ----

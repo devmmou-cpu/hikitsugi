@@ -138,6 +138,30 @@ test('E4 の例外はオコジョ精工だけで、他の会社の E4 は「根�
   includes(other, 'E4 の期待判定');
 });
 
+test('使えない人名、法人名、業者名、IP、ドメインは失敗する', () => {
+  const edit = (fn) => withCopy((setDir) => editJson(join(setDir, 'input/statements.json'), (d) => fn(d.statements[0])));
+  includes(edit((s) => { s.text = '鈴木さんに連絡します。'; }), '使えない人名');
+  includes(edit((s) => { s.text = '株式会社テストに連絡します。'; }), '使えない法人名');
+  includes(edit((s) => { s.text = '機器は 10.0.0.1 にあります。'; }), '架空の形式ではない IP');
+  includes(edit((s) => { s.text = '管理画面は admin.okojo-seiko.com です。'; }), '架空の形式ではないドメイン');
+  const vendor = withCopy((setDir) => editJson(join(setDir, 'case.json'), (d) => { d.vendors[0].name = 'テスト通信'; }));
+  includes(vendor, '使えない業者名');
+});
+
+test('例外のない会社の E4 が純粋な「根拠なし」でなければ失敗する', () => {
+  const asOther = (fn = () => {}) =>
+    withCopy((setDir) => {
+      editJson(join(setDir, 'case.json'), (d) => { d.company = 'other'; });
+      editJson(join(setDir, 'answers/verifier.json'), (d) => {
+        d.statements.find((s) => s.error === 'E4').expected = 'unsupported';
+      });
+      fn(setDir);
+    });
+  // オコジョ精工の E4 のままだと、業者名がなく、根拠が「保守契約はありません」なので通らない
+  includes(asOther(), 'E4 の記述に業者名がありません');
+  includes(asOther(), 'E4 の根拠が記述を否定しています');
+});
+
 test('E4 の電話番号が根拠側に現れると失敗する', () => {
   const problems = withCopy((setDir) => {
     editJson(join(setDir, 'case.json'), (d) => {

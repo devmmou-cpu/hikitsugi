@@ -12,10 +12,12 @@ import { NotImplementedError, runEval, targetNames, UsageError } from './lib/run
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 const HELP = `使い方：
-  node eval/run.mjs --set okojo --target <対象> --adapter <アダプター> [--output <ファイル>] [--results-dir <フォルダ>]
+  node eval/run.mjs --set okojo --target <対象> --adapter <アダプター> [--output <ファイル>] [--results-dir <フォルダ>] [--final]
 
 対象とアダプター：
 ${targetNames.map((t) => `  ${t.padEnd(10)} ${adapterNames(t).join(', ')}`).join('\n')}
+
+保留（holdout）の会社は --final を付けたときだけ実行できます。
 
 アダプター：
   oracle       正解をそのまま返す（採点の仕組みの確認用）
@@ -35,6 +37,7 @@ function main() {
         adapter: { type: 'string' },
         output: { type: 'string' },
         'results-dir': { type: 'string' },
+        final: { type: 'boolean' },
         help: { type: 'boolean' },
       },
     }));
@@ -57,6 +60,7 @@ function main() {
     target: values.target,
     adapter: values.adapter,
     outputPath: values.output,
+    final: values.final ?? false,
     resultsRoot: values['results-dir'] ?? join(HERE, 'results'),
     runId: `${stamp}-${values.set}-${values.target}-${values.adapter}`,
   }).then((result) => {
