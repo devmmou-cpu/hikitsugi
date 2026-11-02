@@ -37,7 +37,7 @@ const TABS = [
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ESCAPES[c]);
 
-/** 2026-11-20 を 2026年11月20日 にする。Date を使わず、文字列のまま変換する。 */
+/** 2026-11-05 を 2026年11月5日 にする。Date を使わず、文字列のまま変換する。 */
 function formatDate(isoDate) {
   const [year, month, day] = isoDate.split('-').map(Number);
   return `${year}年${month}月${day}日`;

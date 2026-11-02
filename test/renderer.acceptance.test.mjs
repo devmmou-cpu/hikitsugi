@@ -313,7 +313,7 @@ for (const [value, label] of [
 test('根拠：調査データの日付と聞き取りを表示する', () => {
   const text = visibleText(SECTION_OF_T1());
   assert.ok(text.includes('調査データ'));
-  assert.ok(text.includes('2026年11月20日'));
+  assert.ok(text.includes('2026年11月5日'));
   assert.ok(text.includes('聞き取り'));
   assert.ok(text.includes('確認済み'));
 });

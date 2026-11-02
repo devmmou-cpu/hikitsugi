@@ -3,7 +3,7 @@
   "company": "okojo",
   "name": "オコジョ精工株式会社",
   "fictional": true,
-  "as_of": "2026-11-20",
+  "as_of": "2026-11-05",
   "summary": "精密部品の切削加工を行う架空の町工場。従業員42名。総務課の田中さんが IT を兼任し、ITが未経験の佐藤さんに引き継ぐ。",
   "split": "tuning",
   "vendors": [

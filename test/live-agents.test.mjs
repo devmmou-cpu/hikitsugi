@@ -127,7 +127,7 @@ test('聞き取りは20問で止まり、ID はプログラムが振る', async 
       asked += 1;
       return { answer: '回答です', status: 'answered' };
     },
-    clock: () => '2026-11-20T10:00:00+09:00',
+    clock: () => '2026-11-05T10:00:00+09:00',
   });
   assert.equal(asked, QUESTION_LIMIT);
   assert.equal(transcript.entries.at(-1).id, 'INT-020');
