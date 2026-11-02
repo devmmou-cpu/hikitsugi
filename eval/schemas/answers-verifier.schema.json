@@ -18,6 +18,7 @@
           "error": { "type": ["string", "null"], "pattern": "^E([1-9]|10)$" },
           "expected": { "enum": ["correct", "contradiction", "unsupported", "dangerous"] },
           "note": { "type": "string", "minLength": 1 },
+          "pair": { "type": "string", "pattern": "^S-\\d{2}$" },
           "support": {
             "type": "array",
             "minItems": 1,

@@ -162,6 +162,23 @@ test('例外のない会社の E4 が純粋な「根拠なし」でなければ�
   includes(asOther(), 'E4 の根拠が記述を否定しています');
 });
 
+test('誤りと対になる正しい記述が隣にあると失敗する', () => {
+  const withPair = (seededId, pair) =>
+    withCopy((setDir) => {
+      editJson(join(setDir, 'answers/verifier.json'), (d) => {
+        d.statements.find((s) => s.id === seededId).pair = pair;
+      });
+    });
+  const answers = JSON.parse(readFileSync(join(ROOT, 'eval/sets/okojo/answers/verifier.json'), 'utf8')).statements;
+  const ids = JSON.parse(readFileSync(join(ROOT, 'eval/sets/okojo/input/statements.json'), 'utf8')).statements.map((s) => s.id);
+  const kind = (id) => answers.find((a) => a.id === id).kind;
+  const i = ids.findIndex((id, n) => kind(id) === 'seeded' && kind(ids[n + 1]) === 'correct');
+  includes(withPair(ids[i], ids[i + 1]), '近すぎます');
+  const far = ids.find((id, n) => kind(id) === 'correct' && Math.abs(n - i) >= 2);
+  assert.deepEqual(withPair(ids[i], far), []);
+  includes(withPair(far, ids[i]), 'pair は');
+});
+
 test('E4 の電話番号が根拠側に現れると失敗する', () => {
   const problems = withCopy((setDir) => {
     editJson(join(setDir, 'case.json'), (d) => {

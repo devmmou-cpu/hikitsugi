@@ -24,6 +24,8 @@ const VERDICT_BY_ERROR = {
 // 他の会社の E4 は、ほかの事実と矛盾しない純粋な「根拠なし」にする。
 const VERDICT_EXCEPTIONS = { okojo: { E4: 'contradiction' } };
 
+const MIN_PAIR_DISTANCE = 2;
+
 // 英字の語は許可リスト方式で確認する。実在の製品名やメーカー名を、禁止リストとしてリポジトリに置かないため。
 const ALLOWED_WORDS = new Set([
   // 許可された実在の名前（製品名として使ってよいのはこの範囲だけ）
@@ -91,7 +93,7 @@ function collectStrings(value, out = []) {
 // 識別子や区分だけを入れる項目。人が読む文章ではないので、語の検査から外す。
 const IDENTIFIER_FIELDS = new Set([
   'action', 'category', 'company', 'contact', 'covers', 'error', 'evidence', 'expected', 'facts', 'gap', 'group',
-  'id', 'item', 'key', 'kind', 'ref', 'split', 'state', 'status', 'host_prefix', 'brand', 'domain', 'latin',
+  'id', 'item', 'key', 'kind', 'pair', 'ref', 'split', 'state', 'status', 'host_prefix', 'brand', 'domain', 'latin',
 ]);
 
 /** 人が読む文章の文字列だけを集める。 */
@@ -253,6 +255,17 @@ export function checkSet(setDir, { repoRoot, checklistPath, schemaRoot = repoRoo
       problems.push(`${answer.id}: 正しい記述の期待判定は correct で、error は null です`);
     }
   }
+  // 誤りと、対になる正しい記述を隣に並べない。並んでいると、根拠を読まなくても見当がつくため
+  answers.filter((a) => a.pair).forEach((answer) => {
+    const partner = answers.find((a) => a.id === answer.pair);
+    if (answer.kind !== 'seeded' || partner?.kind !== 'correct') {
+      problems.push(`${answer.id}: pair は、誤りの記述から正しい記述を指します`);
+      return;
+    }
+    if (Math.abs(statementIds.indexOf(answer.id) - statementIds.indexOf(answer.pair)) < MIN_PAIR_DISTANCE) {
+      problems.push(`${answer.id}: 対になる正しい記述 ${answer.pair} が近すぎます`);
+    }
+  });
   // 誤りが先頭や末尾に固まっていないこと
   const isSeeded = (id) => answers.find((a) => a.id === id)?.kind === 'seeded';
   if (statementIds.slice(0, 10).every(isSeeded) || statementIds.slice(-10).every(isSeeded)) {
