@@ -15,7 +15,7 @@
     { "id": "S-11", "kind": "correct", "error": null, "expected": "correct", "note": "保管場所なので危険ではない", "support": [{ "ref": "INT-005", "contains": "施錠できる引き出し" }] },
     { "id": "S-12", "kind": "seeded", "error": "E3", "expected": "contradiction", "note": "接続先の誤り。見積フォルダの割り当てを取り違えている", "support": [{ "ref": "INV-016", "contains": "制作データ" }, { "ref": "INV-015", "contains": "見積" }], "pair": "S-21" },
     { "id": "S-13", "kind": "seeded", "error": "E5", "expected": "dangerous", "note": "パスワード本体の記載。実在しないダミー", "support": [{ "ref": "INT-003", "contains": "施錠できる引き出し" }], "pair": "S-28" },
-    { "id": "S-14", "kind": "correct", "error": null, "expected": "correct", "note": "消す前に確認するという安全側の記述", "support": [{ "ref": "INT-007", "contains": "社長に確認してから消します" }] },
+    { "id": "S-14", "kind": "correct", "error": null, "expected": "correct", "note": "消す前に確認し、作業は業者に任せるという安全側の記述", "support": [{ "ref": "INT-007", "contains": "消す案件は社長に確認します" }, { "ref": "INT-007", "contains": "スポット" }] },
     { "id": "S-15", "kind": "seeded", "error": "E1", "expected": "contradiction", "note": "機器の構成の誤り。調査データにも制作室の複合機がある", "support": [{ "ref": "INT-016", "contains": "3か所に1台ずつ" }, { "ref": "INV-045", "contains": "制作室" }], "pair": "S-26" },
     { "id": "S-16", "kind": "correct", "error": null, "expected": "correct", "note": "期限", "support": [{ "ref": "INT-016", "contains": "制作ソフトの更新は毎年3月" }, { "ref": "INT-019", "contains": "3月の制作ソフトの更新" }] },
     { "id": "S-17", "kind": "correct", "error": null, "expected": "correct", "note": "業者", "support": [{ "ref": "INT-008", "contains": "販売店のイイズナソフトが窓口です" }] },

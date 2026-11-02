@@ -2,10 +2,10 @@
   "schema_version": 1,
   "company": "kenaga",
   "troubles": [
-    { "id": "T1", "symptom": "制作用の PC から NAS のデータが開けない", "action": "self", "contact": null, "support": [{ "ref": "INT-019", "contains": "PC を再起動してから" }] },
+    { "id": "T1", "symptom": "事務用の PC から NAS のデータが開けない", "action": "self", "contact": null, "support": [{ "ref": "INT-019", "contains": "PC を再起動してから" }] },
     { "id": "T2", "symptom": "複合機の紙詰まりが直らない", "action": "contact", "contact": "VEN-03", "support": [{ "ref": "INT-019", "contains": "イタチ事務機に連絡" }] },
     { "id": "T3", "symptom": "事務所の Wi-Fi がつながらない", "action": "self", "contact": null, "support": [{ "ref": "INT-019", "contains": "AP の電源アダプターを抜いて挿し直します" }, { "ref": "INT-004", "contains": "電源アダプターだけ抜いて" }] },
     { "id": "T4", "symptom": "ネットが全部つながらない", "action": "contact", "contact": "VEN-01", "support": [{ "ref": "INT-019", "contains": "クロテン通信の番号に電話" }] },
-    { "id": "T5", "symptom": "パスワードを忘れて入れない社員がいる", "action": "self", "contact": null, "support": [{ "ref": "INT-009", "contains": "本人に口頭で伝えます" }] }
+    { "id": "T5", "symptom": "パスワードを忘れて入れない社員がいる", "action": "check_first", "contact": "VEN-02", "support": [{ "ref": "INT-009", "contains": "聞き取ります" }, { "ref": "INT-009", "contains": "スポット" }] }
   ]
 }
