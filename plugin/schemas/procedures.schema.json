@@ -2,9 +2,20 @@
   "$comment": "手順部品。PC の標準操作の文面で、本人が確認して承認したものだけを取扱説明書に出せる",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "sequences", "procedures"],
+  "required": ["schema_version", "list_values", "sequences", "procedures"],
   "properties": {
     "schema_version": { "const": 1 },
+    "list_values": {
+      "$comment": "対象だけが違う手順を1ページにまとめるときに、枠へ入れる値。対象ごとの値は、同じページの手順の先頭に一覧で書く",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ドライブ文字", "接続先", "フォルダ名"],
+      "properties": {
+        "ドライブ文字": { "type": "string", "minLength": 1 },
+        "接続先": { "type": "string", "minLength": 1 },
+        "フォルダ名": { "type": "string", "minLength": 1 }
+      }
+    },
     "sequences": {
       "type": "array",
       "items": {

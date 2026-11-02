@@ -411,7 +411,7 @@ test('部品に評価セットの値や、許可されていない製品名が�
   const text = JSON.stringify(library);
   for (const name of ['オコジョ', 'OKOJO', 'okojo', 'クロテン', 'カワウソ', 'イタチ', 'イイズナ', 'フェレット', '田中', '佐藤']) assert.ok(!text.includes(name), name);
   assert.ok(!/192\.168\.|03-0000-01/.test(text));
-  const allowed = new Set(['Windows', 'E', 'Enter', 'Wi-Fi', 'PC', 'LIB-', 'network-drive', 'free-space', 'admin-screen', 'wifi', 'restart', 'schema_version', 'sequences', 'id', 'title', 'order', 'procedures', 'use_for', 'text', 'slots', 'status', 'approved', 'reviewed_by', 'Okojyo-Soft', 'reviewed_on']);
+  const allowed = new Set(['list_values', 'Windows', 'E', 'Enter', 'Wi-Fi', 'PC', 'LIB-', 'network-drive', 'free-space', 'admin-screen', 'wifi', 'restart', 'schema_version', 'sequences', 'id', 'title', 'order', 'procedures', 'use_for', 'text', 'slots', 'status', 'approved', 'reviewed_by', 'Okojyo-Soft', 'reviewed_on']);
   const words = (text.match(/[A-Za-z][A-Za-z_-]*/g) ?? []).filter((word) => !allowed.has(word));
   assert.deepEqual(words, []);
 });
@@ -448,6 +448,26 @@ test('部品の指定の誤りと、根拠にない値を見つける', () => {
   // unknown の回答は、値の根拠にできない
   const unknown = input.transcript.entries.find((entry) => entry.status !== 'answered');
   assert.match(problemsOf([step('STM-001', 'LIB-005', [{ slot: '接続先', value: 'x', evidence: [unknown.id] }])]), /使えない根拠/);
+});
+
+test('対象だけが違う手順は、一覧の値で1ページにまとめられる。一覧がなければ見つける', () => {
+  const list = library.list_values;
+  const parts = [
+    step('STM-010', 'LIB-004', [{ slot: 'ドライブ文字', value: list['ドライブ文字'], evidence: [] }]),
+    step('STM-011', 'LIB-005', [{ slot: '接続先', value: list['接続先'], evidence: [] }]),
+    step('STM-012', 'LIB-007', [{ slot: 'フォルダ名', value: list['フォルダ名'], evidence: [] }]),
+  ];
+  const rows = [
+    { id: 'STM-001', text: '経理は X ドライブです。', evidence: [driveItem.id] },
+    { id: 'STM-002', text: '総務は Y ドライブです。', evidence: [driveItem.id] },
+  ];
+  const { manual, problems } = composeProcedures(withSteps([...rows, ...parts]), sources);
+  assert.deepEqual(problems, []);
+  const text = (id) => manual.statements.find((s) => s.id === id).text;
+  assert.equal(text('STM-010'), '「ドライブ」の欄で、一覧の文字 を選んでください。');
+  assert.ok(text('STM-011').startsWith('「フォルダー」の欄に、一覧の接続先 と入力してください。'));
+  assert.equal(text('STM-012'), '「見えなかった」フォルダーが開けば、直っています。');
+  assert.match(composeProcedures(withSteps(parts), sources).problems.join('\n'), /対象ごとの文章がありません/);
 });
 
 test('部品の順番が決まった順と逆なら見つける', () => {

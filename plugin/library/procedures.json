@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "list_values": { "ドライブ文字": "一覧の文字", "接続先": "一覧の接続先", "フォルダ名": "見えなかった" },
   "sequences": [
     { "id": "network-drive", "title": "共有フォルダをつなぎ直す", "order": ["LIB-001", "LIB-002", "LIB-013", "LIB-014", "LIB-003", "LIB-004", "LIB-005", "LIB-006", "LIB-007"] },
     { "id": "free-space", "title": "ネットワーク ドライブの空き容量を見る", "order": ["LIB-001", "LIB-002", "LIB-016", "LIB-017"] },
