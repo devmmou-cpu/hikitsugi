@@ -7,7 +7,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { buildRevision, prepareForRender, summarizeVerification, UnapprovedPartsError } from '../plugin/lib/handover.mjs';
+import { buildRevision, carryForward, prepareForRender, summarizeVerification, UnapprovedPartsError } from '../plugin/lib/handover.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { clientOf, runGapFinderLive, runVerifierLive } from './lib/adapters/live.mjs';
@@ -95,13 +95,16 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
     const context = { survey, transcript };
     let revision;
     let lastFindings = [];
+    let previousManual = null;
     for (let round = 1; round <= MAX_RESENDS + 1; round += 1) {
       const written = await once(`manual-${round}-writer`, 'manual', () =>
         runWriterLive({ survey, transcript, companyName: info.name, revision, client: api, record }),
       );
-      const edited = await once(`manual-${round}-editor`, null, () =>
-        runEditorLive({ manual: written, survey, transcript, client: api, record }),
-      );
+      const edited = await once(`manual-${round}-editor`, null, () => {
+        // 差し戻しでは合格済みの用語の説明を引き継ぎ、変わった文章だけを直す
+        const base = previousManual ? carryForward(previousManual, lastFindings, written) : { manual: written };
+        return runEditorLive({ manual: base.manual, survey, transcript, changed: base.changed, client: api, record });
+      });
       const manual = schemaCheck('manual', edited.manual);
       const verification = await once(`verification-${round}`, 'verification', () =>
         runVerifierLive({
@@ -130,6 +133,7 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
       }
       revision = buildRevision(manual, result.findings);
       lastFindings = result.findings;
+      previousManual = manual;
     }
     return finish('not_passed', { resends: MAX_RESENDS, unresolved: lastFindings.map((f) => ({ statement: f.statement, verdict: f.verdict })) });
   } catch (error) {

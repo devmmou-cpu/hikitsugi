@@ -49,3 +49,40 @@ export function buildRevision(manual, findings) {
     findings: findings.filter((finding) => !glossaryIds.has(finding.statement)),
   };
 }
+
+/**
+ * 差し戻しのあと、前の版の用語の説明を引き継ぐ。
+ * 毎回作り直すと、合格済みの説明が別の文面に変わって新しい指摘を生み、差し戻しが増えるため。
+ * 指摘された説明だけは引き継がない。
+ * @returns { manual, changed } changed は、前の版から文面が変わった文章の ID。Editor はこれだけを直す
+ */
+export function carryForward(previous, findings, written) {
+  const flagged = new Set(findings.map((finding) => finding.statement));
+  const before = new Map(previous.statements.map((statement) => [statement.id, statement]));
+  const current = new Map(written.statements.map((statement) => [statement.id, statement]));
+  let next = Math.max(0, ...previous.statements.concat(written.statements).map((statement) => Number(statement.id.slice(4))));
+
+  const carried = [];
+  const glossary = [];
+  for (const entry of previous.glossary) {
+    if (flagged.has(entry.explanation)) continue;
+    const statement = before.get(entry.explanation);
+    const same = current.get(statement.id);
+    if (same?.text === statement.text) {
+      glossary.push(entry);
+      continue;
+    }
+    // Writer が同じ ID を別の文章に使っていれば、番号を振り直す
+    let id = statement.id;
+    if (same) {
+      next += 1;
+      id = `STM-${String(next).padStart(3, '0')}`;
+    }
+    carried.push({ ...statement, id });
+    glossary.push({ ...entry, explanation: id });
+  }
+  const changed = written.statements
+    .filter((statement) => !statement.library && before.get(statement.id)?.text !== statement.text)
+    .map((statement) => statement.id);
+  return { manual: { ...written, statements: [...written.statements, ...carried], glossary }, changed };
+}

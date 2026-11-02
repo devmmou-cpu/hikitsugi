@@ -62,16 +62,33 @@ export async function runWriterLive({ survey, transcript, companyName, revision,
   return { ...manual, schema_version: 1, company: survey.company, company_name: companyName, as_of: survey.as_of };
 }
 
-export async function runEditorLive({ manual, survey, transcript, revert = true, client, record = () => {} }) {
+/**
+ * Editor を実行する。
+ * @param changed 差し戻しのあとに、Writer が変えた文章の ID。指定があれば、これと残った問題だけを直す
+ */
+export async function runEditorLive({ manual, survey, transcript, revert = true, changed, client, record = () => {} }) {
   const api = await clientOf(client);
   const agent = loadAgent('plugin/agents/plain-japanese-editor.md');
-  const edits = await callAgent({ api, agent, params: buildEditorRequest({ manual, survey, transcript, agent }), record });
-  const first = applyEdits(manual, edits, { revert });
+  const edit = async (current, findings) => {
+    const params = buildEditorRequest({ manual: current, survey, transcript, findings, agent });
+    return applyEdits(current, await callAgent({ api, agent, params, record }), { revert });
+  };
+  const remaining = (current) => {
+    const problems = plainProblems(current);
+    return problems.long_sentences.length || problems.unexplained_terms.length ? problems : null;
+  };
+
+  let result;
+  if (changed) {
+    const problems = plainProblems(manual);
+    const nothingToDo = changed.length === 0 && !remaining(manual);
+    result = nothingToDo ? { manual, changes: [] } : await edit(manual, { changed_statements: changed, ...problems });
+  } else {
+    result = await edit(manual);
+  }
   // 長さと用語はプログラムで判定できるので、残った分だけ1回だけ直させる
-  const problems = plainProblems(first.manual);
-  if (problems.long_sentences.length === 0 && problems.unexplained_terms.length === 0) return first;
-  const params = buildEditorRequest({ manual: first.manual, survey, transcript, findings: problems, agent });
-  const fixes = await callAgent({ api, agent, params, record });
-  const second = applyEdits(first.manual, fixes, { revert });
-  return { manual: second.manual, changes: [...first.changes, ...second.changes] };
+  const problems = remaining(result.manual);
+  if (!problems) return result;
+  const second = await edit(result.manual, problems);
+  return { manual: second.manual, changes: [...result.changes, ...second.changes] };
 }

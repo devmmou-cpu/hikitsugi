@@ -12,7 +12,7 @@ import * as manualScorer from '../eval/lib/scorers/manual.mjs';
 import { buildWriterRequest } from '../eval/lib/writing.mjs';
 import { runPipeline } from '../eval/pipeline.mjs';
 import { applyEdits, missingTokens } from '../plugin/lib/apply-edits.mjs';
-import { buildRevision, prepareForRender, summarizeVerification, UnapprovedPartsError } from '../plugin/lib/handover.mjs';
+import { buildRevision, carryForward, prepareForRender, summarizeVerification, UnapprovedPartsError } from '../plugin/lib/handover.mjs';
 import { longSentences, plainProblems } from '../plugin/lib/plain-check.mjs';
 import { composeProcedures, libraryForAgents, loadLibrary, unapprovedParts } from '../plugin/lib/procedures.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
@@ -121,6 +121,41 @@ test('差し戻しでは前の版から用語の説明を外し、文章が増�
   assert.deepEqual(revision.findings.map((f) => f.statement), [kept]);
 });
 
+test('差し戻しでは合格済みの用語の説明を引き継ぎ、変わった文章だけを返す', () => {
+  const previous = {
+    statements: [
+      { id: 'STM-001', text: '本文1', evidence: ['INT-001'] },
+      { id: 'STM-002', text: '本文2', evidence: ['INT-001'] },
+      { id: 'STM-003', text: '説明A', evidence: ['INT-001'] },
+      { id: 'STM-004', text: '説明B', evidence: ['INT-001'] },
+    ],
+    glossary: [{ term: 'A', explanation: 'STM-003' }, { term: 'B', explanation: 'STM-004' }],
+  };
+  const written = {
+    statements: [{ id: 'STM-001', text: '本文1', evidence: ['INT-001'] }, { id: 'STM-002', text: '直した本文2', evidence: ['INT-001'] }],
+    glossary: [],
+  };
+  const { manual, changed } = carryForward(previous, [{ statement: 'STM-002' }, { statement: 'STM-004' }], written);
+  assert.deepEqual(changed, ['STM-002']);
+  // 指摘された説明 B だけが落ちる。文章は増えない
+  assert.deepEqual(manual.glossary, [{ term: 'A', explanation: 'STM-003' }]);
+  assert.deepEqual(manual.statements.map((s) => s.id), ['STM-001', 'STM-002', 'STM-003']);
+});
+
+test('Writer が説明と同じ ID を別の文章に使っていたら、説明の番号を振り直す', () => {
+  const previous = { statements: [{ id: 'STM-001', text: '説明', evidence: ['INT-001'] }], glossary: [{ term: 'A', explanation: 'STM-001' }] };
+  const written = { statements: [{ id: 'STM-001', text: '新しい本文', evidence: ['INT-001'] }], glossary: [] };
+  const { manual } = carryForward(previous, [], written);
+  assert.deepEqual(manual.glossary, [{ term: 'A', explanation: 'STM-002' }]);
+  assert.equal(manual.statements.find((s) => s.id === 'STM-002').text, '説明');
+});
+
+test('部品を使った文章は、変わった文章として Editor に渡さない', () => {
+  const previous = { statements: [{ id: 'STM-001', text: '前', evidence: ['LIB-001'], library: { id: 'LIB-001', values: [] } }], glossary: [] };
+  const written = { statements: [{ id: 'STM-001', text: '後', evidence: ['LIB-001'], library: { id: 'LIB-001', values: [] } }], glossary: [] };
+  assert.deepEqual(carryForward(previous, [], written).changed, []);
+});
+
 // ---- 通しの評価 ----
 
 const USAGE = { input_tokens: 10, output_tokens: 10, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
@@ -151,7 +186,8 @@ function pipelineClient({ verdicts }) {
     if (system.includes('Verifier')) {
       const verdict = verdicts[verifierCalls] ?? 'correct';
       verifierCalls += 1;
-      return { results: fixture().statements.map((s) => ({ statement: s.id, verdict, reason: '', checked: [], conflicts_with: [] })) };
+      // 指摘は最初の文章だけにする。用語の説明は合格のまま残る
+      return { results: fixture().statements.map((s, i) => ({ statement: s.id, verdict: i === 0 ? verdict : 'correct', reason: '', checked: [], conflicts_with: [] })) };
     }
     throw new Error('想定外のエージェントです');
   };
@@ -196,6 +232,14 @@ test('通し：不合格なら指摘を Writer に渡して差し戻す', () =>
     assert.equal(writers.length, 2);
     assert.ok(!JSON.stringify(writers[0].messages).includes('<revision>'));
     assert.ok(JSON.stringify(writers[1].messages).includes('<revision>'));
+  }));
+
+test('通し：差し戻しで何も変わらなければ、Editor を呼び直さず用語の説明も作り直さない', () =>
+  withTemp(async (dir) => {
+    const client = pipelineClient({ verdicts: ['unsupported', 'correct'] });
+    await runPipeline({ set: 'okojo', setDir: SET, dir, client });
+    const editorCalls = client.sent.filter((p) => p.system.includes('Plain-Japanese Editor'));
+    assert.equal(editorCalls.length, 1);
   }));
 
 test('通し：差し戻しは最大2回で、合格しなければ HTML を作らない', () =>
@@ -287,16 +331,16 @@ test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途�
     assert.equal(nextStep(work).step, 'verifier');
 
     assert.throws(() => hikitsugi('render'), /合格していない/);
-    const results = (verdict) => ({ results: fixture().statements.map((s) => ({ statement: s.id, verdict, reason: '', checked: [], conflicts_with: [] })) });
+    const results = (verdict) => ({ results: fixture().statements.map((s, i) => ({ statement: s.id, verdict: i === 0 ? verdict : 'correct', reason: '', checked: [], conflicts_with: [] })) });
     write('verification-1.json', results('unsupported'));
     assert.match(hikitsugi('check-verification', ['1']), /差し戻します/);
     assert.deepEqual(nextStep(work), { step: 'writer', round: 2 });
     assert.ok(existsSync(join(work, 'findings-1.json')));
 
+    // 差し戻しで何も変わらなければ、Editor の作業は不要になる
     write('manual-2.json', manualBody());
-    hikitsugi('check-writer', ['2']);
-    write('editor-2.json', { rewrites: [], glossary: [] });
-    hikitsugi('merge-edits', ['2']);
+    assert.match(hikitsugi('check-writer', ['2']), /Editor の作業は不要/);
+    assert.equal(nextStep(work).step, 'verifier');
     write('verification-2.json', results('correct'));
     assert.match(hikitsugi('check-verification', ['2']), /合格/);
     assert.equal(nextStep(work).step, 'render');
@@ -315,10 +359,9 @@ test('/hikitsugi:start：差し戻しの上限に達すると not_passed で止�
     hikitsugi('init', [surveyPath, '会社']);
     write('gaps.json', { schema_version: 1, company: 'okojo', coverage: [], gaps: [] });
     write('state.json', { company: 'okojo', company_name: '会社', round: 3, interview_done: true, passed: false });
-    write('manual-3.json', manualBody());
-    hikitsugi('check-writer', ['3']);
-    write('editor-3.json', { rewrites: [], glossary: [] });
-    hikitsugi('merge-edits', ['3']);
+    const stamped = { ...fixture(), company_name: '会社' };
+    write('manual-3.json', stamped);
+    write('edited-3.json', stamped);
     write('verification-3.json', { results: fixture().statements.map((s) => ({ statement: s.id, verdict: 'dangerous', reason: '', checked: [], conflicts_with: [] })) });
     assert.match(hikitsugi('check-verification', ['3']), /上限/);
     assert.equal(nextStep(work).step, 'not_passed');

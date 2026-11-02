@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyEdits } from '../lib/apply-edits.mjs';
-import { buildRevision, prepareForRender, summarizeVerification, UnapprovedPartsError } from '../lib/handover.mjs';
+import { buildRevision, carryForward, prepareForRender, summarizeVerification, UnapprovedPartsError } from '../lib/handover.mjs';
 import { plainProblems } from '../lib/plain-check.mjs';
 import { composeProcedures, libraryForAgents } from '../lib/procedures.mjs';
 import { appendEntry, checkNextQuestion, emptyTranscript, QUESTION_LIMIT } from '../lib/transcript.mjs';
@@ -129,8 +129,25 @@ function checkWriter(work, [round]) {
   const { manual, problems } = composeProcedures(stamped, { survey, transcript: readJson(join(work, 'transcript.json')) });
   if (problems.length) throw new Problem(`手順部品の指定に問題があります：\n${problems.join('\n')}`);
   checkSchema('manual', manual);
-  writeJson(path, manual);
-  return `書きました（文章 ${manual.statements.length} 件、手順ページ ${manual.symptom_pages.length} 件）`;
+  if (Number(round) === 1) {
+    writeJson(path, manual);
+    return `書きました（文章 ${manual.statements.length} 件、手順ページ ${manual.symptom_pages.length} 件）`;
+  }
+  // 差し戻しでは合格済みの用語の説明を引き継ぎ、変わった文章だけを Editor に渡す
+  const before = readJson(join(work, `edited-${Number(round) - 1}.json`));
+  const verification = readJson(join(work, `verification-${Number(round) - 1}.json`));
+  const { findings } = summarizeVerification(verification, before);
+  const { manual: carried, changed } = carryForward(before, findings, manual);
+  checkSchema('manual', carried);
+  writeJson(path, carried);
+  const remaining = plainProblems(carried);
+  if (changed.length === 0 && remaining.long_sentences.length === 0 && remaining.unexplained_terms.length === 0) {
+    writeJson(join(work, `editor-${round}.json`), { rewrites: [], glossary: [] });
+    writeJson(join(work, `edited-${round}.json`), carried);
+    return `直しました。Editor の作業は不要です（文章 ${carried.statements.length} 件）`;
+  }
+  writeJson(join(work, `editor-findings-${round}.json`), { changed_statements: changed, ...remaining });
+  return `直しました（文章 ${carried.statements.length} 件、やさしくする文章 ${changed.length} 件）`;
 }
 
 function mergeEdits(work, [round]) {

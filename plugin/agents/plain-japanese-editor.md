@@ -36,7 +36,7 @@ tools: Read, Write
 - 長い語の一部が専門用語のときは、その部分の語も説明します
 
 ## 残った問題の直し（findings がある場合）
-`findings` には、プログラムが見つけた問題があります。`long_sentences` は50字を超える文、`unexplained_terms` は説明のない語です。これらだけを直し、ほかの文章は変えません。語は言い換えるか、`glossary` に説明を加えます。
+`findings` には、直す対象があります。`changed_statements` は書き手が直した文章の ID で、ここまでの直し方に合わせて直します。`long_sentences` は50字を超える文、`unexplained_terms` は説明のない語です。これらだけを直し、ほかの文章と、すでにある用語の説明は変えません。語は言い換えるか、`glossary` に説明を加えます。
 
 ## 出力
 - `rewrites`：直した文章の `id` と、直したあとの `text`

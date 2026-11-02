@@ -65,6 +65,9 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/hikitsugi.mjs" <コマンド>
 `hikitsugi:plain-japanese-editor` に次を依頼します。
 > `hikitsugi-work/manual-<round>.json`、`survey.json`、`transcript.json` を読み、結果の JSON（`rewrites` と `glossary`）を `hikitsugi-work/editor-<round>.json` に保存してください。
 
+`round` が 2 以上のときは、次も加えます。
+> `hikitsugi-work/editor-findings-<round>.json` を findings として読み、そこにある文章だけを直してください。すでにある用語の説明は作り直しません。
+
 終わったら `hikitsugi merge-edits <round>` を実行します。問題が残ったと表示されたら、`plain-findings-<round>.json` を findings として渡し、同じ保存先へ前回の内容に追記する形で1回だけ直してもらって、もう一度 `merge-edits` を実行します。
 
 ### verifier
