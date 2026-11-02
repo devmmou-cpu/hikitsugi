@@ -82,10 +82,10 @@ export const tagged = (sections) =>
     .join('\n\n');
 
 /** エージェント定義から、Messages API のリクエストを組み立てる。 */
-export function buildRequest(agent, schema, content) {
+export function buildRequest(agent, schema, content, { maxTokens = MAX_TOKENS } = {}) {
   return {
     model: modelOf(agent),
-    max_tokens: MAX_TOKENS,
+    max_tokens: maxTokens,
     system: agent.prompt,
     thinking: { type: 'adaptive' },
     output_config: {

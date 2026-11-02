@@ -1,6 +1,8 @@
 // Interviewer の採点。必須項目ごとに、調査か聞き取りで埋まったかを数える。
 // covers の自己申告だけでは数えない。回答に、その項目の事実を示す語が含まれている必要がある。
 
+import { questionProblems } from '../../../plugin/lib/transcript.mjs';
+
 const QUESTION_LIMIT = 20;
 
 export function score(output, answers, context) {
@@ -29,11 +31,12 @@ export function summarize(rows, output) {
     coverage_rate: rows.length === 0 ? null : Math.round((covered / rows.length) * 1000) / 10,
     questions,
     within_question_limit: questions <= QUESTION_LIMIT,
+    bad_questions: output.entries.filter((e) => questionProblems(e.question).length > 0).map((e) => e.id),
     uncovered_items: rows.filter((r) => !r.covered).map((r) => r.item),
     claimed_without_fact: rows.filter((r) => r.claimed_without_fact).map((r) => r.item),
     unknown: output.entries.filter((e) => e.status === 'unknown').length,
     later: output.entries.filter((e) => e.status === 'later').length,
     complete: true,
-    targets: { coverage_rate_min: 85, question_limit: QUESTION_LIMIT },
+    targets: { coverage_rate_min: 85, question_limit: QUESTION_LIMIT, bad_questions_max: 0 },
   };
 }

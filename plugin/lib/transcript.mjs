@@ -2,6 +2,7 @@
 // /hikitsugi:start と評価の両方で使う。
 
 export const QUESTION_LIMIT = 20;
+export const QUESTION_CHARS = 150;
 
 // パスワードや認証情報の本体を書いた形。保管場所の文には当たらない。
 const CREDENTIAL = /(?:パスワード|暗証番号|認証コード|password|passcode)(?:は|:|：|=|＝)\s*[「"']?[!-~]{4,}/iu;
@@ -9,6 +10,17 @@ const CREDENTIAL = /(?:パスワード|暗証番号|認証コード|password|pas
 export const hasCredential = (text) => CREDENTIAL.test(text);
 
 export const emptyTranscript = (company) => ({ schema_version: 1, company, entries: [] });
+
+// モデルの出力が暴走すると、質問文の中にデータの形や繰り返しの文が混ざる
+const BROKEN_QUESTION = /['"][A-Za-z_]+['"]\s*:/;
+
+/** 質問文として不自然なところの一覧を返す。 */
+export function questionProblems(question) {
+  const problems = [];
+  if ([...question].length > QUESTION_CHARS) problems.push(`質問が長すぎます（${[...question].length} 字、上限 ${QUESTION_CHARS} 字）`);
+  if (BROKEN_QUESTION.test(question)) problems.push('質問の中にデータの形が混ざっています');
+  return problems;
+}
 
 /** 次の質問が記録できる形かを確かめる。問題の一覧を返す。 */
 export function checkNextQuestion(next, gaps) {
@@ -18,6 +30,7 @@ export function checkNextQuestion(next, gaps) {
   const items = new Set(gaps.coverage.map((entry) => entry.item));
   if (!known.has(next.gap)) problems.push(`存在しない空白です: ${next.gap}`);
   if (!next.question.trim()) problems.push('質問が空です');
+  problems.push(...questionProblems(next.question));
   if (next.covers.length === 0) problems.push('埋める項目がありません');
   for (const item of next.covers) if (!items.has(item)) problems.push(`存在しない必須項目です: ${item}`);
   return problems;

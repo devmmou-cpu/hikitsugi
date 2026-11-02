@@ -8,6 +8,11 @@ import { appendEntry, checkNextQuestion, emptyTranscript, QUESTION_LIMIT } from 
 import { buildRequest, callAgent, clientOf, LiveFailure, loadAgent, loadChecklist, tagged } from './adapters/live.mjs';
 import { createMockTanaka } from './mock-tanaka.mjs';
 
+// 1問を返すだけなので、短い上限で打ち切る。暴走したときの費用と待ち時間を抑えるため
+const INTERVIEWER_MAX_TOKENS = 2000;
+// 暴走はまれなので、呼び直せば直る。3回続けて失敗したら止める
+const MAX_ATTEMPTS = 3;
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const NEXT_SCHEMA = (() => {
   const { $comment, ...schema } = JSON.parse(readFileSync(join(ROOT, 'plugin/schemas/next-question.schema.json'), 'utf8'));
@@ -25,7 +30,24 @@ export function buildInterviewerRequest({ survey, gaps, checklist = loadChecklis
   return buildRequest(agent, NEXT_SCHEMA, [
     { type: 'text', text: stable, cache_control: { type: 'ephemeral' } },
     { type: 'text', text: dynamic },
-  ]);
+  ], { maxTokens: INTERVIEWER_MAX_TOKENS });
+}
+
+/** 次の1問を受け取る。途中で切れた出力や、不自然な質問は呼び直す。 */
+async function askNext({ api, agent, params, record, gaps }) {
+  let last;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const next = await callAgent({ api, agent, params, record, estimate: false });
+      const problems = checkNextQuestion(next, gaps);
+      if (problems.length === 0) return next;
+      last = new LiveFailure('interviewer', problems.join(' / '));
+    } catch (error) {
+      if (error.stage !== 'incomplete' && error.stage !== 'parse') throw error;
+      last = error;
+    }
+  }
+  throw last;
 }
 
 /**
@@ -38,10 +60,8 @@ export async function runInterview({ survey, gaps, askTanaka, api, record, clock
   let transcript = emptyTranscript(survey.company);
   while (transcript.entries.length < QUESTION_LIMIT) {
     const params = buildInterviewerRequest({ survey, gaps, checklist, transcript, agent });
-    const next = await callAgent({ api, agent, params, record, estimate: false });
+    const next = await askNext({ api, agent, params, record, gaps });
     if (next.action === 'finish') break;
-    const problems = checkNextQuestion(next, gaps);
-    if (problems.length) throw new LiveFailure('interviewer', problems.join(' / '));
     const { answer, status } = await askTanaka(next.question);
     transcript = appendEntry(transcript, { next, answer, status, answeredAt: clock() });
   }

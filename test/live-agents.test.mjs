@@ -11,8 +11,9 @@ import { buildInterviewerRequest, runInterview } from '../eval/lib/interview-loo
 import { loadAnswers, loadHidden, loadInput } from '../eval/lib/load-set.mjs';
 import { buildMockRequest, composeAnswer } from '../eval/lib/mock-tanaka.mjs';
 import { costOf } from '../eval/lib/pricing.mjs';
+import { score as scoreInterview, summarize as summarizeInterview } from '../eval/lib/scorers/interview.mjs';
 import { runEval, UsageError } from '../eval/lib/runner.mjs';
-import { appendEntry, checkNextQuestion, emptyTranscript, hasCredential, QUESTION_LIMIT } from '../plugin/lib/transcript.mjs';
+import { appendEntry, checkNextQuestion, emptyTranscript, hasCredential, QUESTION_CHARS, QUESTION_LIMIT, questionProblems } from '../plugin/lib/transcript.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SET = join(ROOT, 'eval/sets/okojo');
@@ -146,6 +147,79 @@ test('存在しない空白や項目を指す質問は失敗として止める',
   );
   assert.ok(checkNextQuestion({ action: 'ask', gap: 'GAP-001', covers: ['CHK-99'], question: '質問' }, gapsOutput).some((p) => p.includes('CHK-99')));
   assert.ok(checkNextQuestion({ action: 'ask', gap: 'GAP-001', covers: [], question: '質問' }, gapsOutput).length > 0);
+});
+
+test('暴走した質問文を見つける', () => {
+  assert.deepEqual(questionProblems('契約先を教えてください。'), []);
+  assert.equal(questionProblems('あ'.repeat(QUESTION_CHARS)).length, 0);
+  assert.match(questionProblems('あ'.repeat(QUESTION_CHARS + 1))[0], /長すぎます/);
+  assert.match(questionProblems("質問です。','question_end':'','x':''")[0], /データの形/);
+  assert.match(questionProblems('質問です。","x":""')[0], /データの形/);
+});
+
+test('Interviewer は短い上限で打ち切る', () => {
+  const request = buildInterviewerRequest({ survey: input.survey, gaps: gapsOutput, transcript: emptyTranscript('okojo') });
+  assert.equal(request.max_tokens, 2000);
+});
+
+/** 順番に応答を返す Interviewer。 */
+function sequenceClient(replies) {
+  let count = 0;
+  return {
+    get count() {
+      return count;
+    },
+    messages: {
+      stream: (params) => ({
+        finalMessage: async () => {
+          const reply = replies[Math.min(count, replies.length - 1)];
+          count += 1;
+          return { id: 'm', model: params.model, stop_reason: reply.stop ?? 'end_turn', usage: USAGE, content: [{ type: 'text', text: reply.text }] };
+        },
+      }),
+    },
+  };
+}
+const FINISH = JSON.stringify({ action: 'finish', gap: '', covers: [], question: '' });
+const GOOD = JSON.stringify({ action: 'ask', gap: 'GAP-001', covers: ['CHK-01'], question: '良い質問です' });
+const BROKEN = JSON.stringify({ action: 'ask', gap: 'GAP-001', covers: ['CHK-01'], question: `質問です。${'あ'.repeat(200)}` });
+
+test('暴走した質問や途中で切れた出力は呼び直し、本人には見せない', async () => {
+  const asked = [];
+  const client = sequenceClient([{ text: BROKEN }, { text: '{"action":"ask","ga', stop: 'max_tokens' }, { text: GOOD }, { text: FINISH }]);
+  const transcript = await runInterview({
+    survey: input.survey,
+    gaps: gapsOutput,
+    api: client,
+    record: () => {},
+    askTanaka: async (question) => {
+      asked.push(question);
+      return { answer: '回答', status: 'answered' };
+    },
+  });
+  assert.deepEqual(asked, ['良い質問です']);
+  assert.equal(transcript.entries.length, 1);
+});
+
+test('3回続けて失敗したら止める。回答の拒否は呼び直さない', async () => {
+  const askTanaka = async () => assert.fail('質問されない');
+  const options = { survey: input.survey, gaps: gapsOutput, record: () => {}, askTanaka };
+  const broken = sequenceClient([{ text: BROKEN }]);
+  await assert.rejects(runInterview({ ...options, api: broken }), /長すぎます/);
+  assert.equal(broken.count, 3);
+  const refused = sequenceClient([{ text: '', stop: 'refusal' }]);
+  await assert.rejects(runInterview({ ...options, api: refused }), /拒否/);
+  assert.equal(refused.count, 1);
+});
+
+test('採点は不自然な質問を数える', async () => {
+  const summary = summarizeInterview(scoreInterview({ entries: [] }, answers.gaps, { facts: hidden }), {
+    entries: [
+      { id: 'INT-001', status: 'answered', question: '良い質問です', answer: 'a', covers: ['CHK-01'] },
+      { id: 'INT-002', status: 'answered', question: 'あ'.repeat(151), answer: 'a', covers: ['CHK-01'] },
+    ],
+  });
+  assert.deepEqual(summary.bad_questions, ['INT-002']);
 });
 
 test('回答にパスワードの本体があれば記録しない。保管場所は記録できる', () => {

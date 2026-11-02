@@ -42,7 +42,7 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/hikitsugi.mjs" <コマンド>
 
 1. `hikitsugi:interviewer` に次を依頼します。
    > `hikitsugi-work/` の `survey.json`、`gaps.json`、`checklist.json`、`transcript.json` を読み、次の1問の JSON（`action`、`gap`、`covers`、`question`）を `hikitsugi-work/next.json` に保存してください。
-2. `hikitsugi check-next` を実行します。聞き取りが終わったという表示が出たら、この段階は完了です。それ以外の表示が質問文です。
+2. `hikitsugi check-next` を実行します。聞き取りが終わったという表示が出たら、この段階は完了です。それ以外の表示が質問文です。問題が表示されたときは、その質問を本人に見せず、手順 1 からやり直します。
 3. 質問文を AskUserQuestion で聞きます。選択肢は「分からない」と「あとで調べる」の2つにします。ふつうの回答は、自由入力で答えてもらいます。何問目かも伝えます。
 4. 回答を記録します。回答の文は、本人の言葉のまま、標準入力で渡します。
    ```
