@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "company": "okojo",
+  "company_name": "オコジョ精工",
+  "as_of": "2026-11-20",
+  "statements": [
+    {
+      "id": "STM-001",
+      "text": "共有フォルダが見えない",
+      "evidence": [
+        "INT-018"
+      ]
+    },
+    {
+      "id": "STM-002",
+      "text": "この症状は、手順どおりに進めれば自分で直せます。",
+      "evidence": [
+        "INT-018"
+      ]
+    },
+    {
+      "id": "STM-003",
+      "text": "この手順でデータが消えることはありません。",
+      "evidence": [
+        "INT-018"
+      ]
+    },
+    {
+      "id": "STM-004",
+      "text": "キーボードの Windows キーを押しながら、E のキーを押します。",
+      "evidence": [
+        "INT-018",
+        "INV-060"
+      ]
+    },
+    {
+      "id": "STM-005",
+      "text": "開いた画面の左の一覧で、「PC」を選びます。",
+      "evidence": [
+        "INT-018",
+        "INV-060"
+      ]
+    },
+    {
+      "id": "STM-006",
+      "text": "上の「…」を押して、「ネットワークドライブの割り当て」を選びます。",
+      "evidence": [
+        "INT-018",
+        "INV-060"
+      ]
+    },
+    {
+      "id": "STM-007",
+      "text": "「ドライブ」で Z を選びます。",
+      "evidence": [
+        "INV-060"
+      ]
+    },
+    {
+      "id": "STM-008",
+      "text": "「フォルダー」の欄に \\\\OKOJO-NAS\\図面 と入れます。",
+      "evidence": [
+        "INV-060"
+      ]
+    },
+    {
+      "id": "STM-009",
+      "text": "「サインイン時に再接続する」にチェックを入れて、「完了」を押します。",
+      "evidence": [
+        "INT-018",
+        "INV-060"
+      ]
+    },
+    {
+      "id": "STM-010",
+      "text": "図面のフォルダが開けば、直っています。",
+      "evidence": [
+        "INT-018",
+        "INV-060"
+      ]
+    },
+    {
+      "id": "STM-011",
+      "text": "オコジョ精工の佐藤です。共有フォルダが見えません。ネットワークドライブを再接続しましたが、直りません。確認をお願いします。",
+      "evidence": [
+        "INT-018"
+      ]
+    },
+    {
+      "id": "STM-012",
+      "text": "社内ネットワークの機器を保守している会社です。",
+      "evidence": [
+        "INT-002",
+        "INT-018"
+      ]
+    },
+    {
+      "id": "STM-013",
+      "text": "受付は平日9時から18時です。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-014",
+      "text": "契約番号の控えは、総務課の書庫にある青い契約ファイルにあります。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-015",
+      "text": "見えないフォルダの名前と、再接続を試したことを伝えてください。",
+      "evidence": [
+        "INT-018"
+      ]
+    },
+    {
+      "id": "STM-016",
+      "text": "共有フォルダの置き場所になっている、社内の機器です。",
+      "evidence": [
+        "INT-005",
+        "INT-006"
+      ]
+    },
+    {
+      "id": "STM-017",
+      "text": "社内の共有フォルダを、PC のドライブのように使う仕組みです。",
+      "evidence": [
+        "INV-060",
+        "INT-018"
+      ]
+    }
+  ],
+  "symptom_pages": [
+    {
+      "id": "T1",
+      "category": "file",
+      "title": "STM-001",
+      "badge": {
+        "value": "self",
+        "statement": "STM-002"
+      },
+      "minutes": 2,
+      "reassurance": "STM-003",
+      "steps": [
+        "STM-004",
+        "STM-005",
+        "STM-006",
+        "STM-007",
+        "STM-008",
+        "STM-009",
+        "STM-010"
+      ],
+      "fallback": {
+        "contact": "VEN-02",
+        "message": "STM-011"
+      }
+    }
+  ],
+  "contacts": [
+    {
+      "id": "VEN-02",
+      "name": "カワウソシステムサービス",
+      "phone": "03-0000-0102",
+      "role": "STM-012",
+      "hours": "STM-013",
+      "contract_location": "STM-014",
+      "what_to_tell": "STM-015"
+    }
+  ],
+  "routines": [],
+  "devices": [],
+  "glossary": [
+    {
+      "term": "NAS",
+      "explanation": "STM-016"
+    },
+    {
+      "term": "ネットワークドライブ",
+      "explanation": "STM-017"
+    }
+  ]
+}
