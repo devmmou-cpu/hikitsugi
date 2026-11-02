@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit(night-logs/eval-sets-review-tuning.md)",
+      "Edit(night-logs/eval-sets-review-holdout.md)",
+      "Bash(npm test)",
+      "Bash(git log)",
+      "Bash(git log *)"
+    ],
+    "deny": [
+      "Edit(eval/**)",
+      "Edit(test/**)",
+      "Edit(plugin/**)",
+      "Edit(scripts/**)",
+      "Edit(docs/**)",
+      "Edit(package.json)",
+      "Edit(.gitignore)",
+      "Edit(CLAUDE.md)",
+      "Edit(.env*)",
+      "Read(.env*)",
+      "Bash(git push)",
+      "Bash(git push *)",
+      "Bash(git commit *)",
+      "Bash(git add *)",
+      "Bash(git switch *)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(git reset *)",
+      "Bash(git tag *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(npm install *)",
+      "Bash(npm i *)",
+      "WebFetch",
+      "WebSearch"
+    ]
+  }
+}
