@@ -1,22 +1,23 @@
 #!/usr/bin/env node
-// 取扱説明書の HTML を、iPhone の幅（375px）で全画面撮影する。朝の見た目の確認用。
+// 取扱説明書の HTML を、iPhone の幅（375px）、2列の幅（1024px）、3列の幅（1440px）で全画面撮影する。見た目の確認用。
 // 依存なし。インストール済みの Chrome を、Node 標準の WebSocket で操作する。外部へは通信しない。
 //
 // 使い方：node scripts/screenshots.mjs <入力.html> <出力フォルダ>
 // 環境変数 CHROME_PATH で Chrome の場所を変えられる。
 // 終了コード：0＝成功、1＝画面の検査で問題あり（理由を表示）、2＝引数の誤りや Chrome の起動失敗
 //
-// 撮るもの：各タブと各手順ページを、ライト、ダークの両方で。ほかに JavaScript なしの全文（長いので分割）と、印刷の見え方。
-// あわせて、実際の画面で横のはみ出し、文字の大きさ、押す部品の高さ、手順の配置を測る。
+// 撮るもの：<出力フォルダ>/<phone|tablet|pc>/<light|dark>-<画面>.png。はじめに、各タブ、各手順ページ。
+// ほかに nojs-all.png（JavaScript なしの全文）、print.pdf（印刷の見え方）。
+// あわせて実際の画面で、横のはみ出し、文字の大きさ、コントラスト、押す部品の高さ、手順の配置、列の幅、
+// 仕様（docs/design/visual-spec.md）の値を測る。一覧は scripts/visual-spec-checks.mjs にある。
 
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { CHECKS, COLOR_CHECKS, VIEWPORTS } from './visual-spec-checks.mjs';
 
-const WIDTH = 375;
-const HEIGHT = 812;
 // 長いページは分割して撮る。1枚が大きすぎると Chrome が応答しなくなるため
 const SLICE_HEIGHT = 5000;
 // 応答がなければ止める。夜間の作業が固まらないようにするため
@@ -115,11 +116,39 @@ const MEASURE = `(() => {
   const overflow = root.scrollWidth - root.clientWidth;
   const wide = [...document.querySelectorAll('body *')].filter((el) => visible(el) && el.getBoundingClientRect().right > root.clientWidth + 1).slice(0, 5).map(describe);
   const small = [];
+  const lowContrast = [];
+  const channels = (color) => {
+    const m = color.match(/rgba?\(([^)]+)\)/);
+    if (!m) return null;
+    const p = m[1].split(/[ ,\/]+/).map(Number);
+    return { r: p[0], g: p[1], b: p[2], a: p[3] === undefined ? 1 : p[3] };
+  };
+  const luminance = ({ r, g, b }) => {
+    const c = [r, g, b].map((v) => v / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const textContrast = (el) => {
+    const fg = channels(getComputedStyle(el).color);
+    let node = el;
+    let bg = null;
+    while (node) {
+      const c = channels(getComputedStyle(node).backgroundColor);
+      if (c && c.a === 1) { bg = c; break; }
+      node = node.parentElement;
+    }
+    if (!fg || !bg) return null;
+    const [hi, lo] = [luminance(fg), luminance(bg)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
     const parent = walker.currentNode.parentElement;
     if (!walker.currentNode.textContent.trim() || !parent || !visible(parent)) continue;
-    if (parseFloat(getComputedStyle(parent).fontSize) < 16) small.push(describe(parent));
+    const size = parseFloat(getComputedStyle(parent).fontSize);
+    // 13px を認めるのは、タブのラベルと社外秘のチップだけ。それ以外は 14px 以上
+    if (size < 13 || (size < 14 && !parent.closest('.chip-secret, .tabs'))) small.push(describe(parent) + ' ' + size + 'px');
+    const ratio = textContrast(parent);
+    if (ratio !== null && ratio < 4.5) lowContrast.push(describe(parent) + ' ' + ratio.toFixed(2));
   }
   const low = [...document.querySelectorAll('.tap')].filter(visible).filter((el) => el.getBoundingClientRect().height < 44).map((el) => describe(el) + ' ' + Math.round(el.getBoundingClientRect().height) + 'px');
   // 手順の配置：番号とチェック欄が重ならず、手順の左端が本文の左端とそろっていること
@@ -127,10 +156,10 @@ const MEASURE = `(() => {
   const overlaps = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
   for (const item of document.querySelectorAll('.steps > li')) {
     if (!visible(item)) continue;
-    const number = item.querySelector('.step-number');
+    const number = item.querySelector('.step-n');
     const check = item.querySelector('input[type="checkbox"]');
     const box = check && check.getBoundingClientRect();
-    if (!number) layout.push('手順の番号の要素（.step-number）がありません');
+    if (!number) layout.push('手順の番号の要素（.step-n）がありません');
     else if (box && overlaps(number.getBoundingClientRect(), box)) layout.push('手順の番号とチェック欄が重なっています');
     if (box && (box.width < 24 || box.height < 24)) layout.push('チェック欄が小さすぎます');
   }
@@ -143,7 +172,7 @@ const MEASURE = `(() => {
       layout.push('手順の一覧の左端が、本文の左端とそろっていません（' + Math.round(first.getBoundingClientRect().left - para.getBoundingClientRect().left) + 'px）');
     }
   }
-  return JSON.stringify({ overflow, wide, layout: [...new Set(layout)], small: [...new Set(small)].slice(0, 10), low: [...new Set(low)].slice(0, 10), height: Math.ceil(Math.max(root.scrollHeight, document.body.scrollHeight)) });
+  return JSON.stringify({ overflow, wide, layout: [...new Set(layout)], small: [...new Set(small)].slice(0, 10), lowContrast: [...new Set(lowContrast)].slice(0, 10), low: [...new Set(low)].slice(0, 10), height: Math.ceil(Math.max(root.scrollHeight, document.body.scrollHeight)) });
 })()`;
 
 async function main([inputArg, outputArg]) {
@@ -172,7 +201,6 @@ async function main([inputArg, outputArg]) {
     });
     await page('Page.enable');
     await page('Runtime.enable');
-    await page('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: HEIGHT, deviceScaleFactor: 2, mobile: true });
     // 外部への読み込みがあれば、失敗として見つかるようにする
     await page('Network.enable');
     await page('Network.setBlockedURLs', { urls: ['http://*', 'https://*'] });
@@ -184,75 +212,167 @@ async function main([inputArg, outputArg]) {
       await settle();
       await settle();
     };
-    const capture = async (name, label) => {
-      const metrics = JSON.parse(await evaluate(MEASURE));
-      if (metrics.overflow > 0) problems.push(`${label}：横にはみ出しています（${metrics.overflow}px）${metrics.wide.join('、')}`);
-      if (metrics.small.length) problems.push(`${label}：16px より小さい文字があります ${metrics.small.join('、')}`);
-      if (metrics.low.length) problems.push(`${label}：高さ 44px 未満の押す部品があります ${metrics.low.join('、')}`);
-      for (const issue of metrics.layout) problems.push(`${label}：${issue}`);
-      await fullPage(name);
-    };
-    // ビューポートをページの高さまで広げて撮る。広げずに撮ると、固定のタブが画面の途中に写るため
-    const slices = async (name) => {
+
+    let viewport = VIEWPORTS[0];
+    const setSize = (height = viewport.height) =>
+      page('Emulation.setDeviceMetricsOverride', { width: viewport.width, height, deviceScaleFactor: viewport.mobile ? 2 : 1, mobile: viewport.mobile });
+    const shotPath = (name) => join(output, viewport.name, `${name}.png`);
+    // 長いページは分割して撮る。ビューポートを広げずに撮るので、固定の部品が途中に写らない
+    const slices = async (name, path = shotPath) => {
       const { height } = JSON.parse(await evaluate(MEASURE));
       const count = Math.max(1, Math.ceil(height / SLICE_HEIGHT));
       for (let i = 0; i < count; i += 1) {
-        const clip = { x: 0, y: i * SLICE_HEIGHT, width: WIDTH, height: Math.min(SLICE_HEIGHT, height - i * SLICE_HEIGHT), scale: 1 };
+        const clip = { x: 0, y: i * SLICE_HEIGHT, width: viewport.width, height: Math.min(SLICE_HEIGHT, height - i * SLICE_HEIGHT), scale: 1 };
         const { data } = await page('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip });
         const file = i === 0 ? name : `${name}-${i + 1}`;
-        writeFileSync(join(output, `${file}.png`), Buffer.from(data, 'base64'));
-        shots.push(file);
+        writeFileSync(path(file), Buffer.from(data, 'base64'));
+        shots.push(`${viewport.name}/${file}`);
       }
     };
     const fullPage = async (name) => {
       const { height } = JSON.parse(await evaluate(MEASURE));
-      if (height * 2 > 16000) {
+      if (height * (viewport.mobile ? 2 : 1) > 16000) {
         await slices(name);
         return;
       }
-      await page('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: Math.max(height, HEIGHT), deviceScaleFactor: 2, mobile: true });
+      await setSize(Math.max(height, viewport.height));
       await settle();
       const { data } = await page('Page.captureScreenshot', { format: 'png' });
-      writeFileSync(join(output, `${name}.png`), Buffer.from(data, 'base64'));
-      shots.push(name);
-      await page('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: HEIGHT, deviceScaleFactor: 2, mobile: true });
+      writeFileSync(shotPath(name), Buffer.from(data, 'base64'));
+      shots.push(`${viewport.name}/${name}`);
+      await setSize();
+    };
+    const capture = async (name, label) => {
+      const metrics = JSON.parse(await evaluate(MEASURE));
+      if (metrics.overflow > 0) problems.push(`${label}：横にはみ出しています（${metrics.overflow}px）${metrics.wide.join('、')}`);
+      if (metrics.small.length) problems.push(`${label}：小さすぎる文字があります ${metrics.small.join('、')}`);
+      if (metrics.lowContrast.length) problems.push(`${label}：コントラスト比が 4.5 未満の文字があります ${metrics.lowContrast.join('、')}`);
+      if (metrics.low.length) problems.push(`${label}：高さ 44px 未満の押す部品があります ${metrics.low.join('、')}`);
+      for (const issue of metrics.layout) problems.push(`${label}：${issue}`);
+      await fullPage(name);
     };
 
-    // 画面の一覧は、HTML のリンクから読み取る
-    await go('');
-    const targets = JSON.parse(await evaluate(`JSON.stringify({
-      tabs: [...document.querySelectorAll('nav.tabs a[href^="#"]')].map((a) => a.getAttribute('href').slice(1)),
-      pages: [...document.querySelectorAll('a[href^="#symptom-"]')].map((a) => a.getAttribute('href').slice(1)),
-    })`));
-    const screens = [...new Set([...targets.tabs, ...targets.pages])];
-    if (screens.length === 0) problems.push('タブのリンクが見つかりません');
-
-    // 開いた画面と、それを含む要素のほかに、見えている画面があれば数える
+    // 開いた画面と、それを含む要素のほかに、見えている画面があれば数える。
+    // 2列と3列では、手順ページの横に症状の一覧（#tab-help）を出すので、数えない
     const otherScreens = (id) => `(() => {
       const target = document.getElementById(${JSON.stringify(id)});
       const shown = (el) => getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
       if (!target || !shown(target)) return -1;
-      return [...document.querySelectorAll('.panel, article[id^="symptom-"]')].filter((el) => el !== target && !el.contains(target) && !target.contains(el) && shown(el)).length;
+      const beside = innerWidth >= 768 && id.startsWith('symptom-');
+      return [...document.querySelectorAll('.panel, article[id^="symptom-"]')].filter((el) => el !== target && !el.contains(target) && !target.contains(el) && shown(el) && !(beside && el.id === 'tab-help')).length;
     })()`;
+
+    // 仕様の値を測る
+    const readCheck = (selector, props) => `(() => {
+      const shown = [...document.querySelectorAll(${JSON.stringify(selector)})].find((el) => { const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0; });
+      if (!shown) return 'null';
+      const style = getComputedStyle(shown);
+      const out = {};
+      for (const prop of ${JSON.stringify(props)}) out[prop] = prop === 'width' || prop === 'height' ? shown.getBoundingClientRect()[prop] + 'px' : style[prop];
+      return JSON.stringify(out);
+    })()`;
+    const cssVar = (name) => evaluate(`(() => { const d = document.createElement('div'); d.style.color = 'var(${name})'; document.body.append(d); const c = getComputedStyle(d).color; d.remove(); return c; })()`);
+
+    await setSize();
+    await go('');
+    const targets = JSON.parse(await evaluate(`JSON.stringify({
+      tabs: [...document.querySelectorAll('nav.tabs a[href^="#"]')].map((a) => a.getAttribute('href').slice(1)),
+      pages: [...document.querySelectorAll('a[href^="#symptom-"]')].map((a) => a.getAttribute('href').slice(1)),
+      firstPage: (document.querySelector('article[id^="symptom-"] .first') || { closest: () => null }).closest('article[id^="symptom-"]')?.id ?? null,
+      fullPage: [...document.querySelectorAll('article[id^="symptom-"]')].find((a) => a.querySelector('.first') && a.querySelector('.band') && a.querySelector('.goal') && a.querySelector('code.path') && a.querySelector('details.term') && a.querySelector('.step-note'))?.id ?? null,
+    })`));
+    const screens = [...new Set(['intro', ...targets.tabs, ...targets.pages])];
+    if (targets.tabs.length === 0) problems.push('タブのリンクが見つかりません');
+    if (!targets.fullPage) problems.push('全部品がそろった手順ページが見本にありません');
+    const screenOf = { intro: 'intro', help: 'tab-help', contacts: 'tab-contacts', symptom: targets.fullPage ?? targets.firstPage };
+
     const backgrounds = {};
-    for (const [theme, media] of [['light', 'light'], ['dark', 'dark']]) {
-      await page('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: media }] });
-      for (const screen of screens) {
-        await go(`#${screen}`);
-        // JavaScript があるときは、1画面だけを表示する
-        const others = await evaluate(otherScreens(screen));
-        if (others !== 0) problems.push(`${theme} ${screen}：${others < 0 ? '開いた画面が表示されていません' : `ほかの画面が ${others} 個見えています`}`);
-        await capture(`${theme}-${screen}`, `${theme} ${screen}`);
+    for (const current of VIEWPORTS) {
+      viewport = current;
+      mkdirSync(join(output, viewport.name), { recursive: true });
+      await setSize();
+      for (const theme of ['light', 'dark']) {
+        await page('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] });
+        for (const screen of screens) {
+          await go(`#${screen}`);
+          // JavaScript があるときは、1画面だけを表示する
+          const others = await evaluate(otherScreens(screen));
+          if (others !== 0) problems.push(`${viewport.name} ${theme} ${screen}：${others < 0 ? '開いた画面が表示されていません' : `ほかの画面が ${others} 個見えています`}`);
+          await capture(`${theme}-${screen}`, `${viewport.name} ${theme} ${screen}`);
+        }
+        backgrounds[theme] = await evaluate('getComputedStyle(document.body).backgroundColor');
       }
-      backgrounds[theme] = await evaluate('getComputedStyle(document.body).backgroundColor');
+      if (backgrounds.light === backgrounds.dark) problems.push('ダークモードで背景の色が変わりません');
+
+      // 仕様の値
+      await page('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+      for (const screenName of Object.keys(screenOf)) {
+        await go(`#${screenOf[screenName]}`);
+        for (const check of CHECKS.filter((item) => item.screen === screenName && (!item.only || item.only === viewport.name))) {
+          const props = [...Object.keys(check.exact ?? {}), ...Object.keys(check.min ?? {})];
+          const values = JSON.parse(await evaluate(readCheck(check.selector, props)));
+          const where = `${viewport.name} ${screenName} ${check.selector}`;
+          if (!values) {
+            problems.push(`${where}：要素が見つかりません`);
+            continue;
+          }
+          for (const [prop, expected] of Object.entries(check.exact ?? {})) {
+            const same = /px$/.test(expected) ? Math.abs(parseFloat(values[prop]) - parseFloat(expected)) < 0.51 : values[prop] === expected;
+            if (!same) problems.push(`${where}：${prop} は ${expected} のはずが ${values[prop]}`);
+          }
+          for (const [prop, minimum] of Object.entries(check.min ?? {})) {
+            if (!(parseFloat(values[prop]) >= minimum)) problems.push(`${where}：${prop} は ${minimum}px 以上のはずが ${values[prop]}`);
+          }
+        }
+        for (const check of COLOR_CHECKS.filter((item) => item.screen === screenName)) {
+          const values = JSON.parse(await evaluate(readCheck(check.selector, ['backgroundColor', 'color', 'borderTopColor'])));
+          const where = `${viewport.name} ${screenName} ${check.selector}`;
+          if (!values) {
+            problems.push(`${where}：要素が見つかりません`);
+            continue;
+          }
+          for (const [key, prop] of [['backgroundVar', 'backgroundColor'], ['colorVar', 'color'], ['borderColorVar', 'borderTopColor']]) {
+            if (check[key] && values[prop] !== (await cssVar(check[key]))) problems.push(`${where}：${prop} は ${check[key]} のはず`);
+          }
+        }
+      }
+
+      // 列の組み立て
+      await go(`#${screenOf.symptom}`);
+      const layout = JSON.parse(await evaluate(`(() => {
+        const box = (selector, base = document) => { const el = base.querySelector(selector); if (!el) return null; const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return s.display === 'none' || r.width === 0 ? null : { left: r.left, right: r.right, width: r.width, position: s.position }; };
+        const article = document.getElementById(${JSON.stringify(screenOf.symptom)});
+        return JSON.stringify({ list: box('.col-list'), main: box('.col-main'), rail: box('.rail', article), tabs: box('.tabs'), topnav: box('.topnav') });
+      })()`));
+      const near = (value, expected) => value && Math.abs(value.width - expected) < 1;
+      if (viewport.name === 'phone') {
+        if (!layout.tabs) problems.push('phone：下部タブが見えません');
+        if (layout.topnav) problems.push('phone：上部のナビが見えています');
+        if (layout.rail) problems.push('phone：右の列が見えています');
+      } else {
+        if (layout.tabs) problems.push(`${viewport.name}：下部タブが見えています`);
+        if (!layout.topnav) problems.push(`${viewport.name}：上部のナビが見えません`);
+        if (!near(layout.list, 320)) problems.push(`${viewport.name}：症状の一覧の幅が 320px ではありません（${layout.list?.width}）`);
+        if (layout.list?.position !== 'sticky') problems.push(`${viewport.name}：症状の一覧が sticky ではありません`);
+        if (!layout.main) problems.push(`${viewport.name}：中央の列がありません`);
+        else if (layout.list && layout.main.left < layout.list.right) problems.push(`${viewport.name}：一覧と中央の列が重なっています`);
+      }
+      if (viewport.name === 'tablet' && layout.rail) problems.push('tablet：右の列が見えています（2列の幅では中央の列の末尾に戻します）');
+      if (viewport.name === 'pc') {
+        if (layout.main && layout.main.width > 680.5) problems.push(`pc：中央の列が 680px を超えています（${layout.main.width}）`);
+        if (!near(layout.rail, 300)) problems.push(`pc：右の列の幅が 300px ではありません（${layout.rail?.width}）`);
+        if (layout.rail?.position !== 'sticky') problems.push('pc：右の列が sticky ではありません');
+        if (layout.rail && layout.main && layout.rail.left < layout.main.right) problems.push('pc：中央の列と右の列が重なっています');
+      }
     }
-    if (backgrounds.light === backgrounds.dark) problems.push('ダークモードで背景の色が変わりません');
 
     // JavaScript なしの全文（OneDrive やファイルアプリのプレビューの想定）
+    viewport = VIEWPORTS[0];
+    await setSize();
     await page('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
     await page('Emulation.setScriptExecutionDisabled', { value: true });
     await go('');
-    await slices('nojs-all');
+    await slices('nojs-all', (file) => join(output, `${file}.png`));
     await page('Emulation.setScriptExecutionDisabled', { value: false });
 
     // 印刷の見え方
@@ -264,14 +384,14 @@ async function main([inputArg, outputArg]) {
     await stop();
   }
 
-  writeFileSync(join(output, 'report.json'), JSON.stringify({ width: WIDTH, shots, problems }, null, 2) + '\n');
+  writeFileSync(join(output, 'report.json'), JSON.stringify({ viewports: VIEWPORTS.map((v) => v.name), shots, problems }, null, 2) + '\n');
   console.log(`撮影しました：${shots.length} 枚と print.pdf（${output}）`);
   if (problems.length) {
     console.error(`画面の検査で問題が ${problems.length} 件あります：`);
     for (const problem of problems) console.error(`- ${problem}`);
     return 1;
   }
-  console.log('画面の検査：問題なし（横のはみ出し、16px、44px、手順の配置）');
+  console.log('画面の検査：問題なし（横のはみ出し、文字の大きさ、コントラスト、44px、手順の配置、列の幅、仕様の値）');
   return 0;
 }
 

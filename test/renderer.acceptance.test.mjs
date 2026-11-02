@@ -145,15 +145,18 @@ test('JavaScript なしの状態で、内容を隠していない', () => {
   assert.doesNotMatch(markup, /<[a-z][^>]*\bstyle="[^"]*(?:display\s*:\s*none|visibility\s*:\s*hidden)/i);
 
   const css = stripMedia(cssOf(html), /print/).replace(/\/\*[\s\S]*?\*\//g, '');
+  // 同じ内容が別の場所にある部品は、幅によって隠してよい（ナビ、右の列）。JavaScript がないと動かないコピーのボタンも隠してよい
+  const duplicated = /^(\.tabs|\.topnav|\.rail|\.btn-copy|\.count-live)\b/;
   for (const [, selector] of css.matchAll(/([^{}]+)\{[^{}]*(?:display\s*:\s*none|visibility\s*:\s*hidden)[^{}]*\}/gi)) {
     for (const part of selector.split(',').map((s) => s.trim())) {
+      if (duplicated.test(part)) continue;
       assert.match(part, /^(html)?\.js\b|\.js-only\b/, `JavaScript なしで隠れる指定です: ${part}`);
     }
   }
 });
 
 test('JavaScript がある場合、html に js のクラスを付ける', () => {
-  assert.match(scriptOf(html), /classList\.add\(\s*['"]js['"]\s*\)|className\s*\+?=\s*['"][^'"]*\bjs\b/);
+  assert.match(scriptOf(html), /classList\.(?:add\(\s*|replace\(\s*['"]no-js['"]\s*,\s*)['"]js['"]\s*\)|className\s*\+?=\s*['"][^'"]*\bjs\b/);
 });
 
 test('ブラウザーの保存機能が使えない環境でも止まらない', () => {
@@ -331,21 +334,6 @@ test('根拠：手順ページの記述に調査データがなければ、調�
 });
 
 // ---- 見た目の決まり ----
-test('文字は 16px 以上（印刷用を除く）', () => {
-  const css = stripMedia(cssOf(html), /print/);
-  assert.doesNotMatch(css, /(?:^|[;{\s])font\s*:/, 'font の一括指定は使わないでください（大きさを検査できないため）');
-  const sizes = [...css.matchAll(/font-size\s*:\s*([^;}]+)/gi)].map((m) => m[1].trim());
-  assert.ok(sizes.length > 0, 'font-size の指定がありません');
-  for (const size of sizes) {
-    const match = size.match(/^([\d.]+)(px|rem|em|%)$/);
-    if (size === 'inherit') continue;
-    assert.ok(match, `font-size の書き方は px、rem、em、% だけです: ${size}`);
-    const value = Number(match[1]);
-    const minimum = { px: 16, rem: 1, em: 1, '%': 100 }[match[2]];
-    assert.ok(value >= minimum, `文字が小さすぎます: ${size}`);
-  }
-});
-
 test('押す部品は tap のクラスを持ち、高さ 44px 以上', () => {
   const css = cssOf(html);
   const rule = css.match(/\.tap\b[^{]*\{([^}]*)\}/)?.[1];
@@ -365,7 +353,7 @@ test('押す部品は tap のクラスを持ち、高さ 44px 以上', () => {
 });
 
 test('幅 375px でも横にはみ出さない作り', () => {
-  const css = stripMedia(cssOf(html), /print/);
+  const css = stripMedia(cssOf(html), /print|min-width/);
   for (const [, value] of css.matchAll(/(?:^|[;{\s])(?:min-)?width\s*:\s*(\d+)px/g)) {
     assert.ok(Number(value) <= 375, `固定の幅が大きすぎます: ${value}px`);
   }

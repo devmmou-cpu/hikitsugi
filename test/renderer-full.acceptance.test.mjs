@@ -3,20 +3,16 @@
 //
 // 初版の約束（test/renderer.acceptance.test.mjs の冒頭）に加えて、次を守る。
 // - タブは <section id="tab-…" class="panel"> で書き、中に section を入れない。手順ページは <article id="symptom-T1"> で書く
-// - 手順の一覧は <ol class="steps">。番号は <span class="step-number">1</span> の要素で書き、ol の標準の番号を消す。
+// - 手順の一覧は <ol class="steps">。番号は <span class="step-n">1</span> の要素で書き、ol の標準の番号を消す。
 //   .steps の最初のルールに list-style: none と padding: 0 を書く
 // - 毎月やることの定期作業は <article class="routine" data-frequency="weekly"> の形で書き、
 //   頻度は「毎週」「毎月」「年に1回」の文字でも示す
 // - 機器は <article class="device"> の形で書き、「置き場所」「役割」「止まると」の見出しを付ける
-// - 色は :root の CSS 変数で定義する。--color-bg、--color-surface、--color-text、--color-muted、--color-accent は必須。
-//   値は #rrggbb で書き、ダークモードでは @media (prefers-color-scheme: dark) の :root で定義し直す
-// - 色の値は変数の定義の中にだけ書く。ほかの場所では var() で参照する
+// - 色、文字、列の値は renderer-visual.acceptance.test.mjs で確かめる
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prepareForRender } from '../plugin/lib/handover.mjs';
@@ -174,7 +170,7 @@ test('手順は全ページで、番号の要素と1つのチェックを持ち�
     const section = sectionOf(`symptom-${page.id}`, 'article');
     const list = section.match(/<ol\b[^>]*class="[^"]*\bsteps\b[\s\S]*?<\/ol>/i)?.[0];
     assert.ok(list, `${page.id} の手順の一覧がありません`);
-    const numbers = [...list.matchAll(/class="step-number"[^>]*>\s*(\d+)/g)].map((m) => Number(m[1]));
+    const numbers = [...list.matchAll(/class="step-n"[^>]*>\s*(\d+)/g)].map((m) => Number(m[1]));
     assert.deepEqual(numbers, page.steps.map((_, i) => i + 1), page.id);
     const boxes = tags(list, 'input').filter((tag) => /type="checkbox"/.test(tag));
     assert.equal(boxes.length, page.steps.length, page.id);
@@ -236,101 +232,12 @@ test('印刷：タブとボタンを隠し、全画面の内容を印刷する',
   assert.match(print, /\.panel[^{]*\{[^}]*display\s*:\s*block/);
 });
 
-// ---- 色 ----
-const hexToRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
-const luminance = (hex) => {
-  const [r, g, b] = hexToRgb(hex).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-};
-const contrast = (a, b) => {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
-};
-const hsl = (hex) => {
-  const [r, g, b] = hexToRgb(hex);
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  const d = max - min;
-  if (d === 0) return { h: 0, s: 0, l };
-  const s = d / (1 - Math.abs(2 * l - 1));
-  const h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-  return { h: h * 60, s, l };
-};
-const palette = (source) => {
-  const root = source.match(/:root\s*\{([^}]*)\}/)?.[1] ?? '';
-  return Object.fromEntries([...root.matchAll(/(--color-[a-z-]+)\s*:\s*(#[0-9a-fA-F]{6})/g)].map((m) => [m[1], m[2]]));
-};
-const REQUIRED = ['--color-bg', '--color-surface', '--color-text', '--color-muted', '--color-accent'];
-const light = palette(css);
-const dark = palette(mediaBlock(/prefers-color-scheme:\s*dark/));
-
-test('色は CSS 変数で定義し、ライトとダークの両方にそろっている', () => {
-  for (const name of REQUIRED) {
-    assert.match(light[name] ?? '', /^#/, `ライトの ${name}`);
-    assert.match(dark[name] ?? '', /^#/, `ダークの ${name}`);
-  }
-  const withoutDefinitions = css.replace(/--[a-z0-9-]+\s*:[^;}]*[;}]/gi, '');
-  assert.deepEqual(withoutDefinitions.match(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/g) ?? [], [], '色の値が変数の定義の外にあります');
-});
-
-test('ライト：雪のような白と墨色を基調に、暖色を差し色にする', () => {
-  const bg = hsl(light['--color-bg']);
-  assert.ok(bg.l >= 0.95, `背景の明るさ ${bg.l}`);
-  assert.ok(bg.s <= 0.35 || bg.l >= 0.97, `背景の彩度 ${bg.s}`);
-  const text = hsl(light['--color-text']);
-  assert.ok(text.l <= 0.25, `文字の明るさ ${text.l}`);
-  assert.ok(text.s <= 0.2, `文字の彩度 ${text.s}`);
-  const accent = hsl(light['--color-accent']);
-  assert.ok(accent.h >= 15 && accent.h <= 50, `差し色の色相 ${accent.h}`);
-  assert.ok(accent.s >= 0.25, `差し色の彩度 ${accent.s}`);
-});
-
-test('ダーク：墨色を基調に、暖色の差し色を保つ', () => {
-  const bg = hsl(dark['--color-bg']);
-  assert.ok(bg.l <= 0.2, `背景の明るさ ${bg.l}`);
-  const accent = hsl(dark['--color-accent']);
-  assert.ok(accent.h >= 15 && accent.h <= 50, `差し色の色相 ${accent.h}`);
-});
-
-test('文字のコントラストは 4.5 以上（本文は 7 以上）', () => {
-  for (const [name, colors] of [['ライト', light], ['ダーク', dark]]) {
-    for (const surface of ['--color-bg', '--color-surface']) {
-      assert.ok(contrast(colors['--color-text'], colors[surface]) >= 7, `${name} 本文と ${surface}`);
-      assert.ok(contrast(colors['--color-muted'], colors[surface]) >= 4.5, `${name} 補足と ${surface}`);
-      assert.ok(contrast(colors['--color-accent'], colors[surface]) >= 4.5, `${name} 差し色と ${surface}`);
-    }
-  }
-});
-
 // ---- 受け渡し ----
 test('定期作業と機器を外さずに、表示プログラムへ渡せる', () => {
   const { manual: prepared } = prepareForRender(manual);
   assert.equal(prepared.routines.length, manual.routines.length);
   assert.equal(prepared.devices.length, manual.devices.length);
   assert.equal(prepared.statements.length, manual.statements.length);
-});
-
-// ---- 実際の画面 ----
-const CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-
-test('実際の画面（幅 375px）で、全画面の検査に合格し、スクリーンショットが撮れる', { skip: existsSync(CHROME) ? false : 'Chrome がありません' }, () => {
-  const dir = mkdtempSync(join(tmpdir(), 'hikitsugi-shots-'));
-  try {
-    const input = join(dir, 'manual.html');
-    writeFileSync(input, html);
-    const output = join(dir, 'shots');
-    const result = spawnSync(process.execPath, [join(ROOT, 'scripts/screenshots.mjs'), input, output], { encoding: 'utf8', timeout: 600000 });
-    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-    const files = readdirSync(output);
-    const screens = ['tab-help', 'tab-contacts', 'tab-routines', 'tab-company', ...manual.symptom_pages.map((p) => `symptom-${p.id}`)];
-    for (const theme of ['light', 'dark']) {
-      for (const screen of screens) assert.ok(files.includes(`${theme}-${screen}.png`), `${theme}-${screen}`);
-    }
-    assert.ok(files.includes('nojs-all.png') && files.includes('print.pdf'));
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
 });
 
 test('説明欄の文には、番号もチェック欄も付けず、手順より前に出す', () => {
