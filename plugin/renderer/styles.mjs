@@ -22,6 +22,8 @@ export const STYLES = String.raw`
   --color-check-text: #6e4e00;
   --color-vendor-bg: #2b2a28;
   --color-vendor-text: #ffffff;
+  --color-internal-bg: #e7edf2;
+  --color-internal-text: #2f4a5f;
   --color-print: #000000;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -51,6 +53,8 @@ export const STYLES = String.raw`
     --color-check-text: #eccb82;
     --color-vendor-bg: #ece9e4;
     --color-vendor-text: #22211f;
+    --color-internal-bg: #25303a;
+    --color-internal-text: #b4cde0;
   }
 }
 
@@ -296,6 +300,12 @@ main {
   color: var(--color-vendor-text);
 }
 
+.badge[data-badge="internal"] {
+  border-radius: var(--radius-small);
+  background: var(--color-internal-bg);
+  color: var(--color-internal-text);
+}
+
 /* 手順ページ */
 .back {
   gap: var(--space-1);
@@ -338,6 +348,64 @@ main {
   padding: var(--space-3) var(--space-4);
   background: var(--color-accent-soft);
   border-radius: var(--radius);
+}
+
+/* 手順の前の説明欄。手順と違って番号もチェック欄も付けない */
+.page-notes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.page-notes li {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.page-notes li:last-child {
+  border-bottom: 0;
+}
+
+.drive-box {
+  padding: 0;
+}
+
+.drive-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem;
+}
+
+.drive-table th,
+.drive-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.drive-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.drive-table th {
+  color: var(--color-muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.drive-letter {
+  font-weight: 700;
+}
+
+.drive-table .path {
+  overflow-wrap: anywhere;
+}
+
+.drive-target {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-muted);
 }
 
 .steps-head {

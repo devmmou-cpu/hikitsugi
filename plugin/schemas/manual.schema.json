@@ -116,6 +116,8 @@
           "badge",
           "minutes",
           "reassurance",
+          "notes",
+          "drive_rows",
           "steps",
           "fallback"
         ],
@@ -150,7 +152,8 @@
                 "enum": [
                   "self",
                   "check_first",
-                  "vendor"
+                  "vendor",
+                  "internal"
                 ]
               },
               "statement": {
@@ -166,6 +169,22 @@
           "reassurance": {
             "type": "string",
             "pattern": "^STM-\\d{3}$"
+          },
+          "notes": {
+            "$comment": "手順の前に読む説明。番号もチェック欄も付かない",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^STM-\\d{3}$"
+            }
+          },
+          "drive_rows": {
+            "$comment": "共有フォルダの表の行。「<PC>の Z ドライブは \\\\\\\\NAS\\\\名前 です。」の形の文章で、表示プログラムが文章から値を読む",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^STM-\\d{3}$"
+            }
           },
           "steps": {
             "type": "array",

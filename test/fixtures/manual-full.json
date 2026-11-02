@@ -1475,11 +1475,14 @@
       },
       "minutes": 10,
       "reassurance": "STM-003",
-      "steps": [
+      "notes": [],
+      "drive_rows": [
         "STM-004",
         "STM-005",
         "STM-006",
-        "STM-007",
+        "STM-007"
+      ],
+      "steps": [
         "STM-008",
         "STM-009",
         "STM-010",
@@ -1507,8 +1510,11 @@
       },
       "minutes": 8,
       "reassurance": "STM-022",
+      "notes": [
+        "STM-023"
+      ],
+      "drive_rows": [],
       "steps": [
-        "STM-023",
         "STM-008",
         "STM-009",
         "STM-010",
@@ -1531,8 +1537,11 @@
       },
       "minutes": 5,
       "reassurance": "STM-030",
+      "notes": [
+        "STM-031"
+      ],
+      "drive_rows": [],
       "steps": [
-        "STM-031",
         "STM-032",
         "STM-033",
         "STM-034"
@@ -1549,9 +1558,11 @@
       },
       "minutes": 5,
       "reassurance": "STM-037",
-      "steps": [
+      "notes": [
         "STM-038"
       ],
+      "drive_rows": [],
+      "steps": [],
       "fallback": {
         "contact": "VEN-01",
         "message": "STM-039"
@@ -1567,11 +1578,14 @@
       },
       "minutes": 5,
       "reassurance": "STM-042",
+      "notes": [
+        "STM-045",
+        "STM-046"
+      ],
+      "drive_rows": [],
       "steps": [
         "STM-043",
         "STM-044",
-        "STM-045",
-        "STM-046",
         "STM-047"
       ],
       "fallback": {
@@ -1584,13 +1598,16 @@
       "category": "other",
       "title": "STM-049",
       "badge": {
-        "value": "vendor",
+        "value": "internal",
         "statement": "STM-050"
       },
       "minutes": 5,
       "reassurance": "STM-051",
+      "notes": [
+        "STM-052"
+      ],
+      "drive_rows": [],
       "steps": [
-        "STM-052",
         "STM-050"
       ],
       "fallback": null
@@ -1605,9 +1622,11 @@
       },
       "minutes": 5,
       "reassurance": "STM-055",
-      "steps": [
+      "notes": [
         "STM-056"
       ],
+      "drive_rows": [],
+      "steps": [],
       "fallback": {
         "contact": "VEN-04",
         "message": "STM-057"
@@ -1623,8 +1642,11 @@
       },
       "minutes": 5,
       "reassurance": "STM-060",
+      "notes": [
+        "STM-061"
+      ],
+      "drive_rows": [],
       "steps": [
-        "STM-061",
         "STM-062",
         "STM-063"
       ],
@@ -1640,6 +1662,8 @@
       },
       "minutes": 5,
       "reassurance": "STM-066",
+      "notes": [],
+      "drive_rows": [],
       "steps": [],
       "fallback": {
         "contact": "VEN-03",
@@ -1651,13 +1675,16 @@
       "category": "mail_teams",
       "title": "STM-068",
       "badge": {
-        "value": "vendor",
+        "value": "internal",
         "statement": "STM-069"
       },
       "minutes": 3,
       "reassurance": "STM-070",
+      "notes": [
+        "STM-071"
+      ],
+      "drive_rows": [],
       "steps": [
-        "STM-071",
         "STM-072"
       ],
       "fallback": null
@@ -1667,11 +1694,13 @@
       "category": "other",
       "title": "STM-073",
       "badge": {
-        "value": "vendor",
+        "value": "internal",
         "statement": "STM-074"
       },
       "minutes": 3,
       "reassurance": "STM-075",
+      "notes": [],
+      "drive_rows": [],
       "steps": [
         "STM-076",
         "STM-077"
@@ -1688,12 +1717,14 @@
       },
       "minutes": 5,
       "reassurance": "STM-080",
-      "steps": [
+      "notes": [
         "STM-081",
         "STM-082",
         "STM-079",
         "STM-083"
       ],
+      "drive_rows": [],
+      "steps": [],
       "fallback": null
     },
     {
@@ -1706,11 +1737,13 @@
       },
       "minutes": 3,
       "reassurance": "STM-086",
-      "steps": [
+      "notes": [
         "STM-087",
         "STM-085",
         "STM-088"
       ],
+      "drive_rows": [],
+      "steps": [],
       "fallback": null
     }
   ],

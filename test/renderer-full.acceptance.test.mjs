@@ -20,6 +20,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prepareForRender } from '../plugin/lib/handover.mjs';
+import { parseDriveRow } from '../plugin/lib/page-check.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 
@@ -77,7 +78,11 @@ test('見本は5ページ以上で、全タブの内容を持つ', () => {
 
 // ---- 全タブの内容 ----
 test('JavaScript なしで、すべての記述が読める', () => {
-  for (const statement of manual.statements) assert.ok(visibleText.includes(statement.text), statement.id);
+  // 共有フォルダの表の文章は検証用で、画面には表の形で出す（値は下のテストで確かめる）
+  const inTable = new Set(manual.symptom_pages.flatMap((p) => p.drive_rows));
+  for (const statement of manual.statements) {
+    if (!inTable.has(statement.id)) assert.ok(visibleText.includes(statement.text), statement.id);
+  }
 });
 
 test('全タブに実際の内容があり、「まだ入っていません」の案内が出ない', () => {
@@ -324,6 +329,43 @@ test('実際の画面（幅 375px）で、全画面の検査に合格し、ス�
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('説明欄の文には、番号もチェック欄も付けず、手順より前に出す', () => {
+  const page = manual.symptom_pages.find((p) => p.notes.length && p.steps.length);
+  const section = sectionOf(`symptom-${page.id}`, 'article');
+  const list = section.match(/<ol\b[\s\S]*?<\/ol>/i)[0];
+  for (const id of page.notes) {
+    const text = textOf(id);
+    assert.ok(strip(section).includes(text), id);
+    assert.ok(!strip(list).includes(text), id);
+    assert.ok(strip(section).indexOf(text) < strip(section).indexOf('やること'), id);
+  }
+  assert.equal(tags(list, 'input').length, page.steps.length);
+});
+
+test('共有フォルダの表：見出しと接続先を出し、\\\\ を保ち、手順より前に置く', () => {
+  const page = manual.symptom_pages.find((p) => p.drive_rows.length);
+  const section = sectionOf(`symptom-${page.id}`, 'article');
+  const text = strip(section);
+  assert.ok(text.includes('この会社の共有フォルダ'));
+  assert.ok(text.indexOf('この会社の共有フォルダ') < text.indexOf('やること'));
+  const list = section.match(/<ol\b[\s\S]*?<\/ol>/i)[0];
+  for (const row of page.drive_rows.map((id) => parseDriveRow(textOf(id)))) {
+    assert.ok(/^\\\\/.test(row.path));
+    assert.ok(text.includes(row.path), row.path);
+    assert.ok(!strip(list).includes(row.path), row.path);
+    if (row.target) assert.ok(text.includes(row.target), row.target);
+  }
+});
+
+test('社内で相談のページ：バッジを文字で出し、業者の連絡先へ誘導しない', () => {
+  const page = manual.symptom_pages.find((p) => p.badge.value === 'internal' && !p.fallback);
+  const section = sectionOf(`symptom-${page.id}`, 'article');
+  assert.match(section, /data-badge="internal"/);
+  assert.ok(strip(section).includes('社内で相談'));
+  assert.ok(!strip(section).includes('業者へ連絡'));
+  assert.ok(!section.includes('href="#tab-contacts"'));
 });
 
 test('実装は外部ライブラリを使わない', () => {

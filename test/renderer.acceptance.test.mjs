@@ -299,6 +299,7 @@ for (const [value, label] of [
   ['self', '自分で直せる'],
   ['check_first', '確認してから'],
   ['vendor', '業者へ連絡'],
+  ['internal', '社内で相談'],
 ]) {
   test(`判定バッジ ${value} は「${label}」と文字で表示する`, () => {
     const output = render((m) => {

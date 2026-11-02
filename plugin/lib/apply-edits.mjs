@@ -29,6 +29,8 @@ export function applyEdits(manual, edits, { revert = true } = {}) {
     if (!known.has(id)) throw new Error(`存在しない文章を直しています: ${id}`);
     rewrites.set(id, text);
   }
+  // 共有フォルダの表の文章は、決まった形から値を読むので直さない
+  const tableStatements = new Set(manual.symptom_pages.flatMap((page) => page.drive_rows));
   const changes = [];
   const statements = manual.statements.map((statement) => {
     const text = rewrites.get(statement.id);
@@ -36,6 +38,10 @@ export function applyEdits(manual, edits, { revert = true } = {}) {
     // 部品の文面は確認済みなので、Editor の直しを受け付けない
     if (statement.library) {
       if (text !== statement.text) changes.push({ statement: statement.id, missing: ['部品の文面'] });
+      return statement;
+    }
+    if (tableStatements.has(statement.id)) {
+      if (text !== statement.text) changes.push({ statement: statement.id, missing: ['表の文章'] });
       return statement;
     }
     const missing = missingTokens(statement.text, text, names);

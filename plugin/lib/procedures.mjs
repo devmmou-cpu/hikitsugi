@@ -2,6 +2,7 @@
 // /hikitsugi:start と評価の両方で使う。
 
 import { readFileSync } from 'node:fs';
+import { pageProblems } from './page-check.mjs';
 
 const LIBRARY_PATH = new URL('../library/procedures.json', import.meta.url);
 
@@ -56,7 +57,7 @@ export function composeProcedures(manual, sources, library = loadLibrary()) {
     }
     const valueEvidence = [];
     for (const { slot, value, evidence } of use.values) {
-      // 同じページの一覧を指す値は、ここでは根拠を求めない。一覧の文章が根拠を持つ
+      // 同じページの表を指す値は、ここでは根拠を求めない。表の文章が根拠を持つ
       if (library.list_values?.[slot] === value) continue;
       if (!evidence.length) problems.push(`${statement.id}: {${slot}} の根拠がありません`);
       for (const ref of evidence) {
@@ -74,10 +75,9 @@ export function composeProcedures(manual, sources, library = loadLibrary()) {
   const byId = new Map(statements.map((s) => [s.id, s]));
   const usesList = (id) => byId.get(id)?.library?.values.some(({ slot, value }) => library.list_values?.[slot] === value);
   for (const page of manual.symptom_pages) {
-    // 一覧の値を使うなら、部品より前に一覧の文章が2つ以上必要
-    const first = page.steps.findIndex(usesList);
-    if (first >= 0 && page.steps.slice(0, first).filter((id) => !byId.get(id)?.library).length < 2) {
-      problems.push(`${page.id}: 一覧の値を使う部品の前に、対象ごとの文章がありません`);
+    // 表を指す値を使うなら、そのページに共有フォルダの表が必要
+    if (page.steps.some(usesList) && !page.drive_rows.length) {
+      problems.push(`${page.id}: 表を指す値を使う部品がありますが、共有フォルダの表（drive_rows）がありません`);
     }
     const used = page.steps.map((id) => partOf.get(id)).filter(Boolean);
     for (const sequence of library.sequences) {
@@ -87,7 +87,8 @@ export function composeProcedures(manual, sources, library = loadLibrary()) {
       }
     }
   }
-  return { manual: { ...manual, statements }, problems };
+  const composed = { ...manual, statements };
+  return { manual: composed, problems: [...problems, ...pageProblems(composed)] };
 }
 
 /** 取扱説明書が使っている部品のうち、承認されていないもの（存在しないものを含む）を返す。 */

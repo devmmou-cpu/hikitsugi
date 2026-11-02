@@ -8,6 +8,7 @@
 import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { parseDriveRow } from '../lib/page-check.mjs';
 import { validate } from '../lib/validate.mjs';
 import { CLIENT_SCRIPT } from './client.mjs';
 import { STYLES } from './styles.mjs';
@@ -15,7 +16,7 @@ import { STYLES } from './styles.mjs';
 const SCHEMA = JSON.parse(readFileSync(new URL('../schemas/manual.schema.json', import.meta.url), 'utf8'));
 
 // ---- 画面の固定の文言 ----
-const BADGE_LABELS = { self: '自分で直せる', check_first: '確認してから', vendor: '業者へ連絡' };
+const BADGE_LABELS = { self: '自分で直せる', check_first: '確認してから', vendor: '業者へ連絡', internal: '社内で相談' };
 
 const CATEGORY_LABELS = [
   ['net', 'インターネット'],
@@ -46,11 +47,12 @@ const ICONS = {
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.1 1-1.1 1.8M12 16.8v.01"/>',
   calendar: '<rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M4 10.5h16M8.5 3.5v4M15.5 3.5v4"/>',
   monitor: '<rect x="3.5" y="4.5" width="17" height="12" rx="2"/><path d="M9 20h6M12 16.5V20"/>',
+  people: '<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M16 4.8a3.5 3.5 0 0 1 0 6.4M17.5 14.3c2.2.7 3.5 2.8 3.5 5.7"/>',
 };
 
 const icon = (name) => `<svg class="icon" viewBox="0 0 24 24" role="presentation" focusable="false">${ICONS[name]}</svg>`;
 
-const BADGE_ICONS = { self: 'check', check_first: 'alert', vendor: 'phone' };
+const BADGE_ICONS = { self: 'check', check_first: 'alert', vendor: 'phone', internal: 'people' };
 
 // 文字を大きくしたときは、<wbr> の位置（語の切れ目）でだけ折り返す
 const TABS = [
@@ -133,7 +135,7 @@ function assertUnique(ids, label) {
 /** 画面に出す記述の ID をすべて集める。 */
 function referencedStatements(manual) {
   return [
-    ...manual.symptom_pages.flatMap((p) => [p.title, p.badge.statement, p.reassurance, ...p.steps, ...(p.fallback ? [p.fallback.message] : [])]),
+    ...manual.symptom_pages.flatMap((p) => [p.title, p.badge.statement, p.reassurance, ...p.notes, ...p.drive_rows, ...p.steps, ...(p.fallback ? [p.fallback.message] : [])]),
     ...manual.contacts.flatMap((c) => [c.role, c.hours, c.contract_location, c.what_to_tell]),
     ...manual.routines.flatMap((r) => [r.title, ...r.steps]),
     ...manual.devices.flatMap((d) => [d.name, d.location, d.purpose, d.impact]),
@@ -161,6 +163,11 @@ function checkInput(manual) {
   const contacts = new Set(manual.contacts.map((c) => c.id));
   const missing = manual.symptom_pages.filter((p) => p.fallback && !contacts.has(p.fallback.contact)).map((p) => p.fallback.contact);
   if (missing.length) throw new Error(`存在しない連絡先を参照しています: ${missing.join(', ')}`);
+
+  // 表の行は文章から値を読むので、読めない形なら止める
+  const textOf = new Map(manual.statements.map((s) => [s.id, s.text]));
+  const badRows = manual.symptom_pages.flatMap((p) => p.drive_rows.filter((id) => !parseDriveRow(textOf.get(id))));
+  if (badRows.length) throw new Error(`共有フォルダの表の文章の形が違います: ${badRows.join(', ')}`);
 
   // どの画面からも参照されない記述は読めなくなるので、止める
   const unused = [...known].filter((id) => !refs.has(id));
@@ -218,8 +225,24 @@ function pageTerms(ctx, page, contact) {
     return terms;
   };
   const steps = page.steps.map(pick);
-  const others = [page.title, page.badge.statement, page.reassurance, ...(contact ? [contact.hours, page.fallback.message] : [])];
+  const others = [page.title, page.badge.statement, page.reassurance, ...page.notes, ...(contact ? [contact.hours, page.fallback.message] : [])];
   return { steps, rest: others.flatMap(pick) };
+}
+
+/** 手順の前の説明欄。番号もチェック欄も付けない。 */
+function notesHtml(ctx, page) {
+  const notes = page.notes.length
+    ? `<h3>先に知っておくこと</h3>\n<ul class="page-notes" role="list">\n${page.notes.map((id) => `<li>${ctx.text(id)}</li>`).join('\n')}\n</ul>`
+    : '';
+  const rows = page.drive_rows.map((id) => {
+    const row = parseDriveRow(ctx.raw(id));
+    const target = row.target ? `<span class="drive-target">使う PC：${esc(row.target)}</span>` : '';
+    return `<tr><td class="drive-letter">${esc(row.drive)}</td><td><span class="path">${esc(row.path)}</span>${target}</td></tr>`;
+  });
+  const table = rows.length
+    ? `<h3>この会社の共有フォルダ</h3>\n<div class="card drive-box"><table class="drive-table">\n<thead><tr><th scope="col">ドライブ</th><th scope="col">接続先</th></tr></thead>\n<tbody>\n${rows.join('\n')}\n</tbody>\n</table></div>`
+    : '';
+  return [notes, table].filter(Boolean).join('\n');
 }
 
 function stepsHtml(ctx, page, stepTerms) {
@@ -243,9 +266,10 @@ function fallbackHtml(ctx, page, contact) {
   const statusId = `copy-status-${esc(page.id)}`;
   // 業者へ連絡する判定のページは、まず連絡するのが手順なので、見出しを変える
   const isVendor = page.badge.value === 'vendor';
+  const isInternal = page.badge.value === 'internal';
   // 連絡先の「伝えること」は1社に1文で、別の症状の文のことがある。ここではこのページの文面だけを出す
   return [
-    `<h3>${isVendor ? '連絡してください' : '直らなかったら'}</h3>`,
+    `<h3>${isVendor ? '連絡してください' : isInternal ? '相談のあとの連絡先' : '直らなかったら'}</h3>`,
     '<div class="card contact-box">',
     `<p class="contact-name">${esc(contact.name)}</p>`,
     callHtml(contact.phone),
@@ -278,6 +302,8 @@ function symptomPanel(ctx, page) {
     page.title,
     page.badge.statement,
     page.reassurance,
+    ...page.notes,
+    ...page.drive_rows,
     ...page.steps,
     ...terms.steps.flat().map((term) => term.explanation),
     ...terms.rest.map((term) => term.explanation),
@@ -293,9 +319,10 @@ function symptomPanel(ctx, page) {
     `<p class="verdict-text">${ctx.text(page.badge.statement)}</p>`,
     '</div>',
     `<p class="reassure">${ctx.text(page.reassurance)}</p>`,
+    notesHtml(ctx, page),
     page.steps.length ? stepsHtml(ctx, page, terms.steps) : '',
     contact ? fallbackHtml(ctx, page, contact) : '',
-    !contact && ctx.manual.contacts.length ? '<p class="tab-link"><a class="tap button button-quiet" href="#tab-contacts">連絡先の一覧を見る</a></p>' : '',
+    !contact && page.badge.value !== 'internal' && ctx.manual.contacts.length ? '<p class="tab-link"><a class="tap button button-quiet" href="#tab-contacts">連絡先の一覧を見る</a></p>' : '',
     terms.rest.length ? `<h4>このページのことば</h4>\n<div class="terms">\n${terms.rest.map((term) => termHtml(ctx, term)).join('\n')}\n</div>` : '',
     evidenceHtml(ctx, shownIds),
     backLink,

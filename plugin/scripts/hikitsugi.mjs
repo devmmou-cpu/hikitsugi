@@ -127,9 +127,9 @@ function checkWriter(work, [round]) {
   // 会社の情報はプログラムが付ける。サブエージェントが書いた値で上書きさせない
   const stamped = { ...raw, schema_version: 1, company: state.company, company_name: state.company_name, as_of: survey.as_of };
   checkSchema('manual', stamped);
-  // 部品の文面はプログラムが組み立てる。問題があれば、Writer に直してもらう
+  // 部品の文面はプログラムが組み立てる。部品の指定やページの形に問題があれば、Writer に直してもらう
   const { manual, problems } = composeProcedures(stamped, { survey, transcript: readJson(join(work, 'transcript.json')) });
-  if (problems.length) throw new Problem(`手順部品の指定に問題があります：\n${problems.join('\n')}`);
+  if (problems.length) throw new Problem(`手順部品の指定やページの形に問題があります：\n${problems.join('\n')}`);
   checkSchema('manual', manual);
   if (Number(round) === 1) {
     writeJson(path, manual);

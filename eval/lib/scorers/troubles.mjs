@@ -1,12 +1,12 @@
 // 模擬の後任の採点。T1〜T5 で正しい行動を選べたかを確かめる。
-// 行動は self（自力で解決）、check_first（確かめてから連絡先へ依頼）、contact（連絡）、gave_up（あきらめた）。
+// 行動は self（自力で解決）、check_first（確かめてから連絡先へ依頼）、contact（連絡）、internal（社内で相談）、gave_up（あきらめた）。
 // 出力の形：{ results: [{ trouble: "T1", action: "contact", contact: "業者名", steps?: 3, stuck_at?: "…" }] }
 
 export function validateOutput(output) {
   if (!output || !Array.isArray(output.results)) throw new Error('results の配列がありません');
   for (const result of output.results) {
     if (!/^T[1-5]$/.test(result.trouble ?? '')) throw new Error(`トラブルの ID が違います: ${result.trouble}`);
-    if (!['self', 'check_first', 'contact', 'gave_up'].includes(result.action)) throw new Error(`行動の値が違います: ${result.action}`);
+    if (!['self', 'check_first', 'contact', 'internal', 'gave_up'].includes(result.action)) throw new Error(`行動の値が違います: ${result.action}`);
   }
 }
 

@@ -59,7 +59,7 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/hikitsugi.mjs" <コマンド>
 `round` が 2 以上のときは、次も加えます。
 > 差し戻しです。`hikitsugi-work/findings-<round-1>.json` を revision として読んでください。
 
-終わったら `hikitsugi check-writer <round>` を実行します。手順部品の指定に問題があると表示されたら、その内容を Writer に伝えて直してもらいます。
+終わったら `hikitsugi check-writer <round>` を実行します。手順部品の指定やページの形に問題があると表示されたら、その内容を Writer に伝えて直してもらいます。
 
 ### editor
 `hikitsugi:plain-japanese-editor` に次を依頼します。

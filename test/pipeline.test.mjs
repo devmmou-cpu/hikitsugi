@@ -9,13 +9,14 @@ import { fileURLToPath } from 'node:url';
 import { buildVerifierRequest } from '../eval/lib/adapters/live.mjs';
 import { loadAnswers, loadInput } from '../eval/lib/load-set.mjs';
 import * as manualScorer from '../eval/lib/scorers/manual.mjs';
-import { buildWriterRequest } from '../eval/lib/writing.mjs';
+import { buildWriterRequest, runWriterLive } from '../eval/lib/writing.mjs';
 import { runPipeline } from '../eval/pipeline.mjs';
 import { applyEdits, missingTokens } from '../plugin/lib/apply-edits.mjs';
 import { buildRevision, carryForward, prepareForRender, summarizeVerification, UnapprovedPartsError } from '../plugin/lib/handover.mjs';
 import { longSentences, plainProblems } from '../plugin/lib/plain-check.mjs';
 import { composeProcedures, libraryForAgents, loadLibrary, unapprovedParts } from '../plugin/lib/procedures.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
+import { parseDriveRow } from '../plugin/lib/page-check.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { nextStep, run } from '../plugin/scripts/hikitsugi.mjs';
 
@@ -442,7 +443,7 @@ test('部品の指定の誤りと、根拠にない値を見つける', () => {
   assert.match(problemsOf([step('STM-001', 'LIB-005', [{ slot: '接続先', value: 'x', evidence: [unknown.id] }])]), /使えない根拠/);
 });
 
-test('対象だけが違う手順は、一覧の値で1ページにまとめられる。一覧がなければ見つける', () => {
+test('対象だけが違う手順は、表を指す値で1ページにまとめられる。表がなければ見つける', () => {
   const list = library.list_values;
   const parts = [
     step('STM-010', 'LIB-004', [{ slot: 'ドライブ文字', value: list['ドライブ文字'], evidence: [] }]),
@@ -450,16 +451,114 @@ test('対象だけが違う手順は、一覧の値で1ページにまとめら�
     step('STM-012', 'LIB-007', [{ slot: 'フォルダ名', value: list['フォルダ名'], evidence: [] }]),
   ];
   const rows = [
-    { id: 'STM-001', text: '経理は X ドライブです。', evidence: [driveItem.id] },
-    { id: 'STM-002', text: '総務は Y ドライブです。', evidence: [driveItem.id] },
+    { id: 'STM-001', text: 'X ドライブは \\\\NAS\\経理 です。', evidence: [driveItem.id] },
+    { id: 'STM-002', text: '総務の PC の Y ドライブは \\\\NAS\\総務 です。', evidence: [driveItem.id] },
   ];
-  const { manual, problems } = composeProcedures(withSteps([...rows, ...parts]), sources);
+  const base = withSteps([...rows, ...parts], parts.map((part) => part.id));
+  base.symptom_pages[0].drive_rows = rows.map((row) => row.id);
+  const { manual, problems } = composeProcedures(base, sources);
   assert.deepEqual(problems, []);
   const text = (id) => manual.statements.find((s) => s.id === id).text;
-  assert.equal(text('STM-010'), '「ドライブ」の欄で、一覧の文字 を選んでください。');
-  assert.ok(text('STM-011').startsWith('「フォルダー」の欄に、一覧の接続先 と入力してください。'));
-  assert.equal(text('STM-012'), '「見えなかった」フォルダーが開けば、直っています。');
-  assert.match(composeProcedures(withSteps(parts), sources).problems.join('\n'), /対象ごとの文章がありません/);
+  assert.ok(text('STM-010').includes(list['ドライブ文字']));
+  assert.ok(text('STM-011').includes(list['接続先']));
+  assert.ok(!text('STM-010').includes('{'));
+  assert.match(composeProcedures(withSteps(parts), sources).problems.join('\n'), /共有フォルダの表/);
+});
+
+test('手順に置いた事実や禁止は、notes へ移すよう Writer に伝える', () => {
+  const statements = [
+    { id: 'STM-001', text: 'NAS は事務所にあります。', evidence: [driveItem.id] },
+    { id: 'STM-002', text: 'ルーターは初期化しないでください。', evidence: [driveItem.id] },
+    { id: 'STM-003', text: 'ルーターの電源を確かめてください。', evidence: [driveItem.id] },
+    step('STM-004', 'LIB-001'),
+  ];
+  const found = composeProcedures(withSteps(statements), sources).problems.join('\n');
+  assert.match(found, /STM-001 はやることではありません/);
+  assert.match(found, /STM-002 はやることではありません/);
+  assert.doesNotMatch(found, /STM-003/);
+  assert.doesNotMatch(found, /STM-004/);
+  const moved = withSteps(statements, ['STM-003', 'STM-004']);
+  moved.symptom_pages[0].notes = ['STM-001', 'STM-002'];
+  assert.deepEqual(composeProcedures(moved, sources).problems, []);
+});
+
+test('後任が読む文章に、作り方の言葉があれば見つける', () => {
+  const statements = [{ id: 'STM-001', text: '聞き取りに記録がありません。', evidence: [driveItem.id] }, step('STM-002', 'LIB-001')];
+  const page = withSteps(statements, ['STM-002']);
+  page.symptom_pages[0].notes = ['STM-001'];
+  assert.match(composeProcedures(page, sources).problems.join('\n'), /作り方の言葉/);
+});
+
+test('途中で書くのをやめた出力は、手順ページがないことと空の文章で見つける', () => {
+  const base = withSteps([{ id: 'STM-001', text: '', evidence: [driveItem.id] }], []);
+  base.symptom_pages = [];
+  const found = composeProcedures(base, sources).problems.join('\n');
+  assert.match(found, /手順ページが1つもありません/);
+  assert.match(found, /STM-001: 文章が空です/);
+});
+
+test('業者の連絡先がない vendor のページは、internal を案内する。internal は連絡先がなくてよい', () => {
+  const statements = [step('STM-001', 'LIB-001')];
+  const noContact = withSteps(statements);
+  noContact.symptom_pages[0] = { ...noContact.symptom_pages[0], fallback: null, badge: { ...noContact.symptom_pages[0].badge, value: 'vendor' } };
+  assert.match(composeProcedures(noContact, sources).problems.join('\n'), /internal/);
+  noContact.symptom_pages[0].badge.value = 'internal';
+  assert.deepEqual(composeProcedures(noContact, sources).problems, []);
+});
+
+test('共有フォルダの表の行は文章から値を読む。形が違えば見つけ、表示プログラムも止まる', () => {
+  assert.deepEqual(parseDriveRow('Z ドライブは \\\\NAS\\図面 です。'), { target: null, drive: 'Z', path: '\\\\NAS\\図面' });
+  assert.deepEqual(parseDriveRow('総務用 PC（A-01）の S ドライブは \\\\NAS\\スキャン です。'), { target: '総務用 PC（A-01）', drive: 'S', path: '\\\\NAS\\スキャン' });
+  for (const text of ['Z ドライブは \\NAS\\図面 です。', 'Z ドライブは \\\\NAS です。', 'ドライブは \\\\NAS\\図面 です。', '経理は X ドライブです。']) assert.equal(parseDriveRow(text), null, text);
+  const statements = [{ id: 'STM-001', text: '経理は X ドライブです。', evidence: [driveItem.id] }, step('STM-002', 'LIB-001')];
+  const wrong = withSteps(statements, ['STM-002']);
+  wrong.symptom_pages[0].drive_rows = ['STM-001'];
+  assert.match(composeProcedures(wrong, sources).problems.join('\n'), /表の行の形ではありません/);
+  const page = fixture();
+  const [first, ...others] = page.symptom_pages[0].steps;
+  page.symptom_pages[0].steps = others;
+  page.symptom_pages[0].drive_rows = [first];
+  assert.throws(() => renderManual(page), /共有フォルダの表/);
+});
+
+test('Writer の形の問題は1回だけ伝えて直してもらい、直らなければ失敗にする', async () => {
+  const { schema_version, company, company_name, as_of, ...good } = fixture();
+  const bad = JSON.parse(JSON.stringify(good));
+  bad.statements.find((s) => s.id === bad.symptom_pages[0].steps[0]).text = 'NAS は事務所にあります。';
+  const clientOf = (replies) => {
+    const sent = [];
+    return {
+      sent,
+      messages: {
+        countTokens: async () => ({ input_tokens: 1 }),
+        stream: (params) => {
+          sent.push(params);
+          const reply = replies[sent.length - 1];
+          return { finalMessage: async () => ({ id: 'msg', model: params.model, stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: 'text', text: JSON.stringify(reply) }] }) };
+        },
+      },
+    };
+  };
+  const args = { survey: input.survey, transcript: input.transcript, companyName: 'オコジョ精工' };
+  const fixed = clientOf([bad, good]);
+  const result = await runWriterLive({ ...args, client: fixed });
+  assert.equal(fixed.sent.length, 2);
+  assert.ok(JSON.stringify(fixed.sent[1].messages).includes('structure_problems'));
+  assert.equal(result.company_name, 'オコジョ精工');
+  const stuck = clientOf([bad, bad]);
+  await assert.rejects(runWriterLive({ ...args, client: stuck }), /やることではありません/);
+  assert.equal(stuck.sent.length, 2);
+});
+
+test('Editor は共有フォルダの表の文章を変えられない', () => {
+  const manual = fixture();
+  const id = manual.symptom_pages[0].steps[4];
+  const before = manual.statements.find((s) => s.id === id).text;
+  manual.symptom_pages[0].steps = manual.symptom_pages[0].steps.filter((step) => step !== id);
+  manual.symptom_pages[0].drive_rows = [id];
+  const { manual: edited, changes } = applyEdits(manual, { rewrites: [{ id, text: '言い換えた文です。' }], glossary: [] });
+  assert.equal(edited.statements.find((s) => s.id === id).text, before);
+  assert.deepEqual(changes, [{ statement: id, missing: ['表の文章'] }]);
 });
 
 test('部品の順番が決まった順と逆なら見つける', () => {

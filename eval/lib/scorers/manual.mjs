@@ -1,5 +1,6 @@
 // 取扱説明書の中身の採点。根拠、1文の長さ、用語、認証情報を機械的に確かめる。
 
+import { nonActionSteps } from '../../../plugin/lib/page-check.mjs';
 import { JARGON, longSentences, usesTerm } from '../../../plugin/lib/plain-check.mjs';
 import { loadLibrary, unapprovedParts } from '../../../plugin/lib/procedures.mjs';
 
@@ -60,11 +61,12 @@ export function score(output, _answers, context) {
   const dangling = refs.filter((ref) => !seen.has(ref));
   if (dangling.length) throw new Error(`存在しない記述を参照しています: ${[...new Set(dangling)].join(', ')}`);
   const partRows = unapprovedParts(output, library).map((part) => ({ kind: 'part', part }));
-  return [...rows, ...contactRows, ...partRows];
+  const stepRows = nonActionSteps(output).map(({ page, statement }) => ({ kind: 'step', page, statement }));
+  return [...rows, ...contactRows, ...partRows, ...stepRows];
 }
 
 export function summarize(allRows) {
-  const rows = allRows.filter((row) => row.kind !== 'contact' && row.kind !== 'part');
+  const rows = allRows.filter((row) => !['contact', 'part', 'step'].includes(row.kind));
   const unexplained = [...new Set(rows.flatMap((r) => r.unexplained_terms))];
   return {
     statements: rows.length,
@@ -74,7 +76,8 @@ export function summarize(allRows) {
     credentials: rows.filter((r) => r.credential).map((r) => r.statement),
     unsupported_phones: allRows.filter((r) => r.unsupported_phone).map((r) => r.contact),
     unapproved_parts: allRows.filter((r) => r.kind === 'part').map((r) => r.part),
+    non_action_steps: allRows.filter((r) => r.kind === 'step').map((r) => r.statement),
     complete: true,
-    targets: { bad_evidence_max: 0, long_sentences_max: 0, unexplained_terms_max: 0, credentials_max: 0, unsupported_phones_max: 0, unapproved_parts_max: 0 },
+    targets: { bad_evidence_max: 0, long_sentences_max: 0, unexplained_terms_max: 0, credentials_max: 0, unsupported_phones_max: 0, unapproved_parts_max: 0, non_action_steps_max: 0 },
   };
 }

@@ -11,6 +11,7 @@ import * as gaps from '../eval/lib/scorers/gaps.mjs';
 import * as interview from '../eval/lib/scorers/interview.mjs';
 import * as manual from '../eval/lib/scorers/manual.mjs';
 import * as troubles from '../eval/lib/scorers/troubles.mjs';
+import { isActionText, nonActionSteps } from '../plugin/lib/page-check.mjs';
 
 const SET = join(dirname(fileURLToPath(import.meta.url)), '../eval/sets/okojo');
 const input = loadInput(SET);
@@ -292,4 +293,25 @@ test('模擬の後任：連絡先は業者名で照合し、取扱説明書ご�
   assert.deepEqual(troubles.summarize(troubles.score(output, answers.troubles, vendors)).failed, [gold.id]);
   entry.contact = vendorName(gold.contact);
   assert.deepEqual(troubles.summarize(troubles.score(output, answers.troubles, vendors)).failed, []);
+});
+
+test('取扱説明書の採点：手順に置いた、やることではない文を数える', () => {
+  const statements = [
+    { id: 'STM-001', text: 'NAS に保守契約はありません。', evidence: ['INV-001'] },
+    { id: 'STM-002', text: '電源を確かめてください。', evidence: ['INV-001'] },
+    { id: 'STM-003', text: '開ければ直っています。', evidence: ['LIB-001'], library: { id: 'LIB-001', values: [] } },
+  ];
+  const page = { id: 'T1', steps: ['STM-001', 'STM-002', 'STM-003'] };
+  assert.deepEqual(nonActionSteps({ statements, symptom_pages: [page] }), [{ page: 'T1', statement: 'STM-001' }]);
+  assert.equal(isActionText('総務課に知らせてください。'), true);
+  assert.equal(isActionText('勝手に再起動しないでください。'), false);
+  assert.equal(isActionText('NAS は事務所にあります。'), false);
+});
+
+test('模擬の後任：社内で相談は有効な行動で、連絡先への連絡の正解とは一致しない', () => {
+  const vendors = [{ id: 'VEN-01', name: '業者' }];
+  const answers = { troubles: [{ id: 'T1', action: 'contact', contact: 'VEN-01' }] };
+  const rows = troubles.score({ results: [{ trouble: 'T1', action: 'internal', contact: null }] }, answers, vendors);
+  assert.equal(rows[0].status, 'answered');
+  assert.equal(rows[0].passed, false);
 });
