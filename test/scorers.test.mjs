@@ -2,6 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadAnswers, loadHidden, loadInput } from '../eval/lib/load-set.mjs';
@@ -236,46 +237,59 @@ test('取扱説明書：存在しない記述を画面から参照すると例�
 });
 
 // ---- 模擬の後任 ----
+const { vendors } = JSON.parse(readFileSync(join(SET, 'case.json'), 'utf8'));
+const vendorName = (id) => vendors.find((vendor) => vendor.id === id)?.name ?? null;
 const goldTroubles = () => ({
-  results: answers.troubles.troubles.map((t) => ({ trouble: t.id, action: t.action, contact: t.contact })),
+  results: answers.troubles.troubles.map((t) => ({ trouble: t.id, action: t.action, contact: vendorName(t.contact) })),
 });
 
 test('模擬の後任：正解どおりなら 5/5', () => {
-  assert.equal(troubles.summarize(troubles.score(goldTroubles(), answers.troubles)).passed, 5);
+  assert.equal(troubles.summarize(troubles.score(goldTroubles(), answers.troubles, vendors)).passed, 5);
 });
 
 test('模擬の後任：連絡先を間違えると不合格', () => {
   const output = goldTroubles();
-  output.results.find((r) => r.trouble === 'T4').contact = 'VEN-02';
-  assert.deepEqual(troubles.summarize(troubles.score(output, answers.troubles)).failed, ['T4']);
+  output.results.find((r) => r.trouble === 'T4').contact = vendorName('VEN-02');
+  assert.deepEqual(troubles.summarize(troubles.score(output, answers.troubles, vendors)).failed, ['T4']);
 });
 
 test('模擬の後任：直せないものを自力で解決したと答えると不合格', () => {
   const output = goldTroubles();
   output.results.find((r) => r.trouble === 'T4').action = 'self';
-  assert.deepEqual(troubles.summarize(troubles.score(output, answers.troubles)).failed, ['T4']);
+  assert.deepEqual(troubles.summarize(troubles.score(output, answers.troubles, vendors)).failed, ['T4']);
 });
 
 test('模擬の後任：回答なしは不合格で、未完了として報告する', () => {
-  const summary = troubles.summarize(troubles.score({ results: [] }, answers.troubles));
+  const summary = troubles.summarize(troubles.score({ results: [] }, answers.troubles, vendors));
   assert.equal(summary.passed, 0);
   assert.equal(summary.complete, false);
 });
 
 test('模擬の後任：不正な値は例外にする', () => {
-  assert.throws(() => troubles.score({ results: [{ trouble: 'T9', action: 'self' }] }, answers.troubles), /トラブルの ID/);
-  assert.throws(() => troubles.score({ results: [{ trouble: 'T1', action: 'maybe' }] }, answers.troubles), /行動の値/);
+  assert.throws(() => troubles.score({ results: [{ trouble: 'T9', action: 'self' }] }, answers.troubles, vendors), /トラブルの ID/);
+  assert.throws(() => troubles.score({ results: [{ trouble: 'T1', action: 'maybe' }] }, answers.troubles, vendors), /行動の値/);
 });
 
 test('模擬の後任：「確かめてから依頼」は、行動と連絡先の両方が合って合格になる', () => {
   const output = (action, contact) => ({
-    results: answers.troubles.troubles.map((t) => (t.id === 'T5' ? { trouble: 'T5', action, contact } : { trouble: t.id, action: t.action, contact: t.contact })),
+    results: answers.troubles.troubles.map((t) => (t.id === 'T5' ? { trouble: 'T5', action, contact } : { trouble: t.id, action: t.action, contact: vendorName(t.contact) })),
   });
   const gold = answers.troubles.troubles.find((t) => t.id === 'T5');
   assert.equal(gold.action, 'check_first');
-  const passed = (out) => troubles.summarize(troubles.score(out, answers.troubles)).passed;
-  assert.equal(passed(output('check_first', gold.contact)), 5);
-  assert.equal(passed(output('check_first', 'VEN-01')), 4);
+  const passed = (out) => troubles.summarize(troubles.score(out, answers.troubles, vendors)).passed;
+  assert.equal(passed(output('check_first', vendorName(gold.contact))), 5);
+  assert.equal(passed(output('check_first', vendorName('VEN-01'))), 4);
   assert.equal(passed(output('self', null)), 4);
-  assert.equal(passed(output('contact', gold.contact)), 4);
+  assert.equal(passed(output('contact', vendorName(gold.contact))), 4);
+});
+
+test('模擬の後任：連絡先は業者名で照合し、取扱説明書ごとの番号では照合しない', () => {
+  const gold = answers.troubles.troubles.find((t) => t.action === 'contact');
+  const output = goldTroubles();
+  const entry = output.results.find((r) => r.trouble === gold.id);
+  // 正解と同じ番号でも、業者名でなければ不合格
+  entry.contact = gold.contact;
+  assert.deepEqual(troubles.summarize(troubles.score(output, answers.troubles, vendors)).failed, [gold.id]);
+  entry.contact = vendorName(gold.contact);
+  assert.deepEqual(troubles.summarize(troubles.score(output, answers.troubles, vendors)).failed, []);
 });

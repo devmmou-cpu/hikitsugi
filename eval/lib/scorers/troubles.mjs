@@ -1,6 +1,6 @@
 // 模擬の後任の採点。T1〜T5 で正しい行動を選べたかを確かめる。
 // 行動は self（自力で解決）、check_first（確かめてから連絡先へ依頼）、contact（連絡）、gave_up（あきらめた）。
-// 出力の形：{ results: [{ trouble: "T1", action: "self", contact: null, steps?: 3, stuck_at?: "…" }] }
+// 出力の形：{ results: [{ trouble: "T1", action: "contact", contact: "業者名", steps?: 3, stuck_at?: "…" }] }
 
 export function validateOutput(output) {
   if (!output || !Array.isArray(output.results)) throw new Error('results の配列がありません');
@@ -10,8 +10,13 @@ export function validateOutput(output) {
   }
 }
 
-export function score(output, answers) {
+/**
+ * @param vendors 業者の一覧（case.json）。連絡先は業者名で照合する。
+ * VEN の番号は取扱説明書ごとに Writer が振るので、正解の番号とは一致しないため。
+ */
+export function score(output, answers, vendors) {
   validateOutput(output);
+  const nameOf = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
   const byId = new Map();
   for (const result of output.results) {
     if (byId.has(result.trouble)) throw new Error(`同じトラブルに2回回答しています: ${result.trouble}`);
@@ -19,9 +24,11 @@ export function score(output, answers) {
   }
   return answers.troubles.map((gold) => {
     const result = byId.get(gold.id);
-    const base = { trouble: gold.id, expected_action: gold.action, expected_contact: gold.contact };
+    const expectedContact = gold.contact === null ? null : nameOf.get(gold.contact);
+    if (gold.contact !== null && !expectedContact) throw new Error(`正解の連絡先が業者の一覧にありません: ${gold.contact}`);
+    const base = { trouble: gold.id, expected_action: gold.action, expected_contact: expectedContact };
     if (!result) return { ...base, status: 'unanswered', action: null, contact: null, passed: false };
-    const passed = result.action === gold.action && (gold.action === 'self' || result.contact === gold.contact);
+    const passed = result.action === gold.action && (gold.action === 'self' || result.contact === expectedContact);
     return { ...base, status: 'answered', action: result.action, contact: result.contact ?? null, passed };
   });
 }

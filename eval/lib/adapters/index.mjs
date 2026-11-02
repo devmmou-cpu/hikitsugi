@@ -113,7 +113,11 @@ const ADAPTERS = {
   },
   troubles: {
     oracle: (c) => ({
-      results: c.answers.troubles.troubles.map((t) => ({ trouble: t.id, action: t.action, contact: t.contact })),
+      results: c.answers.troubles.troubles.map((t) => ({
+        trouble: t.id,
+        action: t.action,
+        contact: c.vendors.find((vendor) => vendor.id === t.contact)?.name ?? null,
+      })),
     }),
     empty: () => ({ results: [] }),
     fixture: fromFile,

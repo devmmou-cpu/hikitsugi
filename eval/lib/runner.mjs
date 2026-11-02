@@ -47,7 +47,7 @@ const TARGETS = {
   troubles: {
     // 模擬の後任の出力はプラグインの成果物ではないので、形式は採点器で確かめる
     schema: null,
-    score: (output, c) => troubles.score(output, c.answers.troubles),
+    score: (output, c) => troubles.score(output, c.answers.troubles, c.vendors),
     summarize: (rows) => troubles.summarize(rows),
   },
 };
@@ -101,7 +101,7 @@ export async function runEval({ set, setDir, target, adapter: adapterName, outpu
   if (!spec) throw new UsageError(`${target} という対象はありません（使えるもの：${targetNames.join('、')}）`);
   const adapter = getAdapter(target, adapterName);
   // 保留の会社は最終確認にだけ使う。うっかり実行して調整に使わないよう、明示の指定がなければ止める
-  const { split, name: companyName } = loadCase(setDir);
+  const { split, name: companyName, vendors } = loadCase(setDir);
   if (split === 'holdout' && !final) {
     throw new UsageError(`${set} は保留の会社です。最終確認のときだけ --final を付けて実行してください`);
   }
@@ -115,6 +115,8 @@ export async function runEval({ set, setDir, target, adapter: adapterName, outpu
     outputPath,
     from: fromPath ? readJson(fromPath) : undefined,
     companyName,
+    // 連絡先の採点と基準の出力に使う。live アダプターには渡さない
+    vendors,
     client,
     record: ({ raw_text: rawText, ...call }) => {
       if (rawText === undefined) {
