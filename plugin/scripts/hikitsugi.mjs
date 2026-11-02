@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// /hikitsugi の進行を支えるプログラム。段階の判定、形式の検査、記録の採番、表示プログラムの呼び出しを行う。
+// /hikitsugi:start の進行を支えるプログラム。段階の判定、形式の検査、記録の採番、表示プログラムの呼び出しを行う。
 // AI を使わず、外部への送信もしない。作業の結果は ./hikitsugi-work/ に保存するので、途中で止めても続きから再開できる。
 // 終了コード：0＝成功、1＝内容の問題（理由を表示）、2＝使い方の誤り
 
@@ -7,8 +7,9 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyEdits } from '../lib/apply-edits.mjs';
-import { buildRevision, prepareForRender, summarizeVerification } from '../lib/handover.mjs';
+import { buildRevision, prepareForRender, summarizeVerification, UnapprovedPartsError } from '../lib/handover.mjs';
 import { plainProblems } from '../lib/plain-check.mjs';
+import { composeProcedures, libraryForAgents } from '../lib/procedures.mjs';
 import { appendEntry, checkNextQuestion, emptyTranscript, QUESTION_LIMIT } from '../lib/transcript.mjs';
 import { validate } from '../lib/validate.mjs';
 import { renderManual } from '../renderer/render.mjs';
@@ -59,6 +60,7 @@ function init(work, [surveyPath, ...nameParts]) {
   mkdirSync(work, { recursive: true });
   writeJson(join(work, 'survey.json'), survey);
   writeJson(join(work, 'checklist.json'), readJson(join(PLUGIN, 'checklist/handover-items.json')));
+  writeJson(join(work, 'library.json'), libraryForAgents());
   writeJson(join(work, 'transcript.json'), emptyTranscript(survey.company));
   writeJson(join(work, 'state.json'), { company: survey.company, company_name: companyName, round: 1, interview_done: false, passed: false });
   return `準備ができました（調査データ ${survey.items.length} 件）`;
@@ -121,7 +123,11 @@ function checkWriter(work, [round]) {
   const path = join(work, `manual-${round}.json`);
   const raw = readJson(path);
   // 会社の情報はプログラムが付ける。サブエージェントが書いた値で上書きさせない
-  const manual = { ...raw, schema_version: 1, company: state.company, company_name: state.company_name, as_of: survey.as_of };
+  const stamped = { ...raw, schema_version: 1, company: state.company, company_name: state.company_name, as_of: survey.as_of };
+  checkSchema('manual', stamped);
+  // 部品の文面はプログラムが組み立てる。問題があれば、Writer に直してもらう
+  const { manual, problems } = composeProcedures(stamped, { survey, transcript: readJson(join(work, 'transcript.json')) });
+  if (problems.length) throw new Problem(`手順部品の指定に問題があります：\n${problems.join('\n')}`);
   checkSchema('manual', manual);
   writeJson(path, manual);
   return `書きました（文章 ${manual.statements.length} 件、手順ページ ${manual.symptom_pages.length} 件）`;
@@ -166,7 +172,14 @@ function checkVerification(work, [round]) {
 function render(work, [outPath]) {
   const state = readJson(join(work, 'state.json'));
   if (!state.passed) throw new Problem('Verifier が合格していないので、取扱説明書を作れません');
-  const { manual, omitted } = prepareForRender(readJson(join(work, 'manual-final.json')));
+  let prepared;
+  try {
+    prepared = prepareForRender(readJson(join(work, 'manual-final.json')));
+  } catch (error) {
+    if (error instanceof UnapprovedPartsError) throw new Problem(error.message);
+    throw error;
+  }
+  const { manual, omitted } = prepared;
   const target = resolve(outPath ?? join(work, 'manual.html'));
   writeFileSync(target, renderManual(manual));
   if (target !== resolve(join(work, 'manual.html'))) writeFileSync(join(work, 'manual.html'), renderManual(manual));

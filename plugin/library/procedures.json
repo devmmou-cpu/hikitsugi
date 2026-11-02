@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "sequences": [
+    { "id": "network-drive", "title": "共有フォルダをつなぎ直す", "order": ["LIB-001", "LIB-002", "LIB-013", "LIB-014", "LIB-003", "LIB-004", "LIB-005", "LIB-006", "LIB-007"] },
+    { "id": "free-space", "title": "ネットワーク ドライブの空き容量を見る", "order": ["LIB-001", "LIB-002", "LIB-016", "LIB-017"] },
+    { "id": "admin-screen", "title": "機器の管理画面を開く", "order": ["LIB-008", "LIB-009"] },
+    { "id": "wifi", "title": "PC を Wi-Fi につなぎ直す", "order": ["LIB-010", "LIB-011", "LIB-012"] },
+    { "id": "restart", "title": "PC を再起動する", "order": ["LIB-018", "LIB-019", "LIB-020"] }
+  ],
+  "procedures": [
+    { "id": "LIB-001", "use_for": "エクスプローラーを開くとき", "text": "キーボードの Windows キーを押しながら、E のキーを押してください。", "slots": [], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-002", "use_for": "「PC」の画面を出すとき", "text": "開いた画面の左の一覧で、「PC」を選んでください。", "slots": [], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-003", "use_for": "共有フォルダをつなぎ直すとき", "text": "画面の上の「…」を押して、「ネットワーク ドライブの割り当て」を選んでください。", "slots": [], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-004", "use_for": "共有フォルダをつなぎ直すとき", "text": "「ドライブ」の欄で、{ドライブ文字} を選んでください。", "slots": ["ドライブ文字"], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-005", "use_for": "共有フォルダをつなぎ直すとき", "text": "「フォルダー」の欄に、{接続先} と入力してください。画面では「\\」が「¥」マークで表示されることがありますが、同じ意味です。", "slots": ["接続先"], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-006", "use_for": "共有フォルダをつなぎ直すとき", "text": "「サインイン時に再接続する」にチェックを入れて、「完了」を押してください。", "slots": [], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-007", "use_for": "共有フォルダが直ったかを確かめるとき", "text": "{フォルダ名} のフォルダーが開けば、直っています。", "slots": ["フォルダ名"], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-008", "use_for": "機器の管理画面を開くとき。ネットワーク ドライブの空き容量の確認には使わない", "text": "インターネットを見るソフト（ブラウザー）を開いてください。", "slots": [], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-009", "use_for": "機器の管理画面を開くとき。ネットワーク ドライブの空き容量の確認には使わない", "text": "画面の上のアドレス欄に {アドレス} と入力して、Enter キーを押してください。", "slots": ["アドレス"], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-010", "use_for": "PC を Wi-Fi につなぎ直すとき", "text": "画面の右下にある、Wi-Fi のマークを押してください。", "slots": [], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-011", "use_for": "PC を Wi-Fi につなぎ直すとき", "text": "Wi-Fi のマークの横にある「>」を押してください。", "slots": [], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-012", "use_for": "PC を Wi-Fi につなぎ直すとき", "text": "一覧で {Wi-Fi 名} を選んで、「接続」を押してください。", "slots": ["Wi-Fi 名"], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-013", "use_for": "共有フォルダをつなぎ直す手順の最初に試すとき", "text": "「PC」の中に、赤い×のついた {ドライブ文字} があれば、ダブルクリックしてください。開ければ直っています。", "slots": ["ドライブ文字"], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-014", "use_for": "LIB-013 で開けなかったとき", "text": "開けないときは、右クリックして「切断」を選んでから、次の手順へ進んでください。", "slots": [], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-015", "use_for": "止まり方。ネットワーク ドライブの手順で、認証の画面が出たときに備える。連絡先のあるページで使う", "text": "ユーザー名とパスワードを聞く画面が出たら、何も入力せずに閉じて、連絡先へ連絡してください。", "slots": [], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-016", "use_for": "ネットワーク ドライブの空き容量を見るとき", "text": "「PC」の画面で、{ドライブ文字} のネットワーク ドライブの帯グラフを見てください。", "slots": ["ドライブ文字"], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-017", "use_for": "ネットワーク ドライブの空き容量を見るとき", "text": "帯が赤ければ、満杯です。", "slots": [], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-018", "use_for": "PC を再起動するとき", "text": "開いているファイルを保存して、閉じてください。", "slots": [], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-019", "use_for": "PC を再起動するとき", "text": "画面の下のスタートボタンを押してください。", "slots": [], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-020", "use_for": "PC を再起動するとき", "text": "電源のマークを押して、「再起動」を押してください。", "slots": [], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
+    { "id": "LIB-021", "use_for": "止まり方。調査データに Windows 10 の PC があり、ページに PC の操作の部品を使うとき。連絡先のあるページで使う", "text": "Windows 10 の PC は、手順が違うので、連絡先へ連絡してください。", "slots": [], "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" }
+  ]
+}

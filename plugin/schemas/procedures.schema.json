@@ -1,0 +1,40 @@
+{
+  "$comment": "手順部品。PC の標準操作の文面で、本人が確認して承認したものだけを取扱説明書に出せる",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "sequences", "procedures"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "sequences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "order"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "order": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^LIB-\\d{3}$" } }
+        }
+      }
+    },
+    "procedures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "use_for", "text", "slots", "status", "reviewed_by", "reviewed_on"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^LIB-\\d{3}$" },
+          "use_for": { "type": "string", "minLength": 1 },
+          "text": { "type": "string", "minLength": 1 },
+          "slots": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "status": { "enum": ["approved", "unapproved"] },
+          "reviewed_by": { "type": ["string", "null"] },
+          "reviewed_on": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

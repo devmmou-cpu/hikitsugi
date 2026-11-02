@@ -1,5 +1,5 @@
 // Editor の出力を取扱説明書に反映する。事実が変わっていないかは、AI ではなくプログラムが確かめる。
-// /hikitsugi と評価の両方で使う。
+// /hikitsugi:start と評価の両方で使う。
 
 const PROTECTED = /[0-9０-９]+(?:[-:：.,／/年月日時分台名回週][0-9０-９]*)*|[A-Za-z][A-Za-z0-9_\\-]*(?:[.\\][A-Za-z0-9_\\-]+)*/gu;
 
@@ -33,6 +33,11 @@ export function applyEdits(manual, edits, { revert = true } = {}) {
   const statements = manual.statements.map((statement) => {
     const text = rewrites.get(statement.id);
     if (text === undefined) return statement;
+    // 部品の文面は確認済みなので、Editor の直しを受け付けない
+    if (statement.library) {
+      if (text !== statement.text) changes.push({ statement: statement.id, missing: ['部品の文面'] });
+      return statement;
+    }
     const missing = missingTokens(statement.text, text, names);
     if (missing.length) {
       changes.push({ statement: statement.id, missing });

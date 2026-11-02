@@ -12,6 +12,8 @@ export function score(output, original, context) {
     const old = before.get(statement.id);
     if (!old) continue;
     const missing = missingTokens(old.text, statement.text, names);
+    // 部品の文面は Editor が変えてはいけない
+    if (old.library && old.text !== statement.text) missing.push('部品の文面');
     const evidenceChanged = JSON.stringify(old.evidence) !== JSON.stringify(statement.evidence);
     if (missing.length || evidenceChanged) changes.push({ kind: 'fact_change', statement: statement.id, missing, evidence_changed: evidenceChanged });
   }
@@ -26,6 +28,6 @@ export function summarize(rows) {
     ...manual.summarize(rows.filter((row) => row.kind !== 'fact_change')),
     fact_changes: changes.length,
     fact_change_statements: changes.map((row) => row.statement),
-    targets: { bad_evidence_max: 0, long_sentences_max: 0, unexplained_terms_max: 0, credentials_max: 0, unsupported_phones_max: 0, fact_changes_max: 0 },
+    targets: { bad_evidence_max: 0, long_sentences_max: 0, unexplained_terms_max: 0, credentials_max: 0, unsupported_phones_max: 0, unapproved_parts_max: 0, fact_changes_max: 0 },
   };
 }

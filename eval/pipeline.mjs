@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { buildRevision, prepareForRender, summarizeVerification } from '../plugin/lib/handover.mjs';
+import { buildRevision, prepareForRender, summarizeVerification, UnapprovedPartsError } from '../plugin/lib/handover.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { clientOf, runGapFinderLive, runVerifierLive } from './lib/adapters/live.mjs';
@@ -114,8 +114,15 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
       summary.rounds.push({ round, counts: result.counts, unanswered: result.unanswered, fact_changes_reverted: edited.changes.length, manual: scores });
 
       if (result.passed) {
-        const { manual: forRender, omitted } = prepareForRender(manual);
         save('manual-final', manual);
+        let prepared;
+        try {
+          prepared = prepareForRender(manual);
+        } catch (error) {
+          if (error instanceof UnapprovedPartsError) return finish('blocked_unapproved_parts', { resends: round - 1, unapproved_parts: error.parts });
+          throw error;
+        }
+        const { manual: forRender, omitted } = prepared;
         writeFileSync(join(dir, 'manual.html'), renderManual(forRender));
         return finish('passed', { resends: round - 1, omitted });
       }

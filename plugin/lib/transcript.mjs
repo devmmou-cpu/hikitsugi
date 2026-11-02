@@ -1,5 +1,5 @@
 // 聞き取り記録の操作。ID の採番と、記録してはいけない内容の確認はプログラムが行う。
-// /hikitsugi と評価の両方で使う。
+// /hikitsugi:start と評価の両方で使う。
 
 export const QUESTION_LIMIT = 20;
 

@@ -27,7 +27,8 @@ export function usesTerm(text, term) {
 /** 取扱説明書全体の問題の一覧を返す。 */
 export function plainProblems(manual) {
   const glossary = new Set(manual.glossary.map((entry) => entry.term));
-  const long = manual.statements.flatMap((statement) =>
+  // 部品の文面は Editor が直せないので、直しの依頼に含めない
+  const long = manual.statements.filter((statement) => !statement.library).flatMap((statement) =>
     longSentences(statement.text).map((sentence) => ({ id: statement.id, sentence })),
   );
   const terms = JARGON.filter((term) => !glossary.has(term) && manual.statements.some((s) => usesTerm(s.text, term)));

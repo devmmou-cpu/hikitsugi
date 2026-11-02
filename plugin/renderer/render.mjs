@@ -202,6 +202,7 @@ function evidenceHtml(ctx, ids) {
     ...(has('INV-') ? [`調査データ（${formatDate(ctx.manual.as_of)}時点）`] : []),
     ...(has('INT-') ? ['聞き取り'] : []),
     ...(has('PUB-') ? ['公開資料'] : []),
+    ...(has('LIB-') ? ['確認済みの標準手順'] : []),
   ];
   return `<p class="evidence">この手順は、${sources.join('と')}で確認済みです。</p>`;
 }

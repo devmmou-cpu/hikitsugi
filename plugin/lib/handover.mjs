@@ -1,10 +1,23 @@
-// 取扱説明書を表示プログラムへ渡す前の処理。/hikitsugi と評価の両方で使う。
+// 取扱説明書を表示プログラムへ渡す前の処理。/hikitsugi:start と評価の両方で使う。
+
+import { loadLibrary, unapprovedParts } from './procedures.mjs';
+
+/** 未承認の部品が使われているときの例外。 */
+export class UnapprovedPartsError extends Error {
+  constructor(parts) {
+    super(`未承認の手順部品が使われているので、取扱説明書を作れません：${parts.join('、')}`);
+    this.parts = parts;
+  }
+}
 
 /**
  * 表示プログラムの初版は機器の一覧と定期作業を表示できないので、外して渡す。
  * 黙って捨てないよう、外した件数を返す。
  */
-export function prepareForRender(manual) {
+export function prepareForRender(manual, library = loadLibrary()) {
+  // 本人が確認していない部品は、取扱説明書に出さない
+  const unapproved = unapprovedParts(manual, library);
+  if (unapproved.length) throw new UnapprovedPartsError(unapproved);
   const { routines, devices } = manual;
   const kept = { ...manual, routines: [], devices: [] };
   const screens = JSON.stringify({ ...kept, statements: [] });

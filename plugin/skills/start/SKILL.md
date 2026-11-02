@@ -1,5 +1,5 @@
 ---
-name: hikitsugi
+name: start
 description: 兼任の情シス担当者が退職するときに、1問ずつ質問に答えるだけで、IT 未経験の後任が使える取扱説明書を作ります。引き継ぎの資料を作りたいと言われたときに使います。
 allowed-tools: Read Write Agent AskUserQuestion Bash(node *)
 ---
@@ -54,12 +54,12 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/hikitsugi.mjs" <コマンド>
 
 ### writer
 `status` の `round` を使います。`hikitsugi:writer` に次を依頼します。
-> `hikitsugi-work/survey.json` と `hikitsugi-work/transcript.json` を読み、結果の JSON（`statements`、`symptom_pages`、`contacts`、`routines`、`devices`、`glossary`）を `hikitsugi-work/manual-<round>.json` に保存してください。
+> `hikitsugi-work/survey.json`、`hikitsugi-work/transcript.json`、`hikitsugi-work/library.json` を読み、結果の JSON（`statements`、`symptom_pages`、`contacts`、`routines`、`devices`、`glossary`）を `hikitsugi-work/manual-<round>.json` に保存してください。
 
 `round` が 2 以上のときは、次も加えます。
 > 差し戻しです。`hikitsugi-work/findings-<round-1>.json` を revision として読んでください。
 
-終わったら `hikitsugi check-writer <round>` を実行します。
+終わったら `hikitsugi check-writer <round>` を実行します。手順部品の指定に問題があると表示されたら、その内容を Writer に伝えて直してもらいます。
 
 ### editor
 `hikitsugi:plain-japanese-editor` に次を依頼します。
@@ -69,12 +69,12 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/hikitsugi.mjs" <コマンド>
 
 ### verifier
 `hikitsugi:verifier` に次を依頼します。
-> `hikitsugi-work/survey.json`、`hikitsugi-work/transcript.json`、`hikitsugi-work/edited-<round>.json` を読み、`edited-<round>.json` の `statements` のすべてを検証して、結果の JSON（`results`）を `hikitsugi-work/verification-<round>.json` に保存してください。
+> `hikitsugi-work/survey.json`、`hikitsugi-work/transcript.json`、`hikitsugi-work/library.json`、`hikitsugi-work/edited-<round>.json` を読み、`edited-<round>.json` の `statements` のすべてを検証して、結果の JSON（`results`）を `hikitsugi-work/verification-<round>.json` に保存してください。
 
 終わったら `hikitsugi check-verification <round>` を実行します。不合格なら、自動で次の回の writer に戻ります。差し戻しは最大2回です。
 
 ### render
-`hikitsugi render` を実行し、できた HTML のパスを伝えます。「会社の OneDrive や Teams に置くと、後任がスマホで開けます」と案内します。
+`hikitsugi render` を実行し、できた HTML のパスを伝えます。未承認の手順部品があると表示されたら、取扱説明書は作れません。そのまま本人に伝えて止まります。「会社の OneDrive や Teams に置くと、後任がスマホで開けます」と案内します。
 
 ### not_passed
 差し戻しの上限に達しました。取扱説明書は作りません。`findings-<round>.json` の指摘を、IT の知識がなくても分かる言葉で伝え、追加で確認できることがないか相談します。

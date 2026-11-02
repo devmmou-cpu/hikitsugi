@@ -6,11 +6,16 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildVerifierRequest } from '../eval/lib/adapters/live.mjs';
 import { loadAnswers, loadInput } from '../eval/lib/load-set.mjs';
+import * as manualScorer from '../eval/lib/scorers/manual.mjs';
+import { buildWriterRequest } from '../eval/lib/writing.mjs';
 import { runPipeline } from '../eval/pipeline.mjs';
 import { applyEdits, missingTokens } from '../plugin/lib/apply-edits.mjs';
-import { buildRevision, prepareForRender, summarizeVerification } from '../plugin/lib/handover.mjs';
+import { buildRevision, prepareForRender, summarizeVerification, UnapprovedPartsError } from '../plugin/lib/handover.mjs';
 import { longSentences, plainProblems } from '../plugin/lib/plain-check.mjs';
+import { composeProcedures, libraryForAgents, loadLibrary, unapprovedParts } from '../plugin/lib/procedures.mjs';
+import { validate } from '../plugin/lib/validate.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { nextStep, run } from '../plugin/scripts/hikitsugi.mjs';
 
@@ -223,14 +228,14 @@ test('通し：どのエージェントにも正解と隠し設定を渡さな�
     }
   }));
 
-// ---- /hikitsugi の進行 ----
+// ---- /hikitsugi:start の進行 ----
 
 const manualBody = () => {
   const { schema_version, company, company_name, as_of, ...body } = fixture();
   return body;
 };
 
-test('/hikitsugi：段階をたどって取扱説明書まで進み、途中から再開できる', () =>
+test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途中から再開できる', () =>
   withTemp(async (dir) => {
     const work = join(dir, 'work');
     const hikitsugi = (command, args = [], stdin = '') => run(command, args, { work, stdin });
@@ -300,7 +305,7 @@ test('/hikitsugi：段階をたどって取扱説明書まで進み、途中か�
     assert.equal(nextStep(work).step, 'done');
   }));
 
-test('/hikitsugi：差し戻しの上限に達すると not_passed で止まる', () =>
+test('/hikitsugi:start：差し戻しの上限に達すると not_passed で止まる', () =>
   withTemp(async (dir) => {
     const work = join(dir, 'work');
     const hikitsugi = (command, args = [], stdin = '') => run(command, args, { work, stdin });
@@ -321,7 +326,7 @@ test('/hikitsugi：差し戻しの上限に達すると not_passed で止まる'
   }));
 
 test('スキルとプラグインの定義がそろっている', () => {
-  const skill = readFileSync(join(ROOT, 'plugin/skills/hikitsugi/SKILL.md'), 'utf8');
+  const skill = readFileSync(join(ROOT, 'plugin/skills/start/SKILL.md'), 'utf8');
   for (const agent of ['gap-finder', 'interviewer', 'writer', 'plain-japanese-editor', 'verifier']) {
     assert.ok(skill.includes(`hikitsugi:${agent}`), agent);
     assert.ok(existsSync(join(ROOT, `plugin/agents/${agent}.md`)), agent);
@@ -330,4 +335,122 @@ test('スキルとプラグインの定義がそろっている', () => {
   assert.equal(JSON.parse(readFileSync(join(ROOT, 'plugin/.claude-plugin/plugin.json'), 'utf8')).name, 'hikitsugi');
   // 模擬の田中さんは評価専用なので、配布物に含めない
   assert.ok(!existsSync(join(ROOT, 'plugin/agents/mock-tanaka.md')));
+});
+
+// ---- 手順部品 ----
+
+const library = loadLibrary();
+const sources = { survey: input.survey, transcript: input.transcript };
+const driveItem = input.survey.items.find((item) => item.status === 'ok' && typeof item.value === 'string' && item.value.startsWith('\\\\'));
+const withSteps = (statements, steps = statements.map((s) => s.id)) => ({
+  ...fixture(),
+  statements,
+  symptom_pages: [{ ...fixture().symptom_pages[0], steps }],
+});
+const step = (id, partId, values = []) => ({ id, text: '', evidence: [], library: { id: partId, values } });
+
+test('部品の形式が正しく、すべて確認済みで、順番は実在する部品だけを指す', () => {
+  assert.deepEqual(validate(JSON.parse(readFileSync(join(ROOT, 'plugin/schemas/procedures.schema.json'), 'utf8')), library), []);
+  const ids = new Set(library.procedures.map((part) => part.id));
+  for (const part of library.procedures) {
+    assert.equal(part.status, 'approved', part.id);
+    assert.equal(part.reviewed_by, 'Okojyo-Soft', part.id);
+    assert.equal(part.reviewed_on, '2026-11-02', part.id);
+    // 枠と文面が食い違っていないこと
+    assert.deepEqual([...part.text.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]), part.slots, part.id);
+    // 値を入れる前の文面が、1文50字以内であること
+    assert.deepEqual(longSentences(part.text), [], part.id);
+  }
+  for (const sequence of library.sequences) for (const id of sequence.order) assert.ok(ids.has(id), id);
+});
+
+test('部品に評価セットの値や、許可されていない製品名が入っていない', () => {
+  const text = JSON.stringify(library);
+  for (const name of ['オコジョ', 'OKOJO', 'okojo', 'クロテン', 'カワウソ', 'イタチ', 'イイズナ', 'フェレット', '田中', '佐藤']) assert.ok(!text.includes(name), name);
+  assert.ok(!/192\.168\.|03-0000-01/.test(text));
+  const allowed = new Set(['Windows', 'E', 'Enter', 'Wi-Fi', 'PC', 'LIB-', 'network-drive', 'free-space', 'admin-screen', 'wifi', 'restart', 'schema_version', 'sequences', 'id', 'title', 'order', 'procedures', 'use_for', 'text', 'slots', 'status', 'approved', 'reviewed_by', 'Okojyo-Soft', 'reviewed_on']);
+  const words = (text.match(/[A-Za-z][A-Za-z_-]*/g) ?? []).filter((word) => !allowed.has(word));
+  assert.deepEqual(words, []);
+});
+
+test('部品の文面はプログラムが組み立て、根拠に部品と値の根拠を入れる', () => {
+  const { manual, problems } = composeProcedures(
+    withSteps([step('STM-001', 'LIB-001'), step('STM-002', 'LIB-005', [{ slot: '接続先', value: driveItem.value, evidence: [driveItem.id] }])]),
+    sources,
+  );
+  assert.deepEqual(problems, []);
+  assert.equal(manual.statements[0].text, library.procedures[0].text);
+  assert.deepEqual(manual.statements[0].evidence, ['LIB-001']);
+  assert.ok(manual.statements[1].text.includes(driveItem.value));
+  assert.ok(!manual.statements[1].text.includes('{'));
+  assert.deepEqual(manual.statements[1].evidence, ['LIB-005', driveItem.id]);
+  assert.deepEqual(validate(JSON.parse(readFileSync(join(ROOT, 'plugin/schemas/manual.schema.json'), 'utf8')), manual), []);
+});
+
+test('部品の指定の誤りと、根拠にない値を見つける', () => {
+  const problemsOf = (statements) => composeProcedures(withSteps(statements), sources).problems.join('\n');
+  assert.match(problemsOf([step('STM-001', 'LIB-999')]), /存在しない部品/);
+  assert.match(problemsOf([step('STM-001', 'LIB-005')]), /入れる値が違います/);
+  assert.match(problemsOf([step('STM-001', 'LIB-005', [{ slot: '接続先', value: '\\\\実在しない', evidence: [driveItem.id] }])]), /根拠 .* にありません/);
+  assert.match(problemsOf([step('STM-001', 'LIB-005', [{ slot: '接続先', value: driveItem.value, evidence: [] }])]), /根拠がありません/);
+  assert.match(problemsOf([step('STM-001', 'LIB-005', [{ slot: '接続先', value: 'x', evidence: ['INV-999'] }])]), /使えない根拠/);
+  // 部品の指定がないのに部品を根拠にして、自分の文で手順を書く形
+  assert.match(problemsOf([{ id: 'STM-001', text: '自分の文です。', evidence: ['LIB-001'] }]), /部品の指定がない/);
+  // unknown の回答は、値の根拠にできない
+  const unknown = input.transcript.entries.find((entry) => entry.status !== 'answered');
+  assert.match(problemsOf([step('STM-001', 'LIB-005', [{ slot: '接続先', value: 'x', evidence: [unknown.id] }])]), /使えない根拠/);
+});
+
+test('部品の順番が決まった順と逆なら見つける', () => {
+  const statements = [step('STM-001', 'LIB-002'), step('STM-002', 'LIB-001')];
+  assert.match(composeProcedures(withSteps(statements), sources).problems.join('\n'), /順番/);
+  assert.deepEqual(composeProcedures(withSteps(statements, ['STM-002', 'STM-001']), sources).problems, []);
+});
+
+test('Editor は部品の文面を変えられない', () => {
+  const { manual } = composeProcedures(withSteps([step('STM-001', 'LIB-001')]), sources);
+  for (const revert of [true, false]) {
+    const { manual: edited, changes } = applyEdits(manual, { rewrites: [{ id: 'STM-001', text: '書き換えました。' }], glossary: [] }, { revert });
+    assert.equal(edited.statements[0].text, library.procedures[0].text);
+    assert.equal(changes.length, 1);
+  }
+});
+
+test('未承認の部品があれば取扱説明書を作らず、承認済みなら作れる', () => {
+  const { manual } = composeProcedures(withSteps([step('STM-001', 'LIB-001')]), sources);
+  const page = manual.symptom_pages[0];
+  const refs = new Set([page.title, page.badge.statement, page.reassurance, page.fallback?.message, ...fixture().contacts.flatMap((c) => [c.role, c.hours, c.contract_location, c.what_to_tell]), ...fixture().glossary.map((g) => g.explanation)]);
+  const complete = { ...manual, statements: [...manual.statements, ...fixture().statements.filter((s) => refs.has(s.id) && s.id !== 'STM-001')] };
+  const unapproved = { ...library, procedures: library.procedures.map((part) => (part.id === 'LIB-001' ? { ...part, status: 'unapproved', reviewed_by: null, reviewed_on: null } : part)) };
+  assert.deepEqual(unapprovedParts(complete, unapproved), ['LIB-001']);
+  assert.throws(() => prepareForRender(complete, unapproved), UnapprovedPartsError);
+  assert.deepEqual(unapprovedParts(complete, library), []);
+  assert.ok(prepareForRender(complete, library).manual);
+  // 存在しない部品も承認されていないものとして止める
+  assert.deepEqual(unapprovedParts({ statements: [{ id: 'STM-001', text: 'x', evidence: ['LIB-999'] }] }, library), ['LIB-999']);
+});
+
+test('部品を使った手順は、表示で「確認済みの標準手順」と示す', () => {
+  const manual = fixture();
+  manual.statements.find((s) => s.id === manual.symptom_pages[0].steps[0]).evidence.push('LIB-001');
+  assert.ok(renderManual(manual).includes('確認済みの標準手順'));
+});
+
+test('Writer と Verifier に部品を渡し、承認の状態は渡さない', () => {
+  for (const request of [buildWriterRequest({ survey: input.survey, transcript: input.transcript }), buildVerifierRequest(input)]) {
+    const body = JSON.stringify(request.messages);
+    assert.ok(body.includes('LIB-001'));
+    assert.ok(!body.includes('reviewed_by') && !body.includes('"status\\":\\"approved'));
+  }
+  assert.ok(!JSON.stringify(libraryForAgents()).includes('approved'));
+});
+
+test('採点器は部品を根拠として認め、存在しない部品は不備として数える', () => {
+  const manual = fixture();
+  manual.statements[0].evidence = ['LIB-001'];
+  assert.deepEqual(manualScorer.summarize(manualScorer.score(manual, null, input)).bad_evidence, []);
+  manual.statements[0].evidence = ['LIB-999'];
+  const summary = manualScorer.summarize(manualScorer.score(manual, null, input));
+  assert.deepEqual(summary.bad_evidence, [manual.statements[0].id]);
+  assert.deepEqual(summary.unapproved_parts, ['LIB-999']);
 });

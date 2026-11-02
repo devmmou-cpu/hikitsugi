@@ -1,6 +1,7 @@
 // 取扱説明書の中身の採点。根拠、1文の長さ、用語、認証情報を機械的に確かめる。
 
 import { JARGON, longSentences, usesTerm } from '../../../plugin/lib/plain-check.mjs';
+import { loadLibrary, unapprovedParts } from '../../../plugin/lib/procedures.mjs';
 
 const CREDENTIAL = /(?:パスワード|暗証番号|認証コード|password|passcode)(?:は|:|：|=|＝)\s*[「"']?[!-~]{4,}/iu;
 
@@ -22,6 +23,8 @@ export function score(output, _answers, context) {
   const int = new Map(context.transcript.entries.map((entry) => [entry.id, entry]));
   const glossary = new Set(output.glossary.map((g) => g.term));
 
+  const library = loadLibrary();
+  const parts = new Set(library.procedures.map((part) => part.id));
   const seen = new Set();
   const rows = output.statements.map((statement) => {
     if (seen.has(statement.id)) throw new Error(`記述の ID が重複しています: ${statement.id}`);
@@ -29,6 +32,7 @@ export function score(output, _answers, context) {
     const badEvidence = statement.evidence.filter((ref) => {
       if (ref.startsWith('INV-')) return inv.get(ref)?.status !== 'ok';
       if (ref.startsWith('INT-')) return int.get(ref)?.status !== 'answered';
+      if (ref.startsWith('LIB-')) return !parts.has(ref);
       // 公開資料の ID はまだ使わない
       return true;
     });
@@ -55,11 +59,12 @@ export function score(output, _answers, context) {
   const refs = referencedStatements(output);
   const dangling = refs.filter((ref) => !seen.has(ref));
   if (dangling.length) throw new Error(`存在しない記述を参照しています: ${[...new Set(dangling)].join(', ')}`);
-  return [...rows, ...contactRows];
+  const partRows = unapprovedParts(output, library).map((part) => ({ kind: 'part', part }));
+  return [...rows, ...contactRows, ...partRows];
 }
 
 export function summarize(allRows) {
-  const rows = allRows.filter((row) => row.kind !== 'contact');
+  const rows = allRows.filter((row) => row.kind !== 'contact' && row.kind !== 'part');
   const unexplained = [...new Set(rows.flatMap((r) => r.unexplained_terms))];
   return {
     statements: rows.length,
@@ -68,7 +73,8 @@ export function summarize(allRows) {
     unexplained_terms: unexplained,
     credentials: rows.filter((r) => r.credential).map((r) => r.statement),
     unsupported_phones: allRows.filter((r) => r.unsupported_phone).map((r) => r.contact),
+    unapproved_parts: allRows.filter((r) => r.kind === 'part').map((r) => r.part),
     complete: true,
-    targets: { bad_evidence_max: 0, long_sentences_max: 0, unexplained_terms_max: 0, credentials_max: 0, unsupported_phones_max: 0 },
+    targets: { bad_evidence_max: 0, long_sentences_max: 0, unexplained_terms_max: 0, credentials_max: 0, unsupported_phones_max: 0, unapproved_parts_max: 0 },
   };
 }

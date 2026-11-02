@@ -54,7 +54,51 @@
             "minItems": 1,
             "items": {
               "type": "string",
-              "pattern": "^(INV|INT|PUB)-\\d{3}$"
+              "pattern": "^(INV|INT|PUB|LIB)-\\d{3}$"
+            }
+          },
+          "library": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "values"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^LIB-\\d{3}$"
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "slot",
+                    "value",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "slot": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(INV|INT)-\\d{3}$"
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }

@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { libraryForAgents } from '../../../plugin/lib/procedures.mjs';
 import { costOf } from '../pricing.mjs';
 import { UsageError } from './errors.mjs';
 
@@ -97,7 +98,7 @@ export function buildRequest(agent, schema, content) {
 
 /** リクエストを組み立てる。引数は input だけなので、正解を混ぜることができない。 */
 export function buildVerifierRequest(input, agent = loadVerifierAgent()) {
-  const content = `${tagged({ survey: input.survey, transcript: input.transcript, statements: input.statements })}\n\nstatements のすべての記述を検証してください。`;
+  const content = `${tagged({ survey: input.survey, transcript: input.transcript, library: libraryForAgents(), statements: input.statements })}\n\nstatements のすべての記述を検証してください。`;
   return buildRequest(agent, verifierResponseSchema(), content);
 }
 
