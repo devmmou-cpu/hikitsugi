@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(review-input/**)",
+      "Read(plugin/checklist/**)",
+      "Read(plugin/library/**)",
+      "Read(docs/design.md)",
+      "Read(docs/design/**)",
+      "Read(docs/review/**)",
+      "Read(CLAUDE.md)",
+      "Edit(docs/review/fable-r0.md)"
+    ],
+    "deny": [
+      "Read(eval/**)",
+      "Read(test/**)",
+      "Read(docs/night/**)",
+      "Read(night-logs/**)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Edit(docs/review/fable-r0-prompt.md)",
+      "Edit(docs/review/fable-r0.settings.json)",
+      "Edit(plugin/**)",
+      "Edit(eval/**)",
+      "Edit(test/**)",
+      "Edit(scripts/**)",
+      "Edit(review-input/**)",
+      "Edit(CLAUDE.md)",
+      "Bash",
+      "PowerShell",
+      "Agent",
+      "Workflow",
+      "WebFetch",
+      "WebSearch"
+    ]
+  }
+}
