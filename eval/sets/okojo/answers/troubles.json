@@ -35,6 +35,10 @@
         {
           "ref": "INT-018",
           "contains": "AP を再起動"
+        },
+        {
+          "ref": "INT-004",
+          "contains": "電源アダプター"
         }
       ]
     },
