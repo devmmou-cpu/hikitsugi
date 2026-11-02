@@ -1,0 +1,24 @@
+{
+  "$comment": "Verifier 評価の入力。誤りと正しい記述を混ぜた一覧。どちらかは書かない",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "company", "statements"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "company": { "type": "string", "minLength": 1 },
+    "statements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text", "evidence"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^S-\\d{2}$" },
+          "text": { "type": "string", "minLength": 1 },
+          "evidence": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^(INV|INT)-\\d{3}$" } }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "$comment": "取扱説明書の中身。文章はすべて statements に置き、画面側は STM-ID で参照する",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "company", "statements", "symptom_pages", "contacts", "routines", "devices", "glossary"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "company": { "type": "string", "minLength": 1 },
+    "statements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text", "evidence"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^STM-\\d{3}$" },
+          "text": { "type": "string", "minLength": 1 },
+          "evidence": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^(INV|INT|PUB)-\\d{3}$" } }
+        }
+      }
+    },
+    "symptom_pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "category", "title", "badge", "minutes", "reassurance", "steps", "fallback"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "category": { "enum": ["net", "print_scan", "file", "mail_teams", "pc", "other"] },
+          "title": { "type": "string", "pattern": "^STM-\\d{3}$" },
+          "badge": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "statement"],
+            "properties": {
+              "value": { "enum": ["self", "check_first", "vendor"] },
+              "statement": { "type": "string", "pattern": "^STM-\\d{3}$" }
+            }
+          },
+          "minutes": { "type": "integer", "minimum": 1 },
+          "reassurance": { "type": "string", "pattern": "^STM-\\d{3}$" },
+          "steps": { "type": "array", "items": { "type": "string", "pattern": "^STM-\\d{3}$" } },
+          "fallback": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["contact", "message"],
+            "properties": {
+              "contact": { "type": "string", "pattern": "^VEN-\\d{2}$" },
+              "message": { "type": "string", "pattern": "^STM-\\d{3}$" }
+            }
+          }
+        }
+      }
+    },
+    "contacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "phone", "role", "hours", "contract_location", "what_to_tell"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^VEN-\\d{2}$" },
+          "name": { "type": "string", "minLength": 1 },
+          "phone": { "type": "string", "minLength": 1 },
+          "role": { "type": "string", "pattern": "^STM-\\d{3}$" },
+          "hours": { "type": "string", "pattern": "^STM-\\d{3}$" },
+          "contract_location": { "type": "string", "pattern": "^STM-\\d{3}$" },
+          "what_to_tell": { "type": "string", "pattern": "^STM-\\d{3}$" }
+        }
+      }
+    },
+    "routines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "frequency", "title", "steps"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "frequency": { "enum": ["weekly", "monthly", "yearly"] },
+          "month": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string", "pattern": "^STM-\\d{3}$" },
+          "steps": { "type": "array", "items": { "type": "string", "pattern": "^STM-\\d{3}$" } }
+        }
+      }
+    },
+    "devices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "location", "purpose", "impact"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "pattern": "^STM-\\d{3}$" },
+          "location": { "type": "string", "pattern": "^STM-\\d{3}$" },
+          "purpose": { "type": "string", "pattern": "^STM-\\d{3}$" },
+          "impact": { "type": "string", "pattern": "^STM-\\d{3}$" }
+        }
+      }
+    },
+    "glossary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["term", "explanation"],
+        "properties": {
+          "term": { "type": "string", "minLength": 1 },
+          "explanation": { "type": "string", "pattern": "^STM-\\d{3}$" }
+        }
+      }
+    }
+  }
+}

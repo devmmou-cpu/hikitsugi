@@ -1,0 +1,583 @@
+{
+  "schema_version": 1,
+  "company": "okojo",
+  "as_of": "2026-11-20",
+  "items": [
+    {
+      "id": "INV-001",
+      "host": "OKJ-CAD-01",
+      "category": "account",
+      "key": "account.join_type",
+      "value": "ワークグループ",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-002",
+      "host": "OKJ-CAD-01",
+      "category": "account",
+      "key": "account.m365_signed_in",
+      "value": true,
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-003",
+      "host": "OKJ-CAD-01",
+      "category": "hardware",
+      "key": "disk.c_free_gb",
+      "value": 212,
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-004",
+      "host": "OKJ-CAD-01",
+      "category": "hardware",
+      "key": "hw.maker",
+      "value": "架空メーカーA",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-005",
+      "host": "OKJ-CAD-01",
+      "category": "hardware",
+      "key": "hw.memory_gb",
+      "value": 32,
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-006",
+      "host": "OKJ-CAD-01",
+      "category": "hardware",
+      "key": "hw.model",
+      "value": "MODEL-B2",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-007",
+      "host": "OKJ-CAD-01",
+      "category": "network",
+      "key": "net.dns",
+      "value": "192.168.10.1",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-008",
+      "host": "OKJ-CAD-01",
+      "category": "network",
+      "key": "net.gateway",
+      "value": "192.168.10.1",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-009",
+      "host": "OKJ-CAD-01",
+      "category": "network",
+      "key": "net.ip_mode",
+      "value": "DHCP",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-010",
+      "host": "OKJ-CAD-01",
+      "category": "network",
+      "key": "net.wifi_ssid",
+      "value": null,
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "unavailable"
+    },
+    {
+      "id": "INV-011",
+      "host": "OKJ-CAD-01",
+      "category": "os",
+      "key": "os.caption",
+      "value": "Windows 10 Pro",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-012",
+      "host": "OKJ-CAD-01",
+      "category": "os",
+      "key": "os.version",
+      "value": "10.0.19045",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-013",
+      "host": "OKJ-CAD-01",
+      "category": "printer",
+      "key": "printer.0",
+      "value": "複合機（総務室） 192.168.10.30",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-014",
+      "host": "OKJ-CAD-01",
+      "category": "security",
+      "key": "security.antivirus",
+      "value": "Windows 標準のウイルス対策（有効）",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-015",
+      "host": "OKJ-CAD-01",
+      "category": "security",
+      "key": "security.bitlocker",
+      "value": null,
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "denied"
+    },
+    {
+      "id": "INV-016",
+      "host": "OKJ-CAD-01",
+      "category": "security",
+      "key": "security.feature_update",
+      "value": "大型更新は保留に設定",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-017",
+      "host": "OKJ-CAD-01",
+      "category": "security",
+      "key": "security.last_update",
+      "value": "2026-11-11",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-018",
+      "host": "OKJ-CAD-01",
+      "category": "share",
+      "key": "share.drive.Z",
+      "value": "\\\\OKOJO-NAS\\図面",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-019",
+      "host": "OKJ-CAD-01",
+      "category": "software",
+      "key": "software.0",
+      "value": "Microsoft 365 Apps",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-020",
+      "host": "OKJ-CAD-01",
+      "category": "software",
+      "key": "software.1",
+      "value": "架空CADソフトA 2024",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-021",
+      "host": "OKJ-CAD-01",
+      "category": "software",
+      "key": "software.2",
+      "value": "架空PDFビューアB",
+      "collected_at": "2026-11-20T09:20:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-022",
+      "host": "OKJ-KOUJOU-01",
+      "category": "account",
+      "key": "account.join_type",
+      "value": "ワークグループ",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-023",
+      "host": "OKJ-KOUJOU-01",
+      "category": "account",
+      "key": "account.m365_signed_in",
+      "value": true,
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-024",
+      "host": "OKJ-KOUJOU-01",
+      "category": "hardware",
+      "key": "disk.c_free_gb",
+      "value": 148,
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-025",
+      "host": "OKJ-KOUJOU-01",
+      "category": "hardware",
+      "key": "hw.maker",
+      "value": "架空メーカーA",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-026",
+      "host": "OKJ-KOUJOU-01",
+      "category": "hardware",
+      "key": "hw.memory_gb",
+      "value": 16,
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-027",
+      "host": "OKJ-KOUJOU-01",
+      "category": "hardware",
+      "key": "hw.model",
+      "value": "MODEL-A1",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-028",
+      "host": "OKJ-KOUJOU-01",
+      "category": "network",
+      "key": "net.dns",
+      "value": "192.168.10.1",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-029",
+      "host": "OKJ-KOUJOU-01",
+      "category": "network",
+      "key": "net.gateway",
+      "value": "192.168.10.1",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-030",
+      "host": "OKJ-KOUJOU-01",
+      "category": "network",
+      "key": "net.ip_mode",
+      "value": "DHCP",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-031",
+      "host": "OKJ-KOUJOU-01",
+      "category": "network",
+      "key": "net.wifi_ssid",
+      "value": "OKOJO-FACTORY",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-032",
+      "host": "OKJ-KOUJOU-01",
+      "category": "os",
+      "key": "os.caption",
+      "value": "Windows 11 Pro",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-033",
+      "host": "OKJ-KOUJOU-01",
+      "category": "os",
+      "key": "os.version",
+      "value": "10.0.26100",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-034",
+      "host": "OKJ-KOUJOU-01",
+      "category": "printer",
+      "key": "printer.0",
+      "value": "複合機（総務室） 192.168.10.30",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-035",
+      "host": "OKJ-KOUJOU-01",
+      "category": "security",
+      "key": "security.antivirus",
+      "value": "Windows 標準のウイルス対策（有効）",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-036",
+      "host": "OKJ-KOUJOU-01",
+      "category": "security",
+      "key": "security.bitlocker",
+      "value": null,
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "denied"
+    },
+    {
+      "id": "INV-037",
+      "host": "OKJ-KOUJOU-01",
+      "category": "security",
+      "key": "security.last_update",
+      "value": "2026-11-11",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-038",
+      "host": "OKJ-KOUJOU-01",
+      "category": "share",
+      "key": "share.drive.Z",
+      "value": "\\\\OKOJO-NAS\\図面",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-039",
+      "host": "OKJ-KOUJOU-01",
+      "category": "software",
+      "key": "software.0",
+      "value": "Microsoft 365 Apps",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-040",
+      "host": "OKJ-KOUJOU-01",
+      "category": "software",
+      "key": "software.1",
+      "value": "生産管理クライアント（イイズナソフト）",
+      "collected_at": "2026-11-20T09:30:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-041",
+      "host": "OKJ-SOUMU-01",
+      "category": "account",
+      "key": "account.join_type",
+      "value": "ワークグループ",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-042",
+      "host": "OKJ-SOUMU-01",
+      "category": "account",
+      "key": "account.m365_signed_in",
+      "value": true,
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-043",
+      "host": "OKJ-SOUMU-01",
+      "category": "hardware",
+      "key": "disk.c_free_gb",
+      "value": 96,
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-044",
+      "host": "OKJ-SOUMU-01",
+      "category": "hardware",
+      "key": "hw.maker",
+      "value": "架空メーカーA",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-045",
+      "host": "OKJ-SOUMU-01",
+      "category": "hardware",
+      "key": "hw.memory_gb",
+      "value": 16,
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-046",
+      "host": "OKJ-SOUMU-01",
+      "category": "hardware",
+      "key": "hw.model",
+      "value": "MODEL-A1",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-047",
+      "host": "OKJ-SOUMU-01",
+      "category": "network",
+      "key": "net.dns",
+      "value": "192.168.10.1",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-048",
+      "host": "OKJ-SOUMU-01",
+      "category": "network",
+      "key": "net.gateway",
+      "value": "192.168.10.1",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-049",
+      "host": "OKJ-SOUMU-01",
+      "category": "network",
+      "key": "net.ip_mode",
+      "value": "DHCP",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-050",
+      "host": "OKJ-SOUMU-01",
+      "category": "network",
+      "key": "net.wifi_ssid",
+      "value": "OKOJO-OFFICE",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-051",
+      "host": "OKJ-SOUMU-01",
+      "category": "os",
+      "key": "os.caption",
+      "value": "Windows 11 Pro",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-052",
+      "host": "OKJ-SOUMU-01",
+      "category": "os",
+      "key": "os.version",
+      "value": "10.0.26100",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-053",
+      "host": "OKJ-SOUMU-01",
+      "category": "printer",
+      "key": "printer.0",
+      "value": "複合機（総務室） 192.168.10.30",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-054",
+      "host": "OKJ-SOUMU-01",
+      "category": "security",
+      "key": "security.antivirus",
+      "value": "Windows 標準のウイルス対策（有効）",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-055",
+      "host": "OKJ-SOUMU-01",
+      "category": "security",
+      "key": "security.bitlocker",
+      "value": null,
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "denied"
+    },
+    {
+      "id": "INV-056",
+      "host": "OKJ-SOUMU-01",
+      "category": "security",
+      "key": "security.last_update",
+      "value": "2026-11-11",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-057",
+      "host": "OKJ-SOUMU-01",
+      "category": "share",
+      "key": "share.drive.S",
+      "value": "\\\\OKOJO-NAS\\スキャン",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-058",
+      "host": "OKJ-SOUMU-01",
+      "category": "share",
+      "key": "share.drive.X",
+      "value": "\\\\OKOJO-NAS\\経理",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-059",
+      "host": "OKJ-SOUMU-01",
+      "category": "share",
+      "key": "share.drive.Y",
+      "value": "\\\\OKOJO-NAS\\総務",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-060",
+      "host": "OKJ-SOUMU-01",
+      "category": "share",
+      "key": "share.drive.Z",
+      "value": "\\\\OKOJO-NAS\\図面",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-061",
+      "host": "OKJ-SOUMU-01",
+      "category": "software",
+      "key": "software.0",
+      "value": "Microsoft 365 Apps",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-062",
+      "host": "OKJ-SOUMU-01",
+      "category": "software",
+      "key": "software.1",
+      "value": "クラウド会計の接続ツール（架空）",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-063",
+      "host": "OKJ-SOUMU-01",
+      "category": "software",
+      "key": "software.2",
+      "value": "生産管理クライアント（イイズナソフト）",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    },
+    {
+      "id": "INV-064",
+      "host": "OKJ-SOUMU-01",
+      "category": "software",
+      "key": "software.3",
+      "value": "架空PDFビューアB",
+      "collected_at": "2026-11-20T09:10:00+09:00",
+      "status": "ok"
+    }
+  ]
+}

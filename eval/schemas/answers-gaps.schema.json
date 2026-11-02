@@ -1,0 +1,26 @@
+{
+  "$comment": "必須項目ごとの正しい状態。調査データだけで判断したときの状態を書く",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "company", "items"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "company": { "type": "string", "minLength": 1 },
+    "items": {
+      "type": "array",
+      "minItems": 40,
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["item", "state", "evidence", "facts"],
+        "properties": {
+          "item": { "type": "string", "pattern": "^CHK-\\d{2}$" },
+          "state": { "enum": ["filled", "partial", "gap"] },
+          "evidence": { "type": "array", "items": { "type": "string", "pattern": "^INV-\\d{3}$" } },
+          "facts": { "type": "array", "items": { "type": "string", "pattern": "^F-\\d{2}$" } }
+        }
+      }
+    }
+  }
+}

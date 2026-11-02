@@ -1,0 +1,38 @@
+{
+  "$comment": "空白の一覧。全必須項目の状態と、聞き取りで埋める空白のまとまり",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "company", "coverage", "gaps"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "company": { "type": "string", "minLength": 1 },
+    "coverage": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["item", "state", "evidence"],
+        "properties": {
+          "item": { "type": "string", "pattern": "^CHK-\\d{2}$" },
+          "state": { "enum": ["filled", "partial", "gap"] },
+          "evidence": { "type": "array", "items": { "type": "string", "pattern": "^INV-\\d{3}$" } }
+        }
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "items", "why", "priority", "question_hint"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^GAP-\\d{3}$" },
+          "items": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^CHK-\\d{2}$" } },
+          "why": { "type": "string", "minLength": 1 },
+          "priority": { "enum": ["high", "mid", "low"] },
+          "question_hint": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

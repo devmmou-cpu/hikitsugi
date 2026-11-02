@@ -1,0 +1,29 @@
+{
+  "$comment": "調査データ。複数 PC の結果を統合した後の形。ID は host、key の順に振る",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "company", "as_of", "items"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "company": { "type": "string", "minLength": 1 },
+    "as_of": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "host", "category", "key", "value", "collected_at", "status"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^INV-\\d{3}$" },
+          "host": { "type": "string", "minLength": 1 },
+          "category": { "enum": ["hardware", "os", "network", "share", "printer", "software", "security", "account"] },
+          "key": { "type": "string", "minLength": 1 },
+          "value": { "type": ["string", "number", "boolean", "null"] },
+          "collected_at": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["ok", "unavailable", "denied"] }
+        }
+      }
+    }
+  }
+}

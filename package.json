@@ -1,0 +1,12 @@
+{
+  "name": "hikitsugi",
+  "version": "0.0.0",
+  "private": true,
+  "description": "兼任の情シス担当者の知識を、後任が使える取扱説明書にまとめる Claude Code プラグイン",
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "eval": "node eval/run.mjs"
+  }
+}

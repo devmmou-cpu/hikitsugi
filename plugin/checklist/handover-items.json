@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "items": [
+    { "id": "CHK-01", "group": "network", "label": "インターネット回線の契約", "done_when": "契約先と、契約番号の控えがある場所が分かる" },
+    { "id": "CHK-02", "group": "network", "label": "回線が止まったときの窓口", "done_when": "電話番号と受付時間が分かる" },
+    { "id": "CHK-03", "group": "network", "label": "ルーターと UTM の場所", "done_when": "どの部屋のどこにあるか分かる" },
+    { "id": "CHK-04", "group": "network", "label": "ルーターと UTM の保守", "done_when": "保守の会社と連絡先が分かる" },
+    { "id": "CHK-05", "group": "network", "label": "無線 AP の配置", "done_when": "台数と置き場所が分かる" },
+    { "id": "CHK-06", "group": "network", "label": "社内の Wi-Fi", "done_when": "Wi-Fi 名と、パスワードの保管場所が分かる" },
+    { "id": "CHK-07", "group": "network", "label": "来客用の Wi-Fi", "done_when": "あるかないかが分かる" },
+    { "id": "CHK-08", "group": "network", "label": "再起動の可否", "done_when": "再起動してよい機器と、触ってはいけない機器を区別できる" },
+
+    { "id": "CHK-09", "group": "server", "label": "NAS の場所と構成", "done_when": "置き場所、ディスク構成、保守の有無が分かる" },
+    { "id": "CHK-10", "group": "server", "label": "共有フォルダの使い分け", "done_when": "フォルダごとの用途と使う人が分かる" },
+    { "id": "CHK-11", "group": "server", "label": "NAS の管理画面", "done_when": "開き方と、パスワードの保管場所が分かる" },
+    { "id": "CHK-12", "group": "server", "label": "バックアップの仕組み", "done_when": "方法、保存先、頻度が分かる" },
+    { "id": "CHK-13", "group": "server", "label": "バックアップの確認", "done_when": "確認の方法、時期、担当が分かる" },
+    { "id": "CHK-14", "group": "server", "label": "社内サーバーの窓口", "done_when": "何が動いていて、どこに相談するか分かる" },
+    { "id": "CHK-15", "group": "server", "label": "停電のあとの対応", "done_when": "自動で起動するか、何をすればよいか分かる" },
+
+    { "id": "CHK-16", "group": "account", "label": "Microsoft 365 の管理者", "done_when": "管理者が誰で、何人いるか分かる" },
+    { "id": "CHK-17", "group": "account", "label": "入社と退職のアカウント作業", "done_when": "それぞれ何をするか分かる" },
+    { "id": "CHK-18", "group": "account", "label": "パスワードを忘れた社員への対応", "done_when": "誰が何をするか分かる" },
+    { "id": "CHK-19", "group": "account", "label": "多要素認証の状況", "done_when": "誰に設定済みか分かる" },
+    { "id": "CHK-20", "group": "account", "label": "有料サービスと支払い", "done_when": "サービスの一覧と支払い方法が分かる" },
+    { "id": "CHK-21", "group": "account", "label": "独自ドメインの更新", "done_when": "更新の時期と依頼先が分かる" },
+    { "id": "CHK-22", "group": "account", "label": "Web サイトの管理", "done_when": "管理会社と連絡先が分かる" },
+
+    { "id": "CHK-23", "group": "device", "label": "PC の台数と配置", "done_when": "全体の台数と置き場所の内訳が分かる" },
+    { "id": "CHK-24", "group": "device", "label": "サポート期限のある PC", "done_when": "対象の PC と期限の日付が分かる" },
+    { "id": "CHK-25", "group": "device", "label": "特別な扱いの PC", "done_when": "どの PC を、なぜ別扱いにしているか分かる" },
+    { "id": "CHK-26", "group": "device", "label": "PC の購入と初期設定", "done_when": "買い方と、誰が設定するか分かる" },
+    { "id": "CHK-27", "group": "device", "label": "複合機の契約", "done_when": "リース会社、連絡先、故障時の窓口が分かる" },
+    { "id": "CHK-28", "group": "device", "label": "スキャンの保存先", "done_when": "スキャンしたファイルがどこに届くか分かる" },
+    { "id": "CHK-29", "group": "device", "label": "業務ソフトの更新時期", "done_when": "ソフトごとの更新月が分かる" },
+
+    { "id": "CHK-30", "group": "security", "label": "ウイルス対策", "done_when": "何で守っているか分かる" },
+    { "id": "CHK-31", "group": "security", "label": "Windows Update の運用", "done_when": "自動か手動か、例外があるか分かる" },
+    { "id": "CHK-32", "group": "security", "label": "不審なメールの連絡先", "done_when": "社員がどこに知らせるか分かる" },
+    { "id": "CHK-33", "group": "security", "label": "感染や情報漏えいの初動", "done_when": "最初にすることと連絡先が分かる" },
+    { "id": "CHK-34", "group": "security", "label": "社内の IT ルール", "done_when": "文書があるか、あればどこにあるか分かる" },
+
+    { "id": "CHK-35", "group": "operation", "label": "定期的な作業", "done_when": "毎週と毎月の作業が分かる" },
+    { "id": "CHK-36", "group": "operation", "label": "年に1回の作業", "done_when": "作業の内容と月が分かる" },
+    { "id": "CHK-37", "group": "operation", "label": "よくある問い合わせ", "done_when": "症状ごとの対応が分かる" },
+    { "id": "CHK-38", "group": "operation", "label": "過去の大きなトラブル", "done_when": "何が起きて、どう対応したか分かる" },
+    { "id": "CHK-39", "group": "operation", "label": "社内の相談相手", "done_when": "IT に詳しい人が分かる" },
+    { "id": "CHK-40", "group": "operation", "label": "退職後の連絡", "done_when": "連絡してよい期間と方法が分かる" }
+  ]
+}

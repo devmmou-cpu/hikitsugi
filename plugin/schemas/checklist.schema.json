@@ -1,0 +1,25 @@
+{
+  "$comment": "引き継ぎの必須項目",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "items"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "items": {
+      "type": "array",
+      "minItems": 40,
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "group", "label", "done_when"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^CHK-\\d{2}$" },
+          "group": { "enum": ["network", "server", "account", "device", "security", "operation"] },
+          "label": { "type": "string", "minLength": 1 },
+          "done_when": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

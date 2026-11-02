@@ -1,0 +1,424 @@
+{
+  "schema_version": 1,
+  "company": "okojo",
+  "statements": [
+    {
+      "id": "S-01",
+      "kind": "seeded",
+      "error": "E10",
+      "expected": "contradiction",
+      "note": "頻度の誤り",
+      "support": [
+        {
+          "ref": "INT-007",
+          "contains": "週1回"
+        }
+      ]
+    },
+    {
+      "id": "S-02",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "危なそうに見えるが安全",
+      "support": [
+        {
+          "ref": "INT-004",
+          "contains": "後任が自分でやって大丈夫"
+        }
+      ]
+    },
+    {
+      "id": "S-03",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "E7 と対",
+      "support": [
+        {
+          "ref": "INT-015",
+          "contains": "イタチ事務機に連絡"
+        }
+      ]
+    },
+    {
+      "id": "S-04",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "E8 と対",
+      "support": [
+        {
+          "ref": "INT-012",
+          "contains": "毎年3月"
+        }
+      ]
+    },
+    {
+      "id": "S-05",
+      "kind": "seeded",
+      "error": "E4",
+      "expected": "unsupported",
+      "note": "どの根拠にもない電話番号",
+      "support": [
+        {
+          "ref": "INT-005",
+          "contains": "保守契約はありません"
+        }
+      ]
+    },
+    {
+      "id": "S-06",
+      "kind": "seeded",
+      "error": "E2",
+      "expected": "contradiction",
+      "note": "OS の取り違え。根拠に Windows 11 の2台だけを挙げている",
+      "support": [
+        {
+          "ref": "INV-011",
+          "contains": "Windows 10"
+        }
+      ]
+    },
+    {
+      "id": "S-07",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "例外運用の理由",
+      "support": [
+        {
+          "ref": "INT-014",
+          "contains": "動作保証"
+        }
+      ]
+    },
+    {
+      "id": "S-08",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "言い換え",
+      "support": [
+        {
+          "ref": "INT-018",
+          "contains": "データは消えません"
+        }
+      ]
+    },
+    {
+      "id": "S-09",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "調査と聞き取りの両方にある",
+      "support": [
+        {
+          "ref": "INV-031",
+          "contains": "OKOJO-FACTORY"
+        },
+        {
+          "ref": "INT-003",
+          "contains": "OKOJO-FACTORY"
+        }
+      ]
+    },
+    {
+      "id": "S-10",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "E1 と対",
+      "support": [
+        {
+          "ref": "INT-005",
+          "contains": "RAID5"
+        }
+      ]
+    },
+    {
+      "id": "S-11",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "E3 と対",
+      "support": [
+        {
+          "ref": "INV-060",
+          "contains": "図面"
+        }
+      ]
+    },
+    {
+      "id": "S-12",
+      "kind": "seeded",
+      "error": "E7",
+      "expected": "contradiction",
+      "note": "業者の取り違え",
+      "support": [
+        {
+          "ref": "INT-015",
+          "contains": "イタチ事務機"
+        }
+      ]
+    },
+    {
+      "id": "S-13",
+      "kind": "seeded",
+      "error": "E5",
+      "expected": "dangerous",
+      "note": "パスワード本体の記載。実在しないダミー",
+      "support": [
+        {
+          "ref": "INT-005",
+          "contains": "鍵つき書庫"
+        }
+      ]
+    },
+    {
+      "id": "S-14",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "E2 と対",
+      "support": [
+        {
+          "ref": "INV-011",
+          "contains": "Windows 10"
+        },
+        {
+          "ref": "INV-051",
+          "contains": "Windows 11"
+        },
+        {
+          "ref": "INV-032",
+          "contains": "Windows 11"
+        }
+      ]
+    },
+    {
+      "id": "S-15",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "言い換え",
+      "support": [
+        {
+          "ref": "INT-006",
+          "contains": "「スキャン」フォルダ"
+        }
+      ]
+    },
+    {
+      "id": "S-16",
+      "kind": "seeded",
+      "error": "E3",
+      "expected": "contradiction",
+      "note": "接続先の誤り",
+      "support": [
+        {
+          "ref": "INV-060",
+          "contains": "図面"
+        },
+        {
+          "ref": "INV-059",
+          "contains": "総務"
+        }
+      ]
+    },
+    {
+      "id": "S-17",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "E4 と対",
+      "support": [
+        {
+          "ref": "INT-005",
+          "contains": "保守契約はありません"
+        }
+      ]
+    },
+    {
+      "id": "S-18",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "期限",
+      "support": [
+        {
+          "ref": "INT-014",
+          "contains": "2027-10-12"
+        }
+      ]
+    },
+    {
+      "id": "S-19",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "E9 と対",
+      "support": [
+        {
+          "ref": "INT-009",
+          "contains": "田中さんだけ"
+        },
+        {
+          "ref": "INT-009",
+          "contains": "退職前に管理者を追加"
+        }
+      ]
+    },
+    {
+      "id": "S-20",
+      "kind": "seeded",
+      "error": "E9",
+      "expected": "contradiction",
+      "note": "体制の誤り",
+      "support": [
+        {
+          "ref": "INT-009",
+          "contains": "田中さんだけ"
+        }
+      ]
+    },
+    {
+      "id": "S-21",
+      "kind": "seeded",
+      "error": "E8",
+      "expected": "contradiction",
+      "note": "期限の誤り。9月は棚卸しの月なので紛らわしい",
+      "support": [
+        {
+          "ref": "INT-012",
+          "contains": "毎年3月"
+        }
+      ]
+    },
+    {
+      "id": "S-22",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "E6 と対",
+      "support": [
+        {
+          "ref": "INT-018",
+          "contains": "クロテン通信に連絡"
+        }
+      ]
+    },
+    {
+      "id": "S-23",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "調査データの値",
+      "support": [
+        {
+          "ref": "INV-048",
+          "contains": "192.168.10.1"
+        }
+      ]
+    },
+    {
+      "id": "S-24",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "業者",
+      "support": [
+        {
+          "ref": "INT-012",
+          "contains": "フェレット企画"
+        }
+      ]
+    },
+    {
+      "id": "S-25",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "E10 と対",
+      "support": [
+        {
+          "ref": "INT-007",
+          "contains": "週1回"
+        },
+        {
+          "ref": "INT-007",
+          "contains": "毎週月曜"
+        }
+      ]
+    },
+    {
+      "id": "S-26",
+      "kind": "seeded",
+      "error": "E6",
+      "expected": "dangerous",
+      "note": "危険な操作を自分で直せるに分類",
+      "support": [
+        {
+          "ref": "INT-004",
+          "contains": "初期化は絶対にしないで"
+        }
+      ]
+    },
+    {
+      "id": "S-27",
+      "kind": "seeded",
+      "error": "E1",
+      "expected": "contradiction",
+      "note": "機器の構成の誤り",
+      "support": [
+        {
+          "ref": "INT-005",
+          "contains": "RAID5"
+        }
+      ]
+    },
+    {
+      "id": "S-28",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "業者",
+      "support": [
+        {
+          "ref": "INT-008",
+          "contains": "イイズナソフト"
+        }
+      ]
+    },
+    {
+      "id": "S-29",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "2つの聞き取りを合わせて確かめる必要がある",
+      "support": [
+        {
+          "ref": "INT-007",
+          "contains": "最古の世代"
+        },
+        {
+          "ref": "INT-018",
+          "contains": "毎月の容量確認"
+        }
+      ]
+    },
+    {
+      "id": "S-30",
+      "kind": "correct",
+      "error": null,
+      "expected": "correct",
+      "note": "E5 と対。保管場所なので危険ではない",
+      "support": [
+        {
+          "ref": "INT-005",
+          "contains": "鍵つき書庫"
+        }
+      ]
+    }
+  ]
+}

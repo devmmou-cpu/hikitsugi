@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "company": "okojo",
+  "troubles": [
+    {
+      "id": "T1",
+      "symptom": "共有フォルダが見えない",
+      "action": "self",
+      "contact": null,
+      "support": [
+        {
+          "ref": "INT-018",
+          "contains": "ネットワークドライブを再接続"
+        }
+      ]
+    },
+    {
+      "id": "T2",
+      "symptom": "複合機のスキャンが届かない",
+      "action": "contact",
+      "contact": "VEN-03",
+      "support": [
+        {
+          "ref": "INT-018",
+          "contains": "イタチ事務機に連絡"
+        }
+      ]
+    },
+    {
+      "id": "T3",
+      "symptom": "工場の Wi-Fi がつながらない",
+      "action": "self",
+      "contact": null,
+      "support": [
+        {
+          "ref": "INT-018",
+          "contains": "AP を再起動"
+        }
+      ]
+    },
+    {
+      "id": "T4",
+      "symptom": "ネットが全社でつながらない",
+      "action": "contact",
+      "contact": "VEN-01",
+      "support": [
+        {
+          "ref": "INT-018",
+          "contains": "クロテン通信に連絡"
+        }
+      ]
+    },
+    {
+      "id": "T5",
+      "symptom": "バックアップの失敗に気づかない",
+      "action": "self",
+      "contact": null,
+      "support": [
+        {
+          "ref": "INT-018",
+          "contains": "毎月の容量確認で気づけます"
+        }
+      ]
+    }
+  ]
+}

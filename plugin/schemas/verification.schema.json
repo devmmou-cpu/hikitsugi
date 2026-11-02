@@ -1,0 +1,26 @@
+{
+  "$comment": "検証結果。判定は排他で、優先順位は dangerous > contradiction > unsupported > correct",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "company", "round", "results"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "company": { "type": "string", "minLength": 1 },
+    "round": { "type": "integer", "minimum": 1 },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["statement", "verdict", "reason", "checked", "conflicts_with"],
+        "properties": {
+          "statement": { "type": "string", "pattern": "^(STM-\\d{3}|S-\\d{2})$" },
+          "verdict": { "enum": ["correct", "contradiction", "unsupported", "dangerous"] },
+          "reason": { "type": "string" },
+          "checked": { "type": "array", "items": { "type": "string", "pattern": "^(INV|INT|PUB)-\\d{3}$" } },
+          "conflicts_with": { "type": "array", "items": { "type": "string", "pattern": "^(INV|INT|PUB)-\\d{3}$" } }
+        }
+      }
+    }
+  }
+}

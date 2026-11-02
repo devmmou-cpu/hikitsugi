@@ -1,0 +1,38 @@
+{
+  "$comment": "Verifier の正解。support は「根拠のどの語で裏づけられるか」で、整合性テストが実データと照合する",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "company", "statements"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "company": { "type": "string", "minLength": 1 },
+    "statements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "error", "expected", "note", "support"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^S-\\d{2}$" },
+          "kind": { "enum": ["seeded", "correct"] },
+          "error": { "type": ["string", "null"], "pattern": "^E([1-9]|10)$" },
+          "expected": { "enum": ["correct", "contradiction", "unsupported", "dangerous"] },
+          "note": { "type": "string", "minLength": 1 },
+          "support": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["ref", "contains"],
+              "properties": {
+                "ref": { "type": "string", "pattern": "^(INV|INT)-\\d{3}$" },
+                "contains": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

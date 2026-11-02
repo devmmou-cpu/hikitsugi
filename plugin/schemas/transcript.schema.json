@@ -1,0 +1,27 @@
+{
+  "$comment": "聞き取り記録。1問で複数の必須項目を埋められるよう covers は配列",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "company", "entries"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "company": { "type": "string", "minLength": 1 },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "gap", "covers", "question", "answer", "status", "answered_at"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^INT-\\d{3}$" },
+          "gap": { "type": "string", "pattern": "^GAP-\\d{3}$" },
+          "covers": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^CHK-\\d{2}$" } },
+          "question": { "type": "string", "minLength": 1 },
+          "answer": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["answered", "unknown", "later"] },
+          "answered_at": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}
