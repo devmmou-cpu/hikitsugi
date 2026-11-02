@@ -22,9 +22,22 @@ export function questionProblems(question) {
   return problems;
 }
 
-/** 次の質問が記録できる形かを確かめる。問題の一覧を返す。 */
-export function checkNextQuestion(next, gaps) {
-  if (next.action !== 'ask') return [];
+/** まだ1度も聞いていない必須項目を返す。回答が「分からない」でも、聞いたものとして数える。 */
+export function unaskedItems(gaps, transcript) {
+  const asked = new Set(transcript.entries.flatMap((entry) => entry.covers));
+  return gaps.gaps.flatMap((gap) => gap.items).filter((item) => !asked.has(item));
+}
+
+/**
+ * 次の質問が記録できる形かを確かめる。問題の一覧を返す。
+ * @param transcript 指定があれば、聞いていない項目を残して終えようとしていないかも確かめる
+ */
+export function checkNextQuestion(next, gaps, transcript) {
+  if (next.action !== 'ask') {
+    if (!transcript || transcript.entries.length >= QUESTION_LIMIT) return [];
+    const unasked = unaskedItems(gaps, transcript);
+    return unasked.length ? [`まだ聞いていない項目があるので、終えられません：${unasked.join('、')}`] : [];
+  }
   const problems = [];
   const known = new Set(gaps.gaps.map((gap) => gap.id));
   const items = new Set(gaps.coverage.map((entry) => entry.item));

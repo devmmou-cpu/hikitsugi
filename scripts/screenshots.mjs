@@ -6,7 +6,7 @@
 // 環境変数 CHROME_PATH で Chrome の場所を変えられる。
 // 終了コード：0＝成功、1＝画面の検査で問題あり（理由を表示）、2＝引数の誤りや Chrome の起動失敗
 //
-// 撮るもの：各タブと各手順ページを、ライト、ダークの両方で。ほかに JavaScript なしの全文と、印刷の見え方。
+// 撮るもの：各タブと各手順ページを、ライト、ダークの両方で。ほかに JavaScript なしの全文（長いので分割）と、印刷の見え方。
 // あわせて、実際の画面で横のはみ出し、文字の大きさ、押す部品の高さ、手順の配置を測る。
 
 import { spawn } from 'node:child_process';
@@ -17,6 +17,10 @@ import { pathToFileURL } from 'node:url';
 
 const WIDTH = 375;
 const HEIGHT = 812;
+// 長いページは分割して撮る。1枚が大きすぎると Chrome が応答しなくなるため
+const SLICE_HEIGHT = 5000;
+// 応答がなければ止める。夜間の作業が固まらないようにするため
+const CALL_TIMEOUT_MS = 60000;
 const DEFAULT_CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 class Usage extends Error {}
@@ -77,7 +81,11 @@ function connect(endpoint) {
     const send = (method, params = {}, sessionId) =>
       new Promise((resolveCall, rejectCall) => {
         const id = nextId++;
-        pending.set(id, { resolveCall, rejectCall, method });
+        const timer = setTimeout(() => {
+          pending.delete(id);
+          rejectCall(new Usage(`Chrome の応答がありません：${method}`));
+        }, CALL_TIMEOUT_MS);
+        pending.set(id, { resolveCall, rejectCall, method, timer });
         socket.send(JSON.stringify({ id, method, params, sessionId }));
       });
     socket.addEventListener('message', (event) => {
@@ -86,6 +94,7 @@ function connect(endpoint) {
       const call = pending.get(message.id);
       if (!call) return;
       pending.delete(message.id);
+      clearTimeout(call.timer);
       if (message.error) call.rejectCall(new Error(`${call.method}: ${message.error.message}`));
       else call.resolveCall(message.result);
     });
@@ -184,8 +193,23 @@ async function main([inputArg, outputArg]) {
       await fullPage(name);
     };
     // ビューポートをページの高さまで広げて撮る。広げずに撮ると、固定のタブが画面の途中に写るため
+    const slices = async (name) => {
+      const { height } = JSON.parse(await evaluate(MEASURE));
+      const count = Math.max(1, Math.ceil(height / SLICE_HEIGHT));
+      for (let i = 0; i < count; i += 1) {
+        const clip = { x: 0, y: i * SLICE_HEIGHT, width: WIDTH, height: Math.min(SLICE_HEIGHT, height - i * SLICE_HEIGHT), scale: 1 };
+        const { data } = await page('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip });
+        const file = i === 0 ? name : `${name}-${i + 1}`;
+        writeFileSync(join(output, `${file}.png`), Buffer.from(data, 'base64'));
+        shots.push(file);
+      }
+    };
     const fullPage = async (name) => {
       const { height } = JSON.parse(await evaluate(MEASURE));
+      if (height * 2 > 16000) {
+        await slices(name);
+        return;
+      }
       await page('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: Math.max(height, HEIGHT), deviceScaleFactor: 2, mobile: true });
       await settle();
       const { data } = await page('Page.captureScreenshot', { format: 'png' });
@@ -228,7 +252,7 @@ async function main([inputArg, outputArg]) {
     await page('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
     await page('Emulation.setScriptExecutionDisabled', { value: true });
     await go('');
-    await fullPage('nojs-all');
+    await slices('nojs-all');
     await page('Emulation.setScriptExecutionDisabled', { value: false });
 
     // 印刷の見え方

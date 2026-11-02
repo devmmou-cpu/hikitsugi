@@ -13,7 +13,7 @@ import { buildMockRequest, composeAnswer } from '../eval/lib/mock-tanaka.mjs';
 import { costOf } from '../eval/lib/pricing.mjs';
 import { score as scoreInterview, summarize as summarizeInterview } from '../eval/lib/scorers/interview.mjs';
 import { runEval, UsageError } from '../eval/lib/runner.mjs';
-import { appendEntry, checkNextQuestion, emptyTranscript, hasCredential, QUESTION_CHARS, QUESTION_LIMIT, questionProblems } from '../plugin/lib/transcript.mjs';
+import { appendEntry, checkNextQuestion, emptyTranscript, hasCredential, QUESTION_CHARS, QUESTION_LIMIT, questionProblems, unaskedItems } from '../plugin/lib/transcript.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SET = join(ROOT, 'eval/sets/okojo');
@@ -135,7 +135,7 @@ test('聞き取りは20問で止まり、ID はプログラムが振る', async 
 
 test('finish で聞き取りを終える', async () => {
   const client = fakeClient(() => ({ action: 'finish', gap: '', covers: [], question: '' }));
-  const transcript = await runInterview({ survey: input.survey, gaps: gapsOutput, api: client, record: () => {}, askTanaka: async () => assert.fail('質問されない') });
+  const transcript = await runInterview({ survey: input.survey, gaps: { ...gapsOutput, gaps: [] }, api: client, record: () => {}, askTanaka: async () => assert.fail('質問されない') });
   assert.equal(transcript.entries.length, 0);
 });
 
@@ -147,6 +147,17 @@ test('存在しない空白や項目を指す質問は失敗として止める',
   );
   assert.ok(checkNextQuestion({ action: 'ask', gap: 'GAP-001', covers: ['CHK-99'], question: '質問' }, gapsOutput).some((p) => p.includes('CHK-99')));
   assert.ok(checkNextQuestion({ action: 'ask', gap: 'GAP-001', covers: [], question: '質問' }, gapsOutput).length > 0);
+});
+
+test('聞いていない項目を残して終えようとすると、問題として返す', () => {
+  const finish = { action: 'finish', gap: '', covers: [], question: '' };
+  const empty = emptyTranscript('okojo');
+  assert.deepEqual(unaskedItems(gapsOutput, empty), ['CHK-01']);
+  assert.match(checkNextQuestion(finish, gapsOutput, empty)[0], /まだ聞いていない/);
+  const next = { action: 'ask', gap: 'GAP-001', covers: ['CHK-01'], question: '質問' };
+  const asked = appendEntry(empty, { next, answer: '分かりません。', status: 'unknown', answeredAt: 'x' });
+  // 「分からない」でも、聞いたものとして終えられる
+  assert.deepEqual(checkNextQuestion(finish, gapsOutput, asked), []);
 });
 
 test('暴走した質問文を見つける', () => {
@@ -181,6 +192,7 @@ function sequenceClient(replies) {
   };
 }
 const FINISH = JSON.stringify({ action: 'finish', gap: '', covers: [], question: '' });
+
 const GOOD = JSON.stringify({ action: 'ask', gap: 'GAP-001', covers: ['CHK-01'], question: '良い質問です' });
 const BROKEN = JSON.stringify({ action: 'ask', gap: 'GAP-001', covers: ['CHK-01'], question: `質問です。${'あ'.repeat(200)}` });
 

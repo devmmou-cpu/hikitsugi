@@ -177,8 +177,9 @@ function pipelineClient({ verdicts }) {
       };
     }
     if (system.includes('Interviewer')) {
-      const asked = params.messages[0].content[1].text.includes('ここまでに 0 問');
-      return asked ? { action: 'ask', gap: 'GAP-001', covers: ['CHK-01'], question: '質問' } : { action: 'finish', gap: '', covers: [], question: '' };
+      const first = params.messages[0].content[1].text.includes('ここまでに 0 問');
+      const items = gold.gaps.items.filter((i) => i.state !== 'filled').map((i) => i.item);
+      return first ? { action: 'ask', gap: 'GAP-001', covers: items, question: '質問' } : { action: 'finish', gap: '', covers: [], question: '' };
     }
     if (system.includes('模擬の担当者')) return { fact_ids: ['F-01'] };
     if (system.includes('Writer')) return manualBody();
@@ -314,7 +315,10 @@ test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途�
     assert.equal(transcript.entries[1].status, 'unknown');
     assert.equal(transcript.entries[1].answer, '分かりません。');
 
+    // 聞いていない項目を残して終えることはできない
     write('next.json', { action: 'finish', gap: '', covers: [], question: '' });
+    assert.throws(() => hikitsugi('check-next'), /まだ聞いていない/);
+    write('gaps.json', { schema_version: 1, company: input.survey.company, coverage, gaps: [{ id: 'GAP-001', items: ['CHK-01', 'CHK-02'], why: '理由', priority: 'high', question_hint: 'ヒント' }] });
     assert.match(hikitsugi('check-next'), /終えました/);
     assert.deepEqual(nextStep(work), { step: 'writer', round: 1 });
 

@@ -86,14 +86,16 @@ function checkGaps(work) {
 function checkNext(work) {
   const next = checkSchema('next-question', readJson(join(work, 'next.json')));
   const transcript = readJson(join(work, 'transcript.json'));
+  const gaps = readJson(join(work, 'gaps.json'));
+  const unfinished = checkNextQuestion(next, gaps, transcript);
+  if (next.action === 'finish' && unfinished.length) throw new Problem(unfinished.join('\n'));
   if (next.action === 'finish' || transcript.entries.length >= QUESTION_LIMIT) {
     const state = readJson(join(work, 'state.json'));
     writeJson(join(work, 'state.json'), { ...state, interview_done: true });
     rmNext(work);
     return `聞き取りを終えました（${transcript.entries.length} 問）`;
   }
-  const problems = checkNextQuestion(next, readJson(join(work, 'gaps.json')));
-  if (problems.length) throw new Problem(problems.join('\n'));
+  if (unfinished.length) throw new Problem(unfinished.join('\n'));
   return next.question;
 }
 

@@ -34,13 +34,13 @@ export function buildInterviewerRequest({ survey, gaps, checklist = loadChecklis
 }
 
 /** 次の1問を受け取る。途中で切れた出力や、不自然な質問は、問題を伝えて呼び直す。 */
-async function askNext({ api, agent, params, record, gaps }) {
+async function askNext({ api, agent, params, record, gaps, transcript }) {
   let last;
   let retryParams = params;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     try {
       const next = await callAgent({ api, agent, params: retryParams, record, estimate: false });
-      const problems = checkNextQuestion(next, gaps);
+      const problems = checkNextQuestion(next, gaps, transcript);
       if (problems.length === 0) return next;
       last = new LiveFailure('interviewer', problems.join(' / '));
     } catch (error) {
@@ -49,7 +49,7 @@ async function askNext({ api, agent, params, record, gaps }) {
     }
     // キャッシュの後ろに足すので、前置きの費用は増えない
     const [stable, dynamic] = params.messages[0].content;
-    const notice = { type: 'text', text: `前回の出力には次の問題がありました：${last.message}\n質問を1つだけ、${QUESTION_CHARS}字以内の短い文にしてください。聞く内容が多いときは、今回は一部だけを聞きます。` };
+    const notice = { type: 'text', text: `前回の出力には次の問題がありました：${last.message}\n質問を1つだけ、${QUESTION_CHARS}字以内の短い文にしてください。` };
     retryParams = { ...params, messages: [{ role: 'user', content: [stable, dynamic, notice] }] };
   }
   throw last;
@@ -65,7 +65,7 @@ export async function runInterview({ survey, gaps, askTanaka, api, record, clock
   let transcript = emptyTranscript(survey.company);
   while (transcript.entries.length < QUESTION_LIMIT) {
     const params = buildInterviewerRequest({ survey, gaps, checklist, transcript, agent });
-    const next = await askNext({ api, agent, params, record, gaps });
+    const next = await askNext({ api, agent, params, record, gaps, transcript });
     if (next.action === 'finish') break;
     const { answer, status } = await askTanaka(next.question);
     transcript = appendEntry(transcript, { next, answer, status, answeredAt: clock() });
