@@ -640,7 +640,7 @@ test('途中で書くのをやめた出力は、手順ページがないこと�
 
 test('業者の連絡先がない vendor のページと、社内の相談先がない internal のページを見つける', () => {
   const noContact = withSteps([step('STM-001', 'LIB-001')], ['STM-001'], { fallback: null, badge: { value: 'vendor', statement: 'STM-902' } });
-  assert.match(problemsOf(noContact), /vendor のページには業者の連絡先/);
+  assert.match(problemsOf(noContact), /vendor のページには、使える連絡先の中の業者/);
   noContact.symptom_pages[0].badge.value = 'internal';
   assert.match(problemsOf(noContact), /internal のページには社内の相談先/);
 });
