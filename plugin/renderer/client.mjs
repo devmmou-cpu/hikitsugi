@@ -33,6 +33,22 @@ export const CLIENT_SCRIPT = String.raw`
 
   const checks = loadChecks();
 
+  // 次にする手順（上から見て最初の未チェック）に印を付け、進み具合を文字で示す
+  function refreshSteps(panel) {
+    const items = all('.steps > li', panel);
+    if (!items.length) return;
+    let next = null;
+    let done = 0;
+    for (const item of items) {
+      item.classList.remove('is-next');
+      if (item.querySelector('input[data-check]').checked) done += 1;
+      else if (!next) next = item;
+    }
+    if (next) next.classList.add('is-next');
+    const progress = panel.querySelector('.progress');
+    if (progress) progress.textContent = next ? '終わった手順：' + done + ' / ' + items.length : 'すべて終わりました';
+  }
+
   function setUpChecks() {
     for (const box of all('input[data-check]')) {
       const key = box.getAttribute('data-check');
@@ -40,17 +56,21 @@ export const CLIENT_SCRIPT = String.raw`
       box.addEventListener('change', () => {
         checks[key] = box.checked;
         saveChecks(checks);
+        refreshSteps(box.closest('.panel'));
       });
     }
     for (const button of all('button[data-reset]')) {
       button.addEventListener('click', () => {
-        for (const box of all('input[data-check]', button.closest('.panel'))) {
+        const panel = button.closest('.panel');
+        for (const box of all('input[data-check]', panel)) {
           box.checked = false;
           checks[box.getAttribute('data-check')] = false;
         }
         saveChecks(checks);
+        refreshSteps(panel);
       });
     }
+    for (const panel of all('.panel')) refreshSteps(panel);
   }
 
   // ---- コピー ----
@@ -110,18 +130,18 @@ export const CLIENT_SCRIPT = String.raw`
     }
   }
 
-  // ---- 用語の開閉 ----
+  // ---- 開閉 ----
   // HTML では開いておき（JavaScript なしで全文を読むため）、ここで閉じる。印刷のときだけ全部開く
-  function setUpTerms() {
-    const terms = all('details');
+  function setUpDetails() {
+    const details = all('details');
     let openBeforePrint = [];
-    for (const term of terms) term.open = false;
+    for (const each of details) each.open = false;
     window.addEventListener('beforeprint', () => {
-      openBeforePrint = terms.filter((term) => term.open);
-      for (const term of terms) term.open = true;
+      openBeforePrint = details.filter((each) => each.open);
+      for (const each of details) each.open = true;
     });
     window.addEventListener('afterprint', () => {
-      for (const term of terms) term.open = openBeforePrint.includes(term);
+      for (const each of details) each.open = openBeforePrint.includes(each);
     });
   }
 
@@ -129,35 +149,51 @@ export const CLIENT_SCRIPT = String.raw`
   // 画面の切り替えはアドレスの # に合わせる。戻る操作がそのまま使える
   const panels = all('.panel');
   const tabs = all('nav a');
+  // 手順ページから一覧へ戻ったとき、押した症状の位置に戻すための控え
+  let helpScroll = null;
 
-  function currentPanel() {
+  function currentTarget() {
     let id = window.location.hash.slice(1);
     try {
       id = decodeURIComponent(id);
     } catch (error) {
       id = '';
     }
-    const target = id ? document.getElementById(id) : null;
-    return (target && target.closest('.panel')) || panels[0];
+    return id ? document.getElementById(id) : null;
   }
 
-  function showPanel(moveFocus) {
-    const panel = currentPanel();
+  function showPanel(moved) {
+    const target = currentTarget();
+    const panel = (target && target.closest('.panel')) || panels[0];
     for (const each of panels) each.classList.toggle('is-active', each === panel);
     const tabHref = '#' + (panel.getAttribute('data-tab') || panel.id);
     for (const tab of tabs) {
       if (tab.getAttribute('href') === tabHref) tab.setAttribute('aria-current', 'page');
       else tab.removeAttribute('aria-current');
     }
-    if (!moveFocus) return;
+    // 画面の途中の見出しへ移るリンクは、その見出しまで動かす
+    if (target && target !== panel) {
+      target.scrollIntoView();
+      if (moved && target.focus) target.focus({ preventScroll: true });
+      return;
+    }
+    if (!moved) return;
     const heading = panel.querySelector('h2');
     if (heading) heading.focus({ preventScroll: true });
-    window.scrollTo(0, 0);
+    const back = panel.id === 'tab-help' && helpScroll !== null;
+    window.scrollTo(0, back ? helpScroll : 0);
+    if (back) helpScroll = null;
+  }
+
+  for (const link of all('a[href^="#symptom-"]')) {
+    link.addEventListener('click', () => {
+      helpScroll = window.scrollY;
+    });
   }
 
   setUpChecks();
   setUpCopy();
-  setUpTerms();
+  setUpDetails();
   showPanel(false);
   window.addEventListener('hashchange', () => showPanel(true));
   root.classList.add('js');
