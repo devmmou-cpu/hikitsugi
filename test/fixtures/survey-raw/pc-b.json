@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "host": "OKJ-SOUMU-01",
+  "collected_at": "2026-11-05T09:40:00+09:00",
+  "items": [
+    { "category": "os", "key": "os.caption", "value": "Windows 11 Pro", "status": "ok" },
+    { "category": "os", "key": "os.version", "value": "10.0.26100", "status": "ok" },
+    { "category": "hardware", "key": "hw.maker", "value": "架空メーカーA", "status": "ok" },
+    { "category": "hardware", "key": "hw.model", "value": "MODEL-A1", "status": "ok" },
+    { "category": "hardware", "key": "hw.memory_gb", "value": 16, "status": "ok" },
+    { "category": "hardware", "key": "disk.c_free_gb", "value": 120, "status": "ok" },
+    { "category": "network", "key": "net.ip_mode", "value": "DHCP", "status": "ok" },
+    { "category": "network", "key": "net.gateway", "value": "192.168.10.1", "status": "ok" },
+    { "category": "network", "key": "net.dns", "value": "192.168.10.1", "status": "ok" },
+    { "category": "network", "key": "net.wifi_ssid", "value": null, "status": "unavailable" },
+    { "category": "share", "key": "share.drive.S", "value": "\\\\OKOJO-NAS\\スキャン", "status": "ok" },
+    { "category": "share", "key": "share.drive.Z", "value": "\\\\OKOJO-NAS\\図面", "status": "ok" },
+    { "category": "printer", "key": "printer.0", "value": "複合機（総務室） 192.168.10.30", "status": "ok" },
+    { "category": "software", "key": "software.0", "value": "Microsoft 365 Apps", "status": "ok" },
+    { "category": "security", "key": "security.last_update", "value": "2026-10-20", "status": "ok" },
+    { "category": "security", "key": "security.antivirus", "value": "Windows 標準のウイルス対策（有効）", "status": "ok" },
+    { "category": "security", "key": "security.bitlocker", "value": null, "status": "denied" },
+    { "category": "account", "key": "account.join_type", "value": "ワークグループ", "status": "ok" },
+    { "category": "account", "key": "account.m365_signed_in", "value": true, "status": "ok" }
+  ]
+}

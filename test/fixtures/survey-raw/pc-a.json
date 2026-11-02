@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "host": "OKJ-CAD-01",
+  "collected_at": "2026-11-04T17:10:00+09:00",
+  "items": [
+    { "category": "os", "key": "os.caption", "value": "Windows 10 Pro", "status": "ok" },
+    { "category": "os", "key": "os.version", "value": "10.0.19045", "status": "ok" },
+    { "category": "hardware", "key": "hw.memory_gb", "value": 32, "status": "ok" },
+    { "category": "share", "key": "share.drive.Z", "value": "\\\\OKOJO-NAS\\図面", "status": "ok" },
+    { "category": "software", "key": "software.0", "value": "架空CADソフトA 2024", "status": "ok" },
+    { "category": "software", "key": "software.1", "value": "Microsoft 365 Apps", "status": "ok" }
+  ]
+}
