@@ -10,22 +10,11 @@ export class UnapprovedPartsError extends Error {
   }
 }
 
-/**
- * 表示プログラムの初版は機器の一覧と定期作業を表示できないので、外して渡す。
- * 黙って捨てないよう、外した件数を返す。
- */
+/** 表示プログラムへ渡す前の確認。本人が確認していない部品は、取扱説明書に出さない。 */
 export function prepareForRender(manual, library = loadLibrary()) {
-  // 本人が確認していない部品は、取扱説明書に出さない
   const unapproved = unapprovedParts(manual, library);
   if (unapproved.length) throw new UnapprovedPartsError(unapproved);
-  const { routines, devices } = manual;
-  const kept = { ...manual, routines: [], devices: [] };
-  const screens = JSON.stringify({ ...kept, statements: [] });
-  const statements = manual.statements.filter((statement) => screens.includes(`"${statement.id}"`));
-  return {
-    manual: { ...kept, statements },
-    omitted: { routines: routines.length, devices: devices.length, statements: manual.statements.length - statements.length },
-  };
+  return { manual, omitted: { routines: 0, devices: 0, statements: 0 } };
 }
 
 /** 検証結果を判定ごとに数え、指摘の一覧を返す。 */

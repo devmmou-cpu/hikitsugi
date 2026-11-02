@@ -1,0 +1,2025 @@
+{
+  "statements": [
+    {
+      "id": "STM-001",
+      "text": "共有フォルダが見えません。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-002",
+      "text": "ネットワークドライブを再接続すれば直ります。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-003",
+      "text": "再接続だけなのでデータは消えません。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-004",
+      "text": "Z ドライブは \\\\OKOJO-NAS\\図面 です。",
+      "evidence": [
+        "INV-018",
+        "INV-038",
+        "INV-060"
+      ]
+    },
+    {
+      "id": "STM-005",
+      "text": "総務用 PC（OKJ-SOUMU-01）の S ドライブは \\\\OKOJO-NAS\\スキャン です。",
+      "evidence": [
+        "INV-057"
+      ]
+    },
+    {
+      "id": "STM-006",
+      "text": "総務用 PC（OKJ-SOUMU-01）の X ドライブは \\\\OKOJO-NAS\\経理 です。",
+      "evidence": [
+        "INV-058"
+      ]
+    },
+    {
+      "id": "STM-007",
+      "text": "総務用 PC（OKJ-SOUMU-01）の Y ドライブは \\\\OKOJO-NAS\\総務 です。",
+      "evidence": [
+        "INV-059"
+      ]
+    },
+    {
+      "id": "STM-008",
+      "text": "Windows 10 の PC は、手順が違うので、連絡先へ連絡してください。",
+      "evidence": [
+        "LIB-021"
+      ],
+      "library": {
+        "id": "LIB-021",
+        "values": []
+      }
+    },
+    {
+      "id": "STM-009",
+      "text": "キーボードの Windows キーを押しながら、E のキーを押してください。",
+      "evidence": [
+        "LIB-001"
+      ],
+      "library": {
+        "id": "LIB-001",
+        "values": []
+      }
+    },
+    {
+      "id": "STM-010",
+      "text": "開いた画面の左の一覧で、「PC」を選んでください。",
+      "evidence": [
+        "LIB-002"
+      ],
+      "library": {
+        "id": "LIB-002",
+        "values": []
+      }
+    },
+    {
+      "id": "STM-011",
+      "text": "「PC」の中に、赤い×のついた 一覧の文字 ドライブがあれば、ダブルクリックしてください。開ければ直っています。",
+      "evidence": [
+        "LIB-013"
+      ],
+      "library": {
+        "id": "LIB-013",
+        "values": [
+          {
+            "slot": "ドライブ文字",
+            "value": "一覧の文字",
+            "evidence": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "STM-012",
+      "text": "開けないときは、右クリックして「切断」を選んでから、次の手順へ進んでください。",
+      "evidence": [
+        "LIB-014"
+      ],
+      "library": {
+        "id": "LIB-014",
+        "values": []
+      }
+    },
+    {
+      "id": "STM-013",
+      "text": "画面の上の「…」を押して、「ネットワーク ドライブの割り当て」を選んでください。",
+      "evidence": [
+        "LIB-003"
+      ],
+      "library": {
+        "id": "LIB-003",
+        "values": []
+      }
+    },
+    {
+      "id": "STM-014",
+      "text": "「ドライブ」の欄で、一覧の文字 を選んでください。",
+      "evidence": [
+        "LIB-004"
+      ],
+      "library": {
+        "id": "LIB-004",
+        "values": [
+          {
+            "slot": "ドライブ文字",
+            "value": "一覧の文字",
+            "evidence": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "STM-015",
+      "text": "「フォルダー」の欄に、一覧の接続先 と入力してください。画面では「\\」が「¥」マークで表示されることがありますが、同じ意味です。",
+      "evidence": [
+        "LIB-005"
+      ],
+      "library": {
+        "id": "LIB-005",
+        "values": [
+          {
+            "slot": "接続先",
+            "value": "一覧の接続先",
+            "evidence": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "STM-016",
+      "text": "「サインイン時に再接続する」にチェックを入れて、「完了」を押してください。",
+      "evidence": [
+        "LIB-006"
+      ],
+      "library": {
+        "id": "LIB-006",
+        "values": []
+      }
+    },
+    {
+      "id": "STM-017",
+      "text": "「見えなかった」フォルダーが開けば、直っています。",
+      "evidence": [
+        "LIB-007"
+      ],
+      "library": {
+        "id": "LIB-007",
+        "values": [
+          {
+            "slot": "フォルダ名",
+            "value": "見えなかった",
+            "evidence": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "STM-018",
+      "text": "ユーザー名とパスワードを聞く画面が出たら、何も入力せずに閉じて、連絡先へ連絡してください。",
+      "evidence": [
+        "LIB-015"
+      ],
+      "library": {
+        "id": "LIB-015",
+        "values": []
+      }
+    },
+    {
+      "id": "STM-019",
+      "text": "共有フォルダをつなぎ直しても見えません。社内ネットワークの不調かもしれません。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-020",
+      "text": "スキャンが届きません。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-021",
+      "text": "NAS の空き容量を確認してください。空きがあるのに届かないときは、イタチ事務機に連絡してください。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-022",
+      "text": "最初にすることは、NAS の空き容量の確認です。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-023",
+      "text": "総務用 PC（OKJ-SOUMU-01）の S ドライブは、\\\\OKOJO-NAS\\スキャン です。複合機でスキャンした文書の保存先です。",
+      "evidence": [
+        "INV-057",
+        "INT-006"
+      ]
+    },
+    {
+      "id": "STM-024",
+      "text": "「PC」の画面で、S のネットワーク ドライブの帯グラフを見てください。",
+      "evidence": [
+        "LIB-016",
+        "INV-057"
+      ],
+      "library": {
+        "id": "LIB-016",
+        "values": [
+          {
+            "slot": "ドライブ文字",
+            "value": "S",
+            "evidence": [
+              "INV-057"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "STM-025",
+      "text": "帯が赤ければ、空きがほとんどありません。",
+      "evidence": [
+        "LIB-017"
+      ],
+      "library": {
+        "id": "LIB-017",
+        "values": []
+      }
+    },
+    {
+      "id": "STM-026",
+      "text": "空きがあるのに届かないときは、イタチ事務機に連絡してください。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-027",
+      "text": "複合機のスキャンが NAS に届きません。NAS には空きがあります。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-028",
+      "text": "工場の Wi-Fi が切れます。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-029",
+      "text": "工場の柱の AP を再起動すれば直ります。後任が自分でやって大丈夫です。",
+      "evidence": [
+        "INT-011",
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-030",
+      "text": "工場の Wi-Fi が切れるのは、夏の熱で工場の AP が止まることが多いためです。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-031",
+      "text": "工場の AP は、工場の柱に設置されています。",
+      "evidence": [
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-032",
+      "text": "AP の電源アダプターを抜いてください。",
+      "evidence": [
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-033",
+      "text": "10秒待ってください。",
+      "evidence": [
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-034",
+      "text": "電源アダプターを差し直してください。",
+      "evidence": [
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-035",
+      "text": "全社でネットがつながりません。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-036",
+      "text": "回線障害のことが多いので、クロテン通信に連絡してください。",
+      "evidence": [
+        "INT-011",
+        "INT-001"
+      ]
+    },
+    {
+      "id": "STM-037",
+      "text": "全社でネットがつながらないときは、回線障害のことが多いです。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-038",
+      "text": "ルーターと UTM の初期化は絶対にしないでください。設定が消えて全社のネットが止まります。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-039",
+      "text": "会社全体でネットがつながりません。回線の障害か確認をお願いします。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-040",
+      "text": "バックアップのメールの件名が「失敗」でした。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-041",
+      "text": "確認までは後任ができます。古い世代の削除は、カワウソシステムサービスに依頼してください。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-042",
+      "text": "バックアップは毎週金曜の夜に自動で取られ、結果がメールで届きます。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-043",
+      "text": "総務の共有アドレスに届いた、NAS のバックアップ結果のメールの件名を見てください。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-044",
+      "text": "件名が「失敗」のときは、メールの本文を見てください。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-045",
+      "text": "本文に容量不足とあれば、外付け USB が満杯です。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-046",
+      "text": "古い世代の削除は、管理画面での作業です。間違えると必要なバックアップを消すので、自分ではしないでください。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-047",
+      "text": "古い世代の削除は、カワウソシステムサービスにスポット（有償）で依頼してください。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-048",
+      "text": "NAS のバックアップが失敗しました。本文に容量不足とあり、外付け USB が満杯です。古い世代の削除をスポット（有償）でお願いします。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-049",
+      "text": "NAS のディスクの交換が必要になりました。",
+      "evidence": [
+        "INT-006"
+      ]
+    },
+    {
+      "id": "STM-050",
+      "text": "ディスク交換は自分でせず、社長に相談してください。",
+      "evidence": [
+        "INT-006"
+      ]
+    },
+    {
+      "id": "STM-051",
+      "text": "ディスク交換は後任がやる作業ではありません。社長に相談します。",
+      "evidence": [
+        "INT-006"
+      ]
+    },
+    {
+      "id": "STM-052",
+      "text": "NAS に保守契約はありません。",
+      "evidence": [
+        "INT-006"
+      ]
+    },
+    {
+      "id": "STM-053",
+      "text": "生産管理システムの調子が悪いです。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-054",
+      "text": "生産管理サーバーを勝手に再起動せず、イイズナソフトに相談してください。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-055",
+      "text": "生産管理システムは社内サーバー1台で動いていて、販売店のイイズナソフトが窓口です。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-056",
+      "text": "生産管理サーバーは勝手に再起動しないでください。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-057",
+      "text": "生産管理システムの調子が悪いので、相談したいです。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-058",
+      "text": "停電のあと NAS やサーバーが動きません。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-059",
+      "text": "NAS、サーバーの順に電源ボタンを押してください。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-060",
+      "text": "停電のあと NAS とサーバーは自動では起動しません。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-061",
+      "text": "NAS は事務所のサーバーラックにあります。",
+      "evidence": [
+        "INT-006",
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-062",
+      "text": "NAS の電源ボタンを押してください。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-063",
+      "text": "次に、サーバーの電源ボタンを押してください。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-064",
+      "text": "複合機が壊れました。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-065",
+      "text": "故障のときは、イタチ事務機に連絡してください。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-066",
+      "text": "複合機のリース会社はイタチ事務機です。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-067",
+      "text": "複合機が故障しました。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-068",
+      "text": "不審なメールが届きました。",
+      "evidence": [
+        "INT-005"
+      ]
+    },
+    {
+      "id": "STM-069",
+      "text": "不審なメールは開かずに、総務課に知らせてください。",
+      "evidence": [
+        "INT-005"
+      ]
+    },
+    {
+      "id": "STM-070",
+      "text": "不審なメールを知らせる先は、総務課と決まっています。",
+      "evidence": [
+        "INT-005"
+      ]
+    },
+    {
+      "id": "STM-071",
+      "text": "不審なメールは開かないでください。",
+      "evidence": [
+        "INT-005"
+      ]
+    },
+    {
+      "id": "STM-072",
+      "text": "総務課に知らせてください。",
+      "evidence": [
+        "INT-005"
+      ]
+    },
+    {
+      "id": "STM-073",
+      "text": "ウイルス感染や情報漏えいが疑われます。",
+      "evidence": [
+        "INT-005"
+      ]
+    },
+    {
+      "id": "STM-074",
+      "text": "LAN ケーブルを抜いて、すぐ総務課と社長に連絡してください。",
+      "evidence": [
+        "INT-005"
+      ]
+    },
+    {
+      "id": "STM-075",
+      "text": "最初にすることは決まっています。",
+      "evidence": [
+        "INT-005"
+      ]
+    },
+    {
+      "id": "STM-076",
+      "text": "LAN ケーブルを抜いてください。",
+      "evidence": [
+        "INT-005"
+      ]
+    },
+    {
+      "id": "STM-077",
+      "text": "すぐ総務課と社長に連絡してください。",
+      "evidence": [
+        "INT-005"
+      ]
+    },
+    {
+      "id": "STM-078",
+      "text": "社員が Microsoft 365 のパスワードを忘れました。",
+      "evidence": [
+        "INT-003"
+      ]
+    },
+    {
+      "id": "STM-079",
+      "text": "管理者が管理画面から再設定の案内を出します。",
+      "evidence": [
+        "INT-003"
+      ]
+    },
+    {
+      "id": "STM-080",
+      "text": "パスワードを忘れた社員には、再設定の案内を出す決まりです。",
+      "evidence": [
+        "INT-003"
+      ]
+    },
+    {
+      "id": "STM-081",
+      "text": "Microsoft 365 の管理者は、田中さんだけです。",
+      "evidence": [
+        "INT-003"
+      ]
+    },
+    {
+      "id": "STM-082",
+      "text": "退職前に管理者を追加しないと、誰も管理できなくなります。",
+      "evidence": [
+        "INT-003"
+      ]
+    },
+    {
+      "id": "STM-083",
+      "text": "管理画面での具体的な操作は、聞き取りに記録がありません。",
+      "evidence": [
+        "INT-003"
+      ]
+    },
+    {
+      "id": "STM-084",
+      "text": "Wi-Fi のパスワードが分かりません。",
+      "evidence": [
+        "INT-009"
+      ]
+    },
+    {
+      "id": "STM-085",
+      "text": "パスワードの控えは、総務課の鍵つき書庫にあります。",
+      "evidence": [
+        "INT-009"
+      ]
+    },
+    {
+      "id": "STM-086",
+      "text": "Wi-Fi のパスワードの控えは保管されています。",
+      "evidence": [
+        "INT-009"
+      ]
+    },
+    {
+      "id": "STM-087",
+      "text": "Wi-Fi 名は、事務所が OKOJO-OFFICE、工場が OKOJO-FACTORY です。",
+      "evidence": [
+        "INT-009",
+        "INV-031",
+        "INV-050"
+      ]
+    },
+    {
+      "id": "STM-088",
+      "text": "来客用の Wi-Fi はありません。",
+      "evidence": [
+        "INT-009"
+      ]
+    },
+    {
+      "id": "STM-089",
+      "text": "回線の契約先で、回線の障害の故障窓口です。",
+      "evidence": [
+        "INT-001",
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-090",
+      "text": "受付は24時間です。",
+      "evidence": [
+        "INT-001",
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-091",
+      "text": "契約番号の控えは、総務課の書庫にある青い契約ファイルにあります。",
+      "evidence": [
+        "INT-001"
+      ]
+    },
+    {
+      "id": "STM-092",
+      "text": "ルーターと UTM の保守会社です。",
+      "evidence": [
+        "INT-001",
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-093",
+      "text": "受付は平日9時から18時です。",
+      "evidence": [
+        "INT-001",
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-094",
+      "text": "契約書の場所の記録がありません。",
+      "evidence": [
+        "INT-001"
+      ]
+    },
+    {
+      "id": "STM-095",
+      "text": "複合機のリース会社で、故障の連絡先です。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-096",
+      "text": "受付は平日9時から17時です。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-097",
+      "text": "契約書の場所の記録がありません。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-098",
+      "text": "生産管理システムの販売店で、窓口です。",
+      "evidence": [
+        "INT-007",
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-099",
+      "text": "受付は平日9時から17時30分です。",
+      "evidence": [
+        "INT-007",
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-100",
+      "text": "契約書の場所の記録がありません。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-101",
+      "text": "独自ドメインの更新の依頼先で、会社紹介サイトの管理会社です。",
+      "evidence": [
+        "INT-010",
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-102",
+      "text": "受付は平日10時から17時です。",
+      "evidence": [
+        "INT-010",
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-103",
+      "text": "契約書の場所の記録がありません。",
+      "evidence": [
+        "INT-010"
+      ]
+    },
+    {
+      "id": "STM-104",
+      "text": "伝える内容の記録がありません。",
+      "evidence": [
+        "INT-010"
+      ]
+    },
+    {
+      "id": "STM-105",
+      "text": "毎週月曜：バックアップの結果を確認する",
+      "evidence": [
+        "INT-002",
+        "INT-011",
+        "INT-018"
+      ]
+    },
+    {
+      "id": "STM-106",
+      "text": "バックアップは、毎週金曜の夜に NAS から外付け USB へ自動で取られます。",
+      "evidence": [
+        "INT-002",
+        "INT-018"
+      ]
+    },
+    {
+      "id": "STM-107",
+      "text": "メールの件名に「成功」か「失敗」が入っています。",
+      "evidence": [
+        "INT-002",
+        "INT-018"
+      ]
+    },
+    {
+      "id": "STM-108",
+      "text": "毎月1日：USB と NAS の空き容量を確認する",
+      "evidence": [
+        "INT-002",
+        "INT-011",
+        "INT-018"
+      ]
+    },
+    {
+      "id": "STM-109",
+      "text": "毎月1日に、外付け USB と NAS の空き容量を確認します。",
+      "evidence": [
+        "INT-002",
+        "INT-018"
+      ]
+    },
+    {
+      "id": "STM-110",
+      "text": "外付け USB の空き容量の確認のやり方は、聞き取りに記録がありません。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-111",
+      "text": "3月：独自ドメインの更新",
+      "evidence": [
+        "INT-010",
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-112",
+      "text": "独自ドメイン okojo-seiko.example の更新は毎年3月です。",
+      "evidence": [
+        "INT-010"
+      ]
+    },
+    {
+      "id": "STM-113",
+      "text": "更新はフェレット企画（03-0000-0105）に依頼します。",
+      "evidence": [
+        "INT-010"
+      ]
+    },
+    {
+      "id": "STM-114",
+      "text": "更新しないと、メールとサイトが止まります。",
+      "evidence": [
+        "INT-010"
+      ]
+    },
+    {
+      "id": "STM-115",
+      "text": "4月：生産管理の保守契約の更新",
+      "evidence": [
+        "INT-011",
+        "INT-014"
+      ]
+    },
+    {
+      "id": "STM-116",
+      "text": "生産管理の保守契約の更新は毎年4月です。",
+      "evidence": [
+        "INT-014",
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-117",
+      "text": "生産管理の保守契約の契約先と更新のやり方は、聞き取りに記録がありません。",
+      "evidence": [
+        "INT-014"
+      ]
+    },
+    {
+      "id": "STM-118",
+      "text": "6月：CAD ソフトの更新",
+      "evidence": [
+        "INT-011",
+        "INT-014"
+      ]
+    },
+    {
+      "id": "STM-119",
+      "text": "CAD ソフトの更新は毎年6月です。",
+      "evidence": [
+        "INT-014",
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-120",
+      "text": "CAD ソフトの契約先と更新のやり方は、聞き取りに記録がありません。",
+      "evidence": [
+        "INT-014"
+      ]
+    },
+    {
+      "id": "STM-121",
+      "text": "9月：PC の棚卸し",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-122",
+      "text": "PC は全18台で、事務所に11台、工場事務所に7台あります。",
+      "evidence": [
+        "INT-012"
+      ]
+    },
+    {
+      "id": "STM-123",
+      "text": "棚卸しのやり方は、聞き取りに記録がありません。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-124",
+      "text": "ルーターと UTM（1台にまとまったリース機器）",
+      "evidence": [
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-125",
+      "text": "事務所のサーバーラックにあります。",
+      "evidence": [
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-126",
+      "text": "全社のネットにつながる設定が入っている機器です。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-127",
+      "text": "初期化すると設定が消えて、全社のネットが止まります。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-128",
+      "text": "事務所の無線 AP",
+      "evidence": [
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-129",
+      "text": "事務所の天井にあります。",
+      "evidence": [
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-130",
+      "text": "事務所の Wi-Fi（OKOJO-OFFICE）の無線 AP です。",
+      "evidence": [
+        "INT-008",
+        "INT-009"
+      ]
+    },
+    {
+      "id": "STM-131",
+      "text": "止まったときの影響の記録がありません。",
+      "evidence": [
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-132",
+      "text": "工場の無線 AP",
+      "evidence": [
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-133",
+      "text": "工場の柱にあります。",
+      "evidence": [
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-134",
+      "text": "工場の Wi-Fi（OKOJO-FACTORY）の無線 AP です。",
+      "evidence": [
+        "INT-008",
+        "INT-009"
+      ]
+    },
+    {
+      "id": "STM-135",
+      "text": "止まると工場の Wi-Fi が切れます。夏の熱で止まることが多いです。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-136",
+      "text": "NAS（OKOJO-NAS）",
+      "evidence": [
+        "INT-006"
+      ]
+    },
+    {
+      "id": "STM-137",
+      "text": "事務所のサーバーラックにあります。",
+      "evidence": [
+        "INT-006"
+      ]
+    },
+    {
+      "id": "STM-138",
+      "text": "共有フォルダ（総務、経理、営業、図面、スキャンの5つ）が置かれている機器です。",
+      "evidence": [
+        "INT-006"
+      ]
+    },
+    {
+      "id": "STM-139",
+      "text": "停電のあとは自動では起動せず、電源ボタンを押すまで止まったままです。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-140",
+      "text": "生産管理サーバー（社内サーバー1台）",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-141",
+      "text": "置き場所の記録がありません。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-142",
+      "text": "生産管理システムが動いています。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-143",
+      "text": "止まると生産管理システムが動かなくなります。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-144",
+      "text": "複合機（総務室、192.168.10.30）",
+      "evidence": [
+        "INV-013",
+        "INV-034",
+        "INV-053"
+      ]
+    },
+    {
+      "id": "STM-145",
+      "text": "総務室にあります。",
+      "evidence": [
+        "INV-013"
+      ]
+    },
+    {
+      "id": "STM-146",
+      "text": "スキャンした文書を NAS の「スキャン」フォルダに保存します。",
+      "evidence": [
+        "INT-006"
+      ]
+    },
+    {
+      "id": "STM-147",
+      "text": "止まったときの影響の記録がありません。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-148",
+      "text": "外付け USB（バックアップ用）",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-149",
+      "text": "置き場所の記録がありません。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-150",
+      "text": "NAS のバックアップの保存先です。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-151",
+      "text": "容量が満杯になると、バックアップが失敗することがあります。",
+      "evidence": [
+        "INT-002",
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-152",
+      "text": "PC（全18台）。調査した3台は次のとおりです。OKJ-CAD-01、OKJ-KOUJOU-01、OKJ-SOUMU-01 です。",
+      "evidence": [
+        "INT-012",
+        "INV-001",
+        "INV-022",
+        "INV-041"
+      ]
+    },
+    {
+      "id": "STM-153",
+      "text": "事務所に11台、工場事務所に7台です。",
+      "evidence": [
+        "INT-012"
+      ]
+    },
+    {
+      "id": "STM-154",
+      "text": "調査した3台すべてに Microsoft 365 Apps が入っています。",
+      "evidence": [
+        "INV-019",
+        "INV-039",
+        "INV-061"
+      ]
+    },
+    {
+      "id": "STM-155",
+      "text": "止まったときの影響の記録がありません。",
+      "evidence": [
+        "INT-012"
+      ]
+    },
+    {
+      "id": "STM-156",
+      "text": "CAD 用 PC（OKJ-CAD-01、Windows 10 Pro、架空CADソフトA 2024）",
+      "evidence": [
+        "INV-011",
+        "INV-020",
+        "INT-012"
+      ]
+    },
+    {
+      "id": "STM-157",
+      "text": "置き場所の記録がありません。",
+      "evidence": [
+        "INT-012"
+      ]
+    },
+    {
+      "id": "STM-158",
+      "text": "この PC だけ、大型更新を止めています。CAD ソフトの動作保証のために、止めています。",
+      "evidence": [
+        "INT-004"
+      ]
+    },
+    {
+      "id": "STM-159",
+      "text": "Windows 10 は延長サポート契約中で、2年目の期限は 2027-10-12 です。",
+      "evidence": [
+        "INT-004"
+      ]
+    },
+    {
+      "id": "STM-160",
+      "text": "事務所のサーバーラックにある機器です。共有フォルダが置かれ、バックアップの元にもなります。",
+      "evidence": [
+        "INT-006",
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-161",
+      "text": "NAS に置かれた、みんなで使うフォルダです。総務、経理、営業、図面、スキャンの5つがあります。",
+      "evidence": [
+        "INT-006"
+      ]
+    },
+    {
+      "id": "STM-162",
+      "text": "PC から共有フォルダを開くための入り口です。Z ドライブなど、文字がついています。",
+      "evidence": [
+        "INV-018",
+        "INV-057",
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-163",
+      "text": "PC に表示される、保存先の入り口です。総務用 PC では S、X、Y、Z が NAS につながっています。",
+      "evidence": [
+        "INV-057",
+        "INV-058",
+        "INV-059",
+        "INV-060"
+      ]
+    },
+    {
+      "id": "STM-164",
+      "text": "Wi-Fi の電波を出す機器です。事務所の天井と工場の柱に1台ずつあります。",
+      "evidence": [
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-165",
+      "text": "Wi-Fi の電波を出す機器です。事務所の天井と工場の柱に1台ずつあります。",
+      "evidence": [
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-166",
+      "text": "無線でネットにつなぐ仕組みです。名前は事務所が OKOJO-OFFICE、工場が OKOJO-FACTORY です。",
+      "evidence": [
+        "INT-009"
+      ]
+    },
+    {
+      "id": "STM-167",
+      "text": "ルーターと1台にまとまったリース機器です。事務所のサーバーラックにあります。",
+      "evidence": [
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-168",
+      "text": "UTM と1台にまとまったリース機器です。全社のネットにつながる設定が入っています。",
+      "evidence": [
+        "INT-008",
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-169",
+      "text": "PC を社内のネットワークにつなぐ線です。感染が疑われるときは、これを抜きます。",
+      "evidence": [
+        "INT-005"
+      ]
+    },
+    {
+      "id": "STM-170",
+      "text": "外付け USB のことです。NAS のバックアップの保存先で、満杯だとバックアップが失敗します。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-171",
+      "text": "NAS のバックアップの保存先です。容量が満杯だと、バックアップが失敗することがあります。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-172",
+      "text": "NAS のデータを外付け USB に写しておくことです。毎週金曜の夜に自動で取られます。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-173",
+      "text": "複合機で紙を読み取ることです。読み取った文書は NAS の「スキャン」フォルダに保存されます。",
+      "evidence": [
+        "INT-006"
+      ]
+    },
+    {
+      "id": "STM-174",
+      "text": "生産管理システムが動いている社内の機器です。生産管理サーバーと呼び、社内に1台あります。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-175",
+      "text": "事務所にある機器の置き場です。NAS、ルーター、UTM が入っています。",
+      "evidence": [
+        "INT-006",
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-176",
+      "text": "NAS の中にあるデータを保存する部品です。交換が必要なときは、社長に相談します。",
+      "evidence": [
+        "INT-006"
+      ]
+    },
+    {
+      "id": "STM-177",
+      "text": "NAS の設定や古いバックアップの削除をする画面です。間違えると必要なバックアップを消します。",
+      "evidence": [
+        "INT-002",
+        "INT-006"
+      ]
+    },
+    {
+      "id": "STM-178",
+      "text": "必要なときだけ、1回ごとに頼む有償の依頼です。古い世代の削除をカワウソシステムサービスに頼みます。",
+      "evidence": [
+        "INT-002"
+      ]
+    },
+    {
+      "id": "STM-179",
+      "text": "会社が機器を借りて使う契約です。複合機、ルーター、UTM が対象です。",
+      "evidence": [
+        "INT-011",
+        "INT-008"
+      ]
+    },
+    {
+      "id": "STM-180",
+      "text": "ネットにつながる回線のトラブルです。全社でネットがつながらないときに多い原因です。",
+      "evidence": [
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-181",
+      "text": "会社で使っているメールや Office のサービスです。管理者は田中さんだけです。",
+      "evidence": [
+        "INT-003"
+      ]
+    },
+    {
+      "id": "STM-182",
+      "text": "調査した3台の PC すべてに入っている、Microsoft 365 の Office ソフトです。",
+      "evidence": [
+        "INV-019",
+        "INV-039",
+        "INV-061"
+      ]
+    },
+    {
+      "id": "STM-183",
+      "text": "会社のパソコンです。全18台で、事務所に11台、工場事務所に7台あります。",
+      "evidence": [
+        "INT-012"
+      ]
+    },
+    {
+      "id": "STM-184",
+      "text": "PC の基本のソフトです。17台は Windows 11、CAD 用の1台だけ Windows 10 です。",
+      "evidence": [
+        "INT-012"
+      ]
+    },
+    {
+      "id": "STM-185",
+      "text": "CAD 用 PC だけが使っている古い版の Windows です。延長サポート契約中です。",
+      "evidence": [
+        "INT-012",
+        "INT-004"
+      ]
+    },
+    {
+      "id": "STM-186",
+      "text": "図面をつくるソフトです。CAD 用 PC に入っていて、更新は毎年6月です。",
+      "evidence": [
+        "INV-020",
+        "INT-014"
+      ]
+    },
+    {
+      "id": "STM-187",
+      "text": "会社のメールやサイトの住所です。okojo-seiko.example の更新は毎年3月です。",
+      "evidence": [
+        "INT-010"
+      ]
+    },
+    {
+      "id": "STM-188",
+      "text": "総務室にあるコピーやスキャンをする機器です。リース会社はイタチ事務機です。",
+      "evidence": [
+        "INV-013",
+        "INT-011"
+      ]
+    },
+    {
+      "id": "STM-189",
+      "text": "PC やサービスを使い始めるために、ユーザー名とパスワードで入ることです。",
+      "evidence": [
+        "INT-003"
+      ]
+    }
+  ],
+  "symptom_pages": [
+    {
+      "id": "T1",
+      "category": "file",
+      "title": "STM-001",
+      "badge": {
+        "value": "self",
+        "statement": "STM-002"
+      },
+      "minutes": 10,
+      "reassurance": "STM-003",
+      "steps": [
+        "STM-004",
+        "STM-005",
+        "STM-006",
+        "STM-007",
+        "STM-008",
+        "STM-009",
+        "STM-010",
+        "STM-011",
+        "STM-012",
+        "STM-013",
+        "STM-014",
+        "STM-015",
+        "STM-016",
+        "STM-017",
+        "STM-018"
+      ],
+      "fallback": {
+        "contact": "VEN-02",
+        "message": "STM-019"
+      }
+    },
+    {
+      "id": "T2",
+      "category": "print_scan",
+      "title": "STM-020",
+      "badge": {
+        "value": "check_first",
+        "statement": "STM-021"
+      },
+      "minutes": 8,
+      "reassurance": "STM-022",
+      "steps": [
+        "STM-023",
+        "STM-008",
+        "STM-009",
+        "STM-010",
+        "STM-024",
+        "STM-025",
+        "STM-026"
+      ],
+      "fallback": {
+        "contact": "VEN-03",
+        "message": "STM-027"
+      }
+    },
+    {
+      "id": "T3",
+      "category": "net",
+      "title": "STM-028",
+      "badge": {
+        "value": "self",
+        "statement": "STM-029"
+      },
+      "minutes": 5,
+      "reassurance": "STM-030",
+      "steps": [
+        "STM-031",
+        "STM-032",
+        "STM-033",
+        "STM-034"
+      ],
+      "fallback": null
+    },
+    {
+      "id": "T4",
+      "category": "net",
+      "title": "STM-035",
+      "badge": {
+        "value": "vendor",
+        "statement": "STM-036"
+      },
+      "minutes": 5,
+      "reassurance": "STM-037",
+      "steps": [
+        "STM-038"
+      ],
+      "fallback": {
+        "contact": "VEN-01",
+        "message": "STM-039"
+      }
+    },
+    {
+      "id": "T5",
+      "category": "other",
+      "title": "STM-040",
+      "badge": {
+        "value": "check_first",
+        "statement": "STM-041"
+      },
+      "minutes": 5,
+      "reassurance": "STM-042",
+      "steps": [
+        "STM-043",
+        "STM-044",
+        "STM-045",
+        "STM-046",
+        "STM-047"
+      ],
+      "fallback": {
+        "contact": "VEN-02",
+        "message": "STM-048"
+      }
+    },
+    {
+      "id": "T6",
+      "category": "other",
+      "title": "STM-049",
+      "badge": {
+        "value": "vendor",
+        "statement": "STM-050"
+      },
+      "minutes": 5,
+      "reassurance": "STM-051",
+      "steps": [
+        "STM-052",
+        "STM-050"
+      ],
+      "fallback": null
+    },
+    {
+      "id": "T7",
+      "category": "other",
+      "title": "STM-053",
+      "badge": {
+        "value": "vendor",
+        "statement": "STM-054"
+      },
+      "minutes": 5,
+      "reassurance": "STM-055",
+      "steps": [
+        "STM-056"
+      ],
+      "fallback": {
+        "contact": "VEN-04",
+        "message": "STM-057"
+      }
+    },
+    {
+      "id": "T8",
+      "category": "other",
+      "title": "STM-058",
+      "badge": {
+        "value": "self",
+        "statement": "STM-059"
+      },
+      "minutes": 5,
+      "reassurance": "STM-060",
+      "steps": [
+        "STM-061",
+        "STM-062",
+        "STM-063"
+      ],
+      "fallback": null
+    },
+    {
+      "id": "T9",
+      "category": "print_scan",
+      "title": "STM-064",
+      "badge": {
+        "value": "vendor",
+        "statement": "STM-065"
+      },
+      "minutes": 5,
+      "reassurance": "STM-066",
+      "steps": [],
+      "fallback": {
+        "contact": "VEN-03",
+        "message": "STM-067"
+      }
+    },
+    {
+      "id": "T10",
+      "category": "mail_teams",
+      "title": "STM-068",
+      "badge": {
+        "value": "vendor",
+        "statement": "STM-069"
+      },
+      "minutes": 3,
+      "reassurance": "STM-070",
+      "steps": [
+        "STM-071",
+        "STM-072"
+      ],
+      "fallback": null
+    },
+    {
+      "id": "T11",
+      "category": "other",
+      "title": "STM-073",
+      "badge": {
+        "value": "vendor",
+        "statement": "STM-074"
+      },
+      "minutes": 3,
+      "reassurance": "STM-075",
+      "steps": [
+        "STM-076",
+        "STM-077"
+      ],
+      "fallback": null
+    },
+    {
+      "id": "T12",
+      "category": "mail_teams",
+      "title": "STM-078",
+      "badge": {
+        "value": "check_first",
+        "statement": "STM-079"
+      },
+      "minutes": 5,
+      "reassurance": "STM-080",
+      "steps": [
+        "STM-081",
+        "STM-082",
+        "STM-079",
+        "STM-083"
+      ],
+      "fallback": null
+    },
+    {
+      "id": "T13",
+      "category": "net",
+      "title": "STM-084",
+      "badge": {
+        "value": "self",
+        "statement": "STM-085"
+      },
+      "minutes": 3,
+      "reassurance": "STM-086",
+      "steps": [
+        "STM-087",
+        "STM-085",
+        "STM-088"
+      ],
+      "fallback": null
+    }
+  ],
+  "contacts": [
+    {
+      "id": "VEN-01",
+      "name": "クロテン通信",
+      "phone": "03-0000-0101",
+      "role": "STM-089",
+      "hours": "STM-090",
+      "contract_location": "STM-091",
+      "what_to_tell": "STM-039"
+    },
+    {
+      "id": "VEN-02",
+      "name": "カワウソシステムサービス",
+      "phone": "03-0000-0102",
+      "role": "STM-092",
+      "hours": "STM-093",
+      "contract_location": "STM-094",
+      "what_to_tell": "STM-019"
+    },
+    {
+      "id": "VEN-03",
+      "name": "イタチ事務機",
+      "phone": "03-0000-0103",
+      "role": "STM-095",
+      "hours": "STM-096",
+      "contract_location": "STM-097",
+      "what_to_tell": "STM-027"
+    },
+    {
+      "id": "VEN-04",
+      "name": "イイズナソフト",
+      "phone": "03-0000-0104",
+      "role": "STM-098",
+      "hours": "STM-099",
+      "contract_location": "STM-100",
+      "what_to_tell": "STM-057"
+    },
+    {
+      "id": "VEN-05",
+      "name": "フェレット企画",
+      "phone": "03-0000-0105",
+      "role": "STM-101",
+      "hours": "STM-102",
+      "contract_location": "STM-103",
+      "what_to_tell": "STM-104"
+    }
+  ],
+  "routines": [
+    {
+      "id": "R1",
+      "frequency": "weekly",
+      "title": "STM-105",
+      "steps": [
+        "STM-106",
+        "STM-043",
+        "STM-107",
+        "STM-044",
+        "STM-045",
+        "STM-046",
+        "STM-047"
+      ]
+    },
+    {
+      "id": "R2",
+      "frequency": "monthly",
+      "title": "STM-108",
+      "steps": [
+        "STM-109",
+        "STM-009",
+        "STM-010",
+        "STM-024",
+        "STM-025",
+        "STM-110"
+      ]
+    },
+    {
+      "id": "R3",
+      "frequency": "yearly",
+      "month": 3,
+      "title": "STM-111",
+      "steps": [
+        "STM-112",
+        "STM-113",
+        "STM-114"
+      ]
+    },
+    {
+      "id": "R4",
+      "frequency": "yearly",
+      "month": 4,
+      "title": "STM-115",
+      "steps": [
+        "STM-116",
+        "STM-117"
+      ]
+    },
+    {
+      "id": "R5",
+      "frequency": "yearly",
+      "month": 6,
+      "title": "STM-118",
+      "steps": [
+        "STM-119",
+        "STM-120"
+      ]
+    },
+    {
+      "id": "R6",
+      "frequency": "yearly",
+      "month": 9,
+      "title": "STM-121",
+      "steps": [
+        "STM-122",
+        "STM-123"
+      ]
+    }
+  ],
+  "devices": [
+    {
+      "id": "D1",
+      "name": "STM-124",
+      "location": "STM-125",
+      "purpose": "STM-126",
+      "impact": "STM-127"
+    },
+    {
+      "id": "D2",
+      "name": "STM-128",
+      "location": "STM-129",
+      "purpose": "STM-130",
+      "impact": "STM-131"
+    },
+    {
+      "id": "D3",
+      "name": "STM-132",
+      "location": "STM-133",
+      "purpose": "STM-134",
+      "impact": "STM-135"
+    },
+    {
+      "id": "D4",
+      "name": "STM-136",
+      "location": "STM-137",
+      "purpose": "STM-138",
+      "impact": "STM-139"
+    },
+    {
+      "id": "D5",
+      "name": "STM-140",
+      "location": "STM-141",
+      "purpose": "STM-142",
+      "impact": "STM-143"
+    },
+    {
+      "id": "D6",
+      "name": "STM-144",
+      "location": "STM-145",
+      "purpose": "STM-146",
+      "impact": "STM-147"
+    },
+    {
+      "id": "D7",
+      "name": "STM-148",
+      "location": "STM-149",
+      "purpose": "STM-150",
+      "impact": "STM-151"
+    },
+    {
+      "id": "D8",
+      "name": "STM-152",
+      "location": "STM-153",
+      "purpose": "STM-154",
+      "impact": "STM-155"
+    },
+    {
+      "id": "D9",
+      "name": "STM-156",
+      "location": "STM-157",
+      "purpose": "STM-158",
+      "impact": "STM-159"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "NAS",
+      "explanation": "STM-160"
+    },
+    {
+      "term": "共有フォルダ",
+      "explanation": "STM-161"
+    },
+    {
+      "term": "ネットワークドライブ",
+      "explanation": "STM-162"
+    },
+    {
+      "term": "ドライブ",
+      "explanation": "STM-163"
+    },
+    {
+      "term": "AP",
+      "explanation": "STM-164"
+    },
+    {
+      "term": "無線 AP",
+      "explanation": "STM-165"
+    },
+    {
+      "term": "Wi-Fi",
+      "explanation": "STM-166"
+    },
+    {
+      "term": "UTM",
+      "explanation": "STM-167"
+    },
+    {
+      "term": "ルーター",
+      "explanation": "STM-168"
+    },
+    {
+      "term": "LAN ケーブル",
+      "explanation": "STM-169"
+    },
+    {
+      "term": "USB",
+      "explanation": "STM-170"
+    },
+    {
+      "term": "外付け USB",
+      "explanation": "STM-171"
+    },
+    {
+      "term": "バックアップ",
+      "explanation": "STM-172"
+    },
+    {
+      "term": "スキャン",
+      "explanation": "STM-173"
+    },
+    {
+      "term": "サーバー",
+      "explanation": "STM-174"
+    },
+    {
+      "term": "サーバーラック",
+      "explanation": "STM-175"
+    },
+    {
+      "term": "ディスク",
+      "explanation": "STM-176"
+    },
+    {
+      "term": "管理画面",
+      "explanation": "STM-177"
+    },
+    {
+      "term": "スポット",
+      "explanation": "STM-178"
+    },
+    {
+      "term": "リース",
+      "explanation": "STM-179"
+    },
+    {
+      "term": "回線障害",
+      "explanation": "STM-180"
+    },
+    {
+      "term": "Microsoft 365",
+      "explanation": "STM-181"
+    },
+    {
+      "term": "Microsoft 365 Apps",
+      "explanation": "STM-182"
+    },
+    {
+      "term": "PC",
+      "explanation": "STM-183"
+    },
+    {
+      "term": "Windows",
+      "explanation": "STM-184"
+    },
+    {
+      "term": "Windows 10",
+      "explanation": "STM-185"
+    },
+    {
+      "term": "CAD",
+      "explanation": "STM-186"
+    },
+    {
+      "term": "ドメイン",
+      "explanation": "STM-187"
+    },
+    {
+      "term": "複合機",
+      "explanation": "STM-188"
+    },
+    {
+      "term": "サインイン",
+      "explanation": "STM-189"
+    }
+  ],
+  "schema_version": 1,
+  "company": "okojo",
+  "company_name": "オコジョ精工",
+  "as_of": "2026-11-05"
+}

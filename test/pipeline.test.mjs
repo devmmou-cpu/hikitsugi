@@ -88,18 +88,6 @@ test('長い文と説明のない語を見つける', () => {
 
 // ---- 表示プログラムへの受け渡し ----
 
-test('表示できない項目は外し、件数を返す。参照されなくなった文章も外す。表示プログラムが受け取れる', () => {
-  const manual = fixture();
-  manual.statements.push({ id: 'STM-900', text: '定期作業です。', evidence: ['INT-001'] });
-  manual.routines = [{ id: 'R1', frequency: 'weekly', title: 'STM-900', steps: [] }];
-  assert.throws(() => renderManual(manual), /routines/);
-  const { manual: prepared, omitted } = prepareForRender(manual);
-  assert.equal(omitted.routines, 1);
-  assert.equal(omitted.statements, 1);
-  assert.ok(!prepared.statements.some((s) => s.id === 'STM-900'));
-  assert.ok(renderManual(prepared).includes('<html'));
-});
-
 test('判定のない文章があれば合格にしない', () => {
   const manual = { statements: [{ id: 'STM-001' }, { id: 'STM-002' }] };
   const result = summarizeVerification({ results: [{ statement: 'STM-001', verdict: 'correct' }] }, manual);
