@@ -4,6 +4,7 @@
 
 ## コマンド
 - `npm test`：全テスト。依存なし、ネットワークなし
+- `node scripts/check-secrets.mjs`：push 前の秘密情報の点検
 - `node eval/run.mjs --set okojo --target verifier --adapter oracle`：評価の実行（`--help` で一覧）
 
 詳しい設計は `docs/design.md` を読むこと。
@@ -41,6 +42,9 @@
 
 ## 開発の約束
 - コミット前に `npm test` を通す
-- 作業は作業用ブランチで行う。push は依頼があるときだけ
+- 作業は作業用ブランチで行い、区切りごとに main へ早送りマージして origin に push する（公開リポジトリのサーバー側に作業時刻を残すため）
+- push の前に必ず `npm test` と `node scripts/check-secrets.mjs` を通す。.env や秘密情報を含めない
+- API キーは `.env` にだけ置く（`docs/api-key-setup.md`）
+- 夜間の自動実行では push しない
 - 夜間の自動実行では、合格テストと `eval/sets` を変更しない。テストが通らない変更は取り込まない
 - 仕様にない判断をしたら、`docs/design.md` の「決定事項」に理由と一緒に残す

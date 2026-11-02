@@ -2,3 +2,11 @@ node_modules/
 .DS_Store
 # 評価の実行結果は手元に残す。README に載せる推移だけを別途コミットする
 eval/results/
+# 秘密情報。API キーは .env にだけ置く（docs/api-key-setup.md）
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+# 夜間の自動実行のログ
+night-logs/
