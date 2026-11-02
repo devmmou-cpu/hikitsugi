@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "company": "kenaga",
+  "name": "ケナガ印刷株式会社",
+  "fictional": true,
+  "as_of": "2026-11-02",
+  "summary": "チラシや冊子を作る架空の印刷会社。従業員18名。複合機が3台あり、制作用の PC と事務用の PC が分かれている。総務の田中さんが IT を兼任し、IT が未経験の佐藤さんに引き継ぐ。",
+  "split": "holdout",
+  "identifiers": {
+    "host_prefix": "KNG",
+    "brand": "KENAGA",
+    "domain": "kenaga-insatsu",
+    "latin": "Kenaga"
+  },
+  "vendors": [
+    { "id": "VEN-01", "name": "クロテン通信", "role": "インターネット回線", "phone": "03-0000-0151", "hours": "故障受付は24時間" },
+    { "id": "VEN-02", "name": "カワウソシステムサービス", "role": "ルーターと NAS の保守", "phone": "03-0000-0152", "hours": "平日9時から18時" },
+    { "id": "VEN-03", "name": "イタチ事務機", "role": "複合機3台のリースと故障対応", "phone": "03-0000-0153", "hours": "平日9時から17時" },
+    { "id": "VEN-04", "name": "イイズナソフト", "role": "見積と受注の管理ソフトの販売店", "phone": "03-0000-0154", "hours": "平日9時から17時" },
+    { "id": "VEN-05", "name": "フェレット企画", "role": "ドメインと Web サイトの管理", "phone": "03-0000-0155", "hours": "平日10時から17時" }
+  ]
+}

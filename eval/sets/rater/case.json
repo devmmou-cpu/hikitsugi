@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "company": "rater",
+  "name": "ラーテル商事株式会社",
+  "fictional": true,
+  "as_of": "2026-11-03",
+  "summary": "食品容器と包装資材を扱う架空の卸売会社。従業員28名。NAS は RAID6 で、受発注の業務システムを社内サーバーで動かしている。総務の田中さんが IT を兼任し、IT が未経験の佐藤さんに引き継ぐ。",
+  "split": "holdout",
+  "identifiers": {
+    "host_prefix": "RTL",
+    "brand": "RATER",
+    "domain": "rater-shoji",
+    "latin": "Rater"
+  },
+  "vendors": [
+    { "id": "VEN-01", "name": "クロテン通信", "role": "インターネット回線", "phone": "03-0000-0141", "hours": "故障受付は24時間" },
+    { "id": "VEN-02", "name": "カワウソシステムサービス", "role": "UTM と NAS の保守", "phone": "03-0000-0142", "hours": "平日9時から18時" },
+    { "id": "VEN-03", "name": "イタチ事務機", "role": "複合機のリース", "phone": "03-0000-0143", "hours": "平日9時から17時" },
+    { "id": "VEN-04", "name": "イイズナソフト", "role": "受発注システムの販売店", "phone": "03-0000-0144", "hours": "平日9時から17時" },
+    { "id": "VEN-05", "name": "フェレット企画", "role": "ドメインと Web サイトの管理", "phone": "03-0000-0145", "hours": "平日10時から17時" }
+  ]
+}

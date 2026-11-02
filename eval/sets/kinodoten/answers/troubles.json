@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "company": "kinodoten",
+  "troubles": [
+    { "id": "T1", "symptom": "共有フォルダが開けない", "action": "self", "contact": null, "support": [{ "ref": "INT-019", "contains": "電源が入っているか" }] },
+    { "id": "T2", "symptom": "Wi-Fi がつながらない", "action": "self", "contact": null, "support": [{ "ref": "INT-019", "contains": "電源を入れ直せば" }, { "ref": "INT-004", "contains": "1分待って" }] },
+    { "id": "T3", "symptom": "OneDrive の同期が止まった", "action": "self", "contact": null, "support": [{ "ref": "INT-019", "contains": "雲のマーク" }] },
+    { "id": "T4", "symptom": "複合機が紙詰まりやトナー切れで直らない", "action": "contact", "contact": "VEN-03", "support": [{ "ref": "INT-019", "contains": "イタチ事務機に連絡" }] },
+    { "id": "T5", "symptom": "ネットが全部つながらない", "action": "contact", "contact": "VEN-01", "support": [{ "ref": "INT-019", "contains": "クロテン通信の窓口に電話" }] }
+  ]
+}

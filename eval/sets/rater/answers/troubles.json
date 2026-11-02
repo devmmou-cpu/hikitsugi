@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "company": "rater",
+  "troubles": [
+    { "id": "T1", "symptom": "倉庫の Wi-Fi が切れる", "action": "self", "contact": null, "support": [{ "ref": "INT-019", "contains": "入口の AP を再起動" }, { "ref": "INT-004", "contains": "20秒待って" }] },
+    { "id": "T2", "symptom": "受発注システムの画面が開かない", "action": "contact", "contact": "VEN-04", "support": [{ "ref": "INT-019", "contains": "イイズナソフトに連絡" }] },
+    { "id": "T3", "symptom": "共有フォルダが見えない", "action": "self", "contact": null, "support": [{ "ref": "INT-019", "contains": "電源ランプが緑か" }] },
+    { "id": "T4", "symptom": "印刷が止まって出てこない", "action": "self", "contact": null, "support": [{ "ref": "INT-019", "contains": "印刷待ちを全部消して" }] },
+    { "id": "T5", "symptom": "全社でネットが使えない", "action": "contact", "contact": "VEN-01", "support": [{ "ref": "INT-019", "contains": "クロテン通信に電話" }] }
+  ]
+}

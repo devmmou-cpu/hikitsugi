@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "company": "kinodoten",
+  "name": "キノドテン建設株式会社",
+  "fictional": true,
+  "as_of": "2026-11-05",
+  "summary": "木造住宅の新築と改修を行う架空の小さな工務店。従業員12名。ファイルは主に OneDrive に置き、共有フォルダは1つだけ。総務の田中さんが IT を兼任し、IT が未経験の佐藤さんに引き継ぐ。",
+  "split": "tuning",
+  "identifiers": {
+    "host_prefix": "KND",
+    "brand": "KINODOTEN",
+    "domain": "kinodoten-kensetsu",
+    "latin": "Kinodoten"
+  },
+  "vendors": [
+    { "id": "VEN-01", "name": "クロテン通信", "role": "インターネット回線と Wi-Fi ルーターの貸与", "phone": "03-0000-0121", "hours": "平日9時から18時" },
+    { "id": "VEN-02", "name": "カワウソシステムサービス", "role": "PC の出張サポート", "phone": "03-0000-0122", "hours": "平日9時から17時（出張は予約制）" },
+    { "id": "VEN-03", "name": "イタチ事務機", "role": "複合機のリースと故障対応", "phone": "03-0000-0123", "hours": "平日9時から17時" },
+    { "id": "VEN-04", "name": "イイズナソフト", "role": "積算ソフトの販売店", "phone": "03-0000-0124", "hours": "平日9時から17時30分" },
+    { "id": "VEN-05", "name": "フェレット企画", "role": "ドメインと Web サイトの管理", "phone": "03-0000-0125", "hours": "平日10時から17時" }
+  ]
+}
