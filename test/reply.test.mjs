@@ -233,3 +233,8 @@ test('社員に返す文がない入力や、決まりに合わない入力か�
   missing.statements = missing.statements.filter((statement) => statement.id !== fixture().symptom_pages[0].reply_to_staff);
   assert.throws(() => renderManual(missing), /社員に返す文/);
 });
+
+test('前任者の確認の画面に、社員に返す文も見せる', () => {
+  const source = readFileSync(join(ROOT, 'plugin/scripts/hikitsugi.mjs'), 'utf8');
+  assert.match(source, /section\('社員に返す文', \[page\.reply_to_staff\]\)/);
+});

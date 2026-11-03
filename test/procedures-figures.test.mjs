@@ -22,6 +22,9 @@ test('図：1枚 2KB 以内で、枠と文字と暖色の印だけ。読み込�
     assert.doesNotMatch(figure.svg, /<(?:style|script|image|use|a|foreignObject|linearGradient)\b|href|url\(|font-family/i, id);
     const tags = new Set([...figure.svg.matchAll(/<([a-z]+)\b/g)].map((m) => m[1]));
     for (const tag of tags) assert.ok(['svg', 'rect', 'path', 'text'].includes(tag), `${id}: ${tag}`);
+    // 暖色は押す場所の印にだけ使う。赤は部品の文面にある×にだけ使う
+    assert.equal((figure.svg.match(/var\(--accent\)/g) ?? []).length, 1, `${id}: 暖色の印は1つだけ`);
+    assert.equal((figure.svg.match(/var\(--danger-fg\)/g) ?? []).length, id === 'LIB-013' ? 1 : 0, `${id}: 赤は×だけ`);
     const colors = [...figure.svg.matchAll(/(?:fill|stroke)="([^"]+)"/g)].map((m) => m[1]);
     for (const color of colors) assert.ok(['none', 'currentColor'].includes(color), `${id}: ${color}`);
   }

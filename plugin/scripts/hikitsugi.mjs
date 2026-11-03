@@ -405,6 +405,7 @@ function reviewShow(work, [pageId]) {
     `${pageId}：${textsOf(manual, [page.title])[0]}`,
     ...textsOf(manual, [page.badge.statement, page.reassurance]),
     ...section('まずこれだけ', [...fields.first_steps, ...fields.first_goal]),
+    ...(page.reply_to_staff ? section('社員に返す文', [page.reply_to_staff]) : []),
     ...section('先に知っておくこと', fields.notes),
     ...section('手順', [...fields.branches, ...fields.steps, ...fields.goal, ...fields.exceptions]),
     ...(contact ? ['【それでもだめなら】', `${contact.name} ${contact.phone}`.trim(), ...textsOf(manual, [page.fallback.message])] : []),

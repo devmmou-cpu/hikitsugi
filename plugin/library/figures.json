@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "$comment": "操作の図。部品と同じ承認制で、本人が承認するまで画面に出さない。枠と文字と暖色の印だけで描く",
+  "$comment": "操作の図。部品と同じ承認制で、本人が承認するまで画面に出さない。枠と文字と暖色の印だけで描く。暖色は押す場所にだけ使い、部品の文面にある赤い×は赤で描く",
   "figures": {
     "LIB-001": {
       "status": "draft",
@@ -18,7 +18,7 @@
       "status": "draft",
       "means": "「PC」の中の、赤い×のついたドライブをダブルクリックする",
       "alt": "「PC」の画面の中の、×のついたドライブに印を付けた図",
-      "svg": "<svg viewBox=\"0 0 320 180\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" role=\"img\" aria-label=\"「PC」の画面の中の、×のついたドライブに印を付けた図\"><rect x=\"10\" y=\"10\" width=\"300\" height=\"160\" rx=\"8\"/><path d=\"M10 36H310\"/><text x=\"36\" y=\"29\" font-size=\"15\" font-weight=\"700\" fill=\"currentColor\" stroke=\"none\" text-anchor=\"middle\">PC</text><rect x=\"44\" y=\"62\" width=\"104\" height=\"72\" rx=\"6\"/><text x=\"96\" y=\"110\" font-size=\"15\" font-weight=\"700\" fill=\"currentColor\" stroke=\"none\" text-anchor=\"middle\">ドライブ</text><path d=\"M132 72L144 84M144 72L132 84\" stroke-width=\"3\" style=\"stroke:var(--accent)\"/><rect x=\"186\" y=\"62\" width=\"104\" height=\"72\" rx=\"6\" stroke-dasharray=\"4 4\" stroke-width=\"1.5\"/><rect x=\"32\" y=\"50\" width=\"128\" height=\"96\" rx=\"12\" stroke-width=\"3\" style=\"stroke:var(--accent)\"/></svg>"
+      "svg": "<svg viewBox=\"0 0 320 180\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" role=\"img\" aria-label=\"「PC」の画面の中の、×のついたドライブに印を付けた図\"><rect x=\"10\" y=\"10\" width=\"300\" height=\"160\" rx=\"8\"/><path d=\"M10 36H310\"/><text x=\"36\" y=\"29\" font-size=\"15\" font-weight=\"700\" fill=\"currentColor\" stroke=\"none\" text-anchor=\"middle\">PC</text><rect x=\"44\" y=\"62\" width=\"104\" height=\"72\" rx=\"6\"/><text x=\"96\" y=\"110\" font-size=\"15\" font-weight=\"700\" fill=\"currentColor\" stroke=\"none\" text-anchor=\"middle\">ドライブ</text><path d=\"M132 72L144 84M144 72L132 84\" stroke-width=\"3\" style=\"stroke:var(--danger-fg)\"/><rect x=\"186\" y=\"62\" width=\"104\" height=\"72\" rx=\"6\" stroke-dasharray=\"4 4\" stroke-width=\"1.5\"/><rect x=\"32\" y=\"50\" width=\"128\" height=\"96\" rx=\"12\" stroke-width=\"3\" style=\"stroke:var(--accent)\"/></svg>"
     }
   }
 }
