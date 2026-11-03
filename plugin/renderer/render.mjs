@@ -13,6 +13,7 @@ import { validate } from '../lib/validate.mjs';
 import { CLIENT_HEAD_SCRIPT, CLIENT_SCRIPT } from './client.mjs';
 import { STYLES } from './styles.mjs';
 import { oversizeMessage, PC_FILE_LIMIT, writeWithinLimit } from '../lib/limits.mjs';
+import { replyProblems } from '../lib/reply.mjs';
 
 const SCHEMA = JSON.parse(readFileSync(new URL('../schemas/manual.schema.json', import.meta.url), 'utf8'));
 
@@ -223,6 +224,9 @@ export function checkInput(manual) {
   // どの画面からも参照されない記述は読めなくなるので、止める
   const unused = [...known].filter((id) => !refs.has(id));
   if (unused.length) throw new Error(`どの画面からも使われていない記述があります: ${unused.join(', ')}`);
+
+  const replies = replyProblems(manual);
+  if (replies.length) throw new Error(`社員に返す文に問題があります:\n${replies.map((p) => `- ${p}`).join('\n')}`);
 
   assertNoCredentials(manual);
 }
@@ -572,6 +576,20 @@ function evidenceHtml(ctx, ids) {
 
 const CIRCLED = ['①', '②', '③', '④'];
 
+/** 社員に返す文。業者に送る文面と同じ部品で、JavaScript なしでは選択しやすい枠だけを出す。 */
+function replyHtml(ctx, page) {
+  const id = `reply-${esc(page.id)}`;
+  const statusId = `copy-status-reply-${esc(page.id)}`;
+  return [
+    '<div class="reply-box">',
+    '<p class="say-label">社員に返す文</p>',
+    `<blockquote class="say reply" id="${id}">${ctx.text(page.reply_to_staff)}</blockquote>`,
+    `<button type="button" class="btn btn-copy tap js-only" data-copy="${id}" data-status="${statusId}">文面をコピー</button>`,
+    copyStatusHtml(statusId),
+    '</div>',
+  ].join('\n');
+}
+
 function symptomPanel(ctx, page) {
   const contact = page.fallback ? ctx.contacts.get(page.fallback.contact) : null;
   const terms = pageTerms(ctx, page, contact);
@@ -602,8 +620,10 @@ function symptomPanel(ctx, page) {
     `<div class="verdict">${badgeHtml(page.badge.value)}${etaHtml(page.minutes)}</div>`,
     `<p class="verdict-text">${ctx.text(page.badge.statement)}</p>`,
     bandHtml(ctx, page.reassurance, 'safe'),
+    hasFirst ? '' : replyHtml(ctx, page),
     contactLeads ? last : '',
     first,
+    hasFirst ? replyHtml(ctx, page) : '',
     notesHtml(ctx, page, !hasFirst && !hasSteps),
     looseBands,
     steps,

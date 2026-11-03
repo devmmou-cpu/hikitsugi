@@ -10,6 +10,7 @@
 // - JavaScript なしでは動かない部品には class="js-only" を付ける（初期状態で隠してよいのはこれだけ）
 // - JavaScript が動くと html 要素に class="js" が付く。隠す CSS は .js か html.js で始まるセレクターに書く
 
+import { withReplies } from '../plugin/lib/reply.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -295,6 +296,7 @@ test('直らなかったときの連絡先がないページは、その欄を�
     m.symptom_pages[0].fallback = null;
     m.contacts = [];
     m.statements = m.statements.filter((s) => !['STM-011', 'STM-012', 'STM-013', 'STM-014', 'STM-015'].includes(s.id));
+    Object.assign(m, withReplies(m));
   });
   assert.ok(!visibleText(output).includes('それでもだめなら'));
   assert.doesNotMatch(output, /href="tel:/);
@@ -384,6 +386,7 @@ test('業者名や電話番号も属性の中で壊れない', () => {
   const output = render((m) => {
     m.contacts[0].name = '<b>"業者"</b>';
     m.contacts[0].phone = '03-0000-0102"><script>alert(1)</script>';
+    Object.assign(m, withReplies(m));
   });
   assert.ok(!output.includes('<script>alert(1)'));
   assert.ok(!output.includes('<b>"業者"'));

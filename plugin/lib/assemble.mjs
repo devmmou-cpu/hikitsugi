@@ -11,18 +11,25 @@ const MANUAL_SCHEMA = JSON.parse(readFileSync(new URL('../schemas/manual.schema.
 const CATEGORY = MANUAL_SCHEMA.properties.symptom_pages.items.properties.category;
 const STM = /^STM-\d{3}$/;
 
+// プログラムが組む項目は、Writer の出力の形に含めない
+const without = (schema, name) => {
+  const { [name]: _removed, ...properties } = schema.properties;
+  return { ...schema, properties };
+};
+const WRITER_STATEMENTS = { ...MANUAL_SCHEMA.properties.statements, items: without(MANUAL_SCHEMA.properties.statements.items, 'usage') };
+
 const objectOf = (properties) => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
 
 /** 共通部分の出力の形。 */
 export const commonSchema = () => {
-  const { statements, contacts, routines, devices, before_leaving: beforeLeaving } = MANUAL_SCHEMA.properties;
+  const { contacts, routines, devices, before_leaving: beforeLeaving } = MANUAL_SCHEMA.properties;
   return objectOf({
     page_plan: {
       $comment: '作る手順ページの一覧。symptom はページを書く担当へ渡す、症状の短い説明',
       type: 'array',
       items: objectOf({ id: { type: 'string', pattern: '^T\\d+$' }, category: CATEGORY, symptom: { type: 'string', minLength: 1 } }),
     },
-    statements,
+    statements: WRITER_STATEMENTS,
     contacts,
     routines,
     devices,
@@ -31,7 +38,7 @@ export const commonSchema = () => {
 };
 
 /** 手順ページ1つの出力の形。 */
-export const pageSchema = () => objectOf({ statements: MANUAL_SCHEMA.properties.statements, page: MANUAL_SCHEMA.properties.symptom_pages.items });
+export const pageSchema = () => objectOf({ statements: WRITER_STATEMENTS, page: without(MANUAL_SCHEMA.properties.symptom_pages.items, 'reply_to_staff') });
 
 /** 共通部分が使う文章の ID を返す。 */
 export const commonStatementIds = ({ contacts, routines, devices }) => [

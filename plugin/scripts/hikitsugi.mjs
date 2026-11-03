@@ -18,6 +18,7 @@ import { composeProcedures, libraryForAgents } from '../lib/procedures.mjs';
 import { appendEntry, appendReviewEntry, checkNextQuestion, emptyTranscript, interviewProgress, QUESTION_LIMIT } from '../lib/transcript.mjs';
 import { validate } from '../lib/validate.mjs';
 import { renderManual } from '../renderer/render.mjs';
+import { withReplies } from '../lib/reply.mjs';
 import { writePhoneBundle } from '../renderer/phone.mjs';
 import { oversizeMessage, PC_FILE_LIMIT, PC_FILE_TARGET, writeWithinLimit } from '../lib/limits.mjs';
 
@@ -280,7 +281,7 @@ function assembleRound(work, round) {
   const remaining = plainProblems(carried);
   if (changed.length === 0 && remaining.long_sentences.length === 0 && remaining.unexplained_terms.length === 0) {
     writeJson(join(work, `editor-${round}.json`), { rewrites: [], glossary: [] });
-    writeJson(join(work, `edited-${round}.json`), carried);
+    writeJson(join(work, `edited-${round}.json`), withReplies(carried));
     writeScope(work, round);
     return `直しました。Editor の作業は不要です（文章 ${carried.statements.length} 件）`;
   }
@@ -300,8 +301,10 @@ function writeScope(work, round) {
 function mergeEdits(work, [round]) {
   const manual = readJson(join(work, `manual-${round}.json`));
   const { manual: edited, changes } = applyEdits(manual, readJson(join(work, `editor-${round}.json`)), { retiree: readJson(join(work, 'state.json')).retiree });
-  checkSchema('manual', edited);
-  writeJson(join(work, `edited-${round}.json`), edited);
+  // 社員に返す文は Editor のあとにプログラムで組み、Verifier にはかける
+  const withReply = withReplies(edited);
+  checkSchema('manual', withReply);
+  writeJson(join(work, `edited-${round}.json`), withReply);
   writeScope(work, round);
   const problems = plainProblems(edited);
   const remaining = { long_sentences: problems.long_sentences, unexplained_terms: problems.unexplained_terms };

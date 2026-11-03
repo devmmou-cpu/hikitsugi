@@ -53,9 +53,9 @@ export function plainTextProblem(text) {
 export function plainProblems(manual) {
   const glossary = new Set(manual.glossary.map((entry) => entry.term));
   // 部品の文面は Editor が直せないので、直しの依頼に含めない
-  const long = manual.statements.filter((statement) => !statement.library).flatMap((statement) =>
+  const long = manual.statements.filter((statement) => !statement.library && !statement.usage).flatMap((statement) =>
     longSentences(statement.text).map((sentence) => ({ id: statement.id, sentence })),
   );
-  const terms = JARGON.filter((term) => !glossary.has(term) && manual.statements.some((s) => usesTerm(s.text, term)));
+  const terms = JARGON.filter((term) => !glossary.has(term) && manual.statements.some((s) => !s.usage && usesTerm(s.text, term)));
   return { long_sentences: long, unexplained_terms: [...new Set([...terms, ...deviceTermProblems(manual)])] };
 }

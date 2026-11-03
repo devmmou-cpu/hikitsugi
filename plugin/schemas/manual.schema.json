@@ -57,6 +57,12 @@
               "pattern": "^(INV-\\d{3,5}|(INT|PUB|LIB)-\\d{3})$"
             }
           },
+          "usage": {
+            "$comment": "プログラムが組む文章の用途。社員に返す文に付け、Verifier が定型文を見分ける",
+            "enum": [
+              "reply_to_staff"
+            ]
+          },
           "library": {
             "$comment": "部品の ID。文面はプログラムが組み立てる",
             "type": [
@@ -146,6 +152,11 @@
               "type": "string",
               "pattern": "^STM-\\d{3}$"
             }
+          },
+          "reply_to_staff": {
+            "$comment": "社員にそのまま返す文。プログラムが組む（plugin/lib/reply.mjs）。Writer は書かない",
+            "type": "string",
+            "pattern": "^STM-\\d{3}$"
           },
           "first_steps": {
             "$comment": "① まずこれだけ。1分で済む操作だけ。最大3つ",

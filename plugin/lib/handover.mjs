@@ -1,5 +1,6 @@
 // 取扱説明書を表示プログラムへ渡す前の処理。/hikitsugi:start と評価の両方で使う。
 
+import { withoutReplies } from './reply.mjs';
 import { loadLibrary, unapprovedParts } from './procedures.mjs';
 
 /** 未承認の部品が使われているときの例外。 */
@@ -33,8 +34,10 @@ export function summarizeVerification(verification, manual) {
  */
 export function buildRevision(manual, findings) {
   const glossaryIds = new Set(manual.glossary.map((entry) => entry.company));
+  // 社員に返す文はプログラムが組むので、Writer に渡さない
+  const written = withoutReplies(manual);
   return {
-    previous_manual: { ...manual, glossary: [], statements: manual.statements.filter((statement) => !glossaryIds.has(statement.id)) },
+    previous_manual: { ...written, glossary: [], statements: written.statements.filter((statement) => !glossaryIds.has(statement.id)) },
     findings: findings.filter((finding) => !glossaryIds.has(finding.statement)),
   };
 }

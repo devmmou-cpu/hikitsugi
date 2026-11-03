@@ -114,6 +114,19 @@ test('実機の結果の形：番号は 22px 太字の文字で案内つき、�
   assert.match(withTerm.html, /<dl>\s*<dt>[^<]+<\/dt>\s*<dd>[^<]+<\/dd>/);
 });
 
+test('社員に返す文は ① の直下で、② より前。① がなければ本文の最初に置く', () => {
+  for (const page of manual.symptom_pages) {
+    const { name, html } = fileFor(page);
+    assert.match(html, /<h2>社員に返す文<\/h2>\s*<blockquote class="say">/, name);
+    const text = plain(html);
+    const reply = text.indexOf('社員に返す文');
+    if (page.first_steps.length) assert.ok(text.indexOf('まずこれだけ') < reply, name);
+    for (const later of ['それでも直らなければ', 'やること', 'それでもだめなら', '相談してください', '連絡してください']) {
+      if (text.includes(`${later}\n`)) assert.ok(reply < text.indexOf(`${later}\n`), `${name}: ${later}`);
+    }
+  }
+});
+
 test('連絡先のファイルは全員を載せ、社内の相談先を先にする。99 も同じ相手へ案内する', () => {
   for (const { name, html } of [bundle[0], bundle.at(-1)]) {
     const text = plain(html);

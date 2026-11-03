@@ -23,6 +23,7 @@ export const pageStatementIds = (page) => [
   page.reassurance,
   ...Object.values(bodyFields(page)).flat(),
   ...(page.fallback ? [page.fallback.message] : []),
+  ...(page.reply_to_staff ? [page.reply_to_staff] : []),
 ];
 
 const sentencesOf = (text) => text.split('。').map((sentence) => sentence.trim()).filter(Boolean);

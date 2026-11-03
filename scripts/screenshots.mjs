@@ -233,7 +233,7 @@ async function shootBundle(input, output, chromePath) {
           const note = (el, text) => shown(el) && el.nextElementSibling?.classList.contains('note') && shown(el.nextElementSibling) && el.nextElementSibling.textContent.includes(text);
           const num = document.querySelector('.num');
           // 連絡先のないページは、番号の確認を除く
-          if (!document.querySelector('.contact')) return { say: [...document.querySelectorAll('.say')].every((el) => note(el, '長押しして選択し、コピーしてください。')), term: [...document.querySelectorAll('.terms dd')].some(shown), closed: document.querySelectorAll('details').length === 0 };
+          if (!document.querySelector('.contact')) return { say: [...document.querySelectorAll('.say')].length > 0 && [...document.querySelectorAll('.say')].every((el) => note(el, '長押しして選択し、コピーしてください。')), term: [...document.querySelectorAll('.terms dd')].some(shown), closed: document.querySelectorAll('details').length === 0 };
           return { num: shown(num) && getComputedStyle(num).fontSize === '22px' && getComputedStyle(num).fontWeight === '700', numNote: note(num, '番号を長押しすると、発信できます。'), say: [...document.querySelectorAll('.say')].length > 0 && [...document.querySelectorAll('.say')].every((el) => note(el, '長押しして選択し、コピーしてください。')), noteSize: getComputedStyle(document.querySelector('.note') ?? document.body).fontSize === '15px', term: [...document.querySelectorAll('.terms dd')].some(shown), closed: document.querySelectorAll('details').length === 0 };
         })())`));
         for (const [key, ok] of Object.entries(parts)) if (!ok) problems.push(`${name}：実機で確かめた形になっていません（${key}）`);
@@ -268,6 +268,7 @@ async function main([inputArg, outputArg]) {
   const { endpoint, stop } = await launchChrome(chromePath);
   const problems = [];
   const shots = [];
+  const report = {};
   try {
     const browser = await connect(endpoint);
     const { targetId } = await browser.send('Target.createTarget', { url: 'about:blank' });
@@ -284,8 +285,11 @@ async function main([inputArg, outputArg]) {
     // 外部への読み込みがあれば、失敗として見つかるようにする
     await page('Network.enable');
     await page('Network.setBlockedURLs', { urls: ['http://*', 'https://*'] });
+    // コピーの確かめのため、画面に焦点がある状態にする
+    await page('Emulation.setFocusEmulationEnabled', { enabled: true });
+    await browser.send('Browser.grantPermissions', { permissions: ['clipboardReadWrite', 'clipboardSanitizedWrite'] }).catch(() => {});
 
-    const evaluate = async (expression) => (await page('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true })).result.value;
+    const evaluate = async (expression) => (await page('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true, userGesture: true })).result.value;
     const settle = () => new Promise((done) => setTimeout(done, 250));
     const go = async (hash) => {
       await page('Page.navigate', { url: `${url}${hash}` });
@@ -359,6 +363,7 @@ async function main([inputArg, outputArg]) {
     // ハッシュなしで開いたら、困ったときの一覧を出す
     const opened = JSON.parse(await evaluate(`JSON.stringify({ view: document.documentElement.getAttribute('data-view'), help: getComputedStyle(document.getElementById('tab-help')).display !== 'none', intro: getComputedStyle(document.getElementById('intro')).display !== 'none' })`));
     if (opened.view !== 'help' || !opened.help || opened.intro) problems.push(`ハッシュなしで開くと、困ったときの一覧が出ません（${JSON.stringify(opened)}）`);
+    let replyFlow = null;
     // 普段の言葉で探す（索引のある HTML だけ）。「フォルダが消えた」で共有フォルダのページが1番に出ること
     const trySearch = async (name) => {
       const typed = JSON.parse(await evaluate(`JSON.stringify((() => {
@@ -379,6 +384,26 @@ async function main([inputArg, outputArg]) {
       const { data } = await page('Page.captureScreenshot', { format: 'png' });
       writeFileSync(join(output, `${name}.png`), Buffer.from(data, 'base64'));
       shots.push(name);
+      // 後任が返信を送るまで：開く → 探す（入力して候補を押す）→ コピー の3操作
+      await evaluate(`document.querySelector('.search-results a.sym').click()`);
+      await settle();
+      const copied = JSON.parse(await evaluate(`(async () => {
+        const panel = document.querySelector('.panel.is-active');
+        const button = panel?.querySelector('.reply-box .btn-copy');
+        if (!button) return JSON.stringify({ opened: panel?.id ?? '', button: false });
+        const box = panel.querySelector('.reply').getBoundingClientRect();
+        const wanted = panel.querySelector('.reply').textContent;
+        button.click();
+        await new Promise((done) => setTimeout(done, 300));
+        const pasted = await navigator.clipboard.readText().catch(() => null);
+        return JSON.stringify({ opened: panel.id, button: true, visible: box.height > 0, done: button.classList.contains('is-done'), same: pasted === null || pasted === wanted, read_back: pasted !== null });
+      })()`));
+      if (!copied.opened.startsWith('symptom-')) problems.push(`${name}：候補を押しても症状のページが開きません（${copied.opened}）`);
+      if (!copied.button || !copied.visible || !copied.done || !copied.same) problems.push(`${name}：3操作目の「文面をコピー」ができません（${JSON.stringify(copied)}）`);
+      replyFlow = { steps: ['開く', '探す', 'コピー'], read_back: copied.read_back };
+      const shot = await page('Page.captureScreenshot', { format: 'png' });
+      writeFileSync(join(output, `${name}-reply.png`), Buffer.from(shot.data, 'base64'));
+      shots.push(`${name}-reply`);
     };
     const targets = JSON.parse(await evaluate(`JSON.stringify({
       tabs: [...document.querySelectorAll('nav.tabs a[href^="#"]')].map((a) => a.getAttribute('href').slice(1)),
@@ -532,12 +557,13 @@ async function main([inputArg, outputArg]) {
     }
     await page('IO.close', { handle: stream });
     writeFileSync(join(output, 'print.pdf'), Buffer.concat(chunks));
+    report.reply_flow = replyFlow;
     browser.close();
   } finally {
     await stop();
   }
 
-  writeFileSync(join(output, 'report.json'), JSON.stringify({ viewports: VIEWPORTS.map((v) => v.name), shots, problems }, null, 2) + '\n');
+  writeFileSync(join(output, 'report.json'), JSON.stringify({ viewports: VIEWPORTS.map((v) => v.name), shots, problems, ...report }, null, 2) + '\n');
   console.log(`撮影しました：${shots.length} 枚と print.pdf（${output}）`);
   if (problems.length) {
     console.error(`画面の検査で問題が ${problems.length} 件あります：`);

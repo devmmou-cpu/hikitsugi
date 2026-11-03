@@ -1442,6 +1442,130 @@
       "evidence": [
         "INT-006"
       ]
+    },
+    {
+      "id": "STM-198",
+      "text": "いま確認しています。\nクロテン通信に連絡しました。",
+      "evidence": [
+        "INT-005",
+        "INT-006"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-199",
+      "text": "いま確認しています。",
+      "evidence": [
+        "INT-006",
+        "INT-009"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-200",
+      "text": "キーボードの Windows キーを押しながら、E のキーを押してください。\n開いた画面の左の一覧で、「PC」を選んでください。\n「PC」の中に、赤い×のついたドライブがあれば、ダブルクリックしてください。",
+      "evidence": [
+        "LIB-001",
+        "LIB-002",
+        "LIB-013"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-201",
+      "text": "いま確認しています。\nイタチ事務機に連絡しました。",
+      "evidence": [
+        "INT-008",
+        "INT-012"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-202",
+      "text": "いま確認しています。\nイタチ事務機に連絡しました。",
+      "evidence": [
+        "INT-012",
+        "INV-013"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-203",
+      "text": "いま確認しています。\nカワウソシステムサービスに連絡しました。",
+      "evidence": [
+        "INT-001"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-204",
+      "text": "いま確認しています。",
+      "evidence": [
+        "INT-007"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-205",
+      "text": "いま確認しています。\n総務課に連絡しました。",
+      "evidence": [
+        "INT-003"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-206",
+      "text": "いま確認しています。\n総務課に連絡しました。",
+      "evidence": [
+        "INT-003"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-207",
+      "text": "いま確認しています。\nイイズナソフトに連絡しました。",
+      "evidence": [
+        "INT-010"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-208",
+      "text": "いま確認しています。\n社長に連絡しました。",
+      "evidence": [
+        "INT-004"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-209",
+      "text": "いま確認しています。\nフェレット企画に連絡しました。",
+      "evidence": [
+        "INT-011"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-210",
+      "text": "いま確認しています。\n社長に連絡しました。",
+      "evidence": [
+        "INT-007",
+        "INT-017"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
     }
   ],
   "symptom_pages": [
@@ -1468,7 +1592,8 @@
       "fallback": {
         "contact": "VEN-01",
         "message": "STM-062"
-      }
+      },
+      "reply_to_staff": "STM-198"
     },
     {
       "id": "T2",
@@ -1494,7 +1619,8 @@
       "goal": null,
       "exceptions": [],
       "info_rows": [],
-      "fallback": null
+      "fallback": null,
+      "reply_to_staff": "STM-199"
     },
     {
       "id": "T3",
@@ -1539,7 +1665,8 @@
       "fallback": {
         "contact": "VEN-02",
         "message": "STM-092"
-      }
+      },
+      "reply_to_staff": "STM-200"
     },
     {
       "id": "T4",
@@ -1576,7 +1703,8 @@
       "fallback": {
         "contact": "VEN-03",
         "message": "STM-105"
-      }
+      },
+      "reply_to_staff": "STM-201"
     },
     {
       "id": "T5",
@@ -1601,7 +1729,8 @@
       "fallback": {
         "contact": "VEN-03",
         "message": "STM-110"
-      }
+      },
+      "reply_to_staff": "STM-202"
     },
     {
       "id": "T6",
@@ -1635,7 +1764,8 @@
       "fallback": {
         "contact": "VEN-02",
         "message": "STM-122"
-      }
+      },
+      "reply_to_staff": "STM-203"
     },
     {
       "id": "T7",
@@ -1662,7 +1792,8 @@
       "goal": null,
       "exceptions": [],
       "info_rows": [],
-      "fallback": null
+      "fallback": null,
+      "reply_to_staff": "STM-204"
     },
     {
       "id": "T8",
@@ -1691,7 +1822,8 @@
       "fallback": {
         "contact": "INH-01",
         "message": "STM-137"
-      }
+      },
+      "reply_to_staff": "STM-205"
     },
     {
       "id": "T9",
@@ -1720,7 +1852,8 @@
       "fallback": {
         "contact": "INH-01",
         "message": "STM-144"
-      }
+      },
+      "reply_to_staff": "STM-206"
     },
     {
       "id": "T10",
@@ -1747,7 +1880,8 @@
       "fallback": {
         "contact": "VEN-04",
         "message": "STM-151"
-      }
+      },
+      "reply_to_staff": "STM-207"
     },
     {
       "id": "T11",
@@ -1777,7 +1911,8 @@
       "fallback": {
         "contact": "INH-02",
         "message": "STM-160"
-      }
+      },
+      "reply_to_staff": "STM-208"
     },
     {
       "id": "T12",
@@ -1803,7 +1938,8 @@
       "fallback": {
         "contact": "VEN-05",
         "message": "STM-166"
-      }
+      },
+      "reply_to_staff": "STM-209"
     },
     {
       "id": "T13",
@@ -1829,7 +1965,8 @@
       "fallback": {
         "contact": "INH-02",
         "message": "STM-172"
-      }
+      },
+      "reply_to_staff": "STM-210"
     }
   ],
   "contacts": [

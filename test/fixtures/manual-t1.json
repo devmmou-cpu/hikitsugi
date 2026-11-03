@@ -130,6 +130,15 @@
         "INV-060",
         "INT-018"
       ]
+    },
+    {
+      "id": "STM-018",
+      "text": "いま確認しています。\nカワウソシステムサービスに連絡しました。",
+      "evidence": [
+        "INT-018"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
     }
   ],
   "symptom_pages": [
@@ -162,7 +171,8 @@
       ],
       "goal": null,
       "exceptions": [],
-      "info_rows": []
+      "info_rows": [],
+      "reply_to_staff": "STM-018"
     }
   ],
   "contacts": [

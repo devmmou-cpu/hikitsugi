@@ -1278,8 +1278,20 @@ kbd {
   user-select: all;
 }
 
-.contact-box > .btn-copy {
+.contact-box > .btn-copy, .reply-box > .btn-copy {
   width: 100%;
+}
+
+.reply-box {
+  margin-top: var(--s4);
+}
+
+.reply-box .btn-copy {
+  margin-top: var(--s2);
+}
+
+.reply {
+  white-space: pre-line;
 }
 
 .note + .terms {

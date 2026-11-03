@@ -69,7 +69,7 @@ code, kbd { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9
 .note { margin-top: var(--s1); font-size: 15px; color: var(--ink-2); }
 .no-phone { margin-top: var(--s2); font-weight: 700; color: var(--danger-fg); }
 .label { margin-top: var(--s3); font-size: 15px; font-weight: 700; }
-.say { margin-top: var(--s1); padding: var(--s3) var(--s4); background: var(--card-2); border-left: 4px solid var(--line-strong); border-radius: 0 8px 8px 0; -webkit-user-select: all; user-select: all; }
+.say { margin-top: var(--s1); padding: var(--s3) var(--s4); background: var(--card-2); border-left: 4px solid var(--line-strong); border-radius: 0 8px 8px 0; white-space: pre-line; -webkit-user-select: all; user-select: all; }
 .terms dt { margin-top: var(--s3); font-weight: 700; }
 .terms dd { color: var(--ink-2); }
 .foot { margin-top: var(--s7); padding-top: var(--s3); font-size: 14px; color: var(--ink-2); border-top: 1px solid var(--line); }
@@ -158,6 +158,7 @@ function symptomHtml(ctx, page, fileTitle) {
   const first = hasFirst
     ? `<section class="part first">\n<h2>${number()} まずこれだけ</h2>\n${page.first_steps.map((id) => `<p class="first-body">${actionHtml(ctx.raw(id), ctx.words)}</p>`).join('\n')}\n${goal(page.first_goal)}\n</section>`
     : '';
+  const reply = `<section class="part">\n<h2>社員に返す文</h2>\n${copyBoxHtml(ctx.text(page.reply_to_staff))}\n</section>`;
   const notes = page.notes.length ? `<section class="part">\n<h2>先に知っておくこと</h2>\n<ul class="notes">\n${page.notes.map((id) => `<li>${ctx.text(id)}</li>`).join('\n')}\n</ul>\n</section>` : '';
   const info = page.info_rows.length ? `<section class="part">\n<h2>この症状で使う会社の情報</h2>\n${infoTables(ctx, page)}\n</section>` : '';
   const steps = hasSteps
@@ -177,8 +178,10 @@ function symptomHtml(ctx, page, fileTitle) {
     `<p class="verdict">${esc(BADGE_LABELS[page.badge.value])}　目安 約${esc(page.minutes)}分</p>`,
     `<p class="verdict-text">${ctx.text(page.badge.statement)}</p>`,
     `<p class="safe">${ctx.text(page.reassurance)}</p>`,
+    hasFirst ? '' : reply,
     leading,
     first,
+    hasFirst ? reply : '',
     notes,
     info,
     steps,

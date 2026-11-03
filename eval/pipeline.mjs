@@ -12,6 +12,7 @@ import { applyRetireeCheck } from '../plugin/lib/retiree-check.mjs';
 import { withSearchIndex } from '../plugin/lib/search-index.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
+import { withReplies } from '../plugin/lib/reply.mjs';
 import { writePhoneBundle } from '../plugin/renderer/phone.mjs';
 import { PC_FILE_LIMIT, writeWithinLimit } from '../plugin/lib/limits.mjs';
 import { clientOf, runGapFinderLive, runVerifierLive } from './lib/adapters/live.mjs';
@@ -117,7 +118,8 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
         const base = previousManual ? carryForward(previousManual, lastFindings, written) : { manual: written };
         return runEditorLive({ manual: base.manual, survey, transcript, retiree: RETIREE, changed: base.changed, client: api, record });
       });
-      const manual = schemaCheck('manual', edited.manual);
+      // 社員に返す文は Editor のあとにプログラムで組み、Verifier にはかける
+      const manual = schemaCheck('manual', withReplies(edited.manual));
       // 差し戻しのあとは、変わった文章だけをかけ直す。合格済みの文章のばらつきで止まらないように
       const scope = previousManual ? verificationScope(previousManual, previousVerification, manual) : manual.statements.map((statement) => statement.id);
       const inScope = new Set(scope);

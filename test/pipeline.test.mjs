@@ -1,5 +1,6 @@
 // 通しの流れのテスト。偽のクライアントを使い、API は呼ばない。
 
+import { withoutReplies, withReplies } from '../plugin/lib/reply.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -27,7 +28,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SET = join(ROOT, 'eval/sets/okojo');
 const input = loadInput(SET);
 const gold = loadAnswers(SET);
-const fixture = () => JSON.parse(readFileSync(join(ROOT, 'test/fixtures/manual-t1.json'), 'utf8'));
+// Writer の出力に当たる形。社員に返す文はプログラムが組むので、外しておく
+const fixture = () => withoutReplies(JSON.parse(readFileSync(join(ROOT, 'test/fixtures/manual-t1.json'), 'utf8')));
 
 const withTemp = async (fn) => {
   const dir = mkdtempSync(join(tmpdir(), 'hikitsugi-pipeline-'));
@@ -944,7 +946,7 @@ test('退職前にやることは後任向けの HTML に出さず、根拠の�
   const manual = fixture();
   manual.before_leaving = [{ text: '管理者の権限を社長に移してください。', evidence: ['INT-018'] }];
   assert.deepEqual(validate(JSON.parse(readFileSync(join(ROOT, 'plugin/schemas/manual.schema.json'), 'utf8')), manual), []);
-  assert.ok(!renderManual(manual).includes('管理者の権限を社長に移して'));
+  assert.ok(!renderManual(withReplies(manual)).includes('管理者の権限を社長に移して'));
   const common = (before) => ({ ...pieces().common, before_leaving: before });
   const unknown = input.transcript.entries.find((entry) => entry.status !== 'answered');
   assert.deepEqual(checkCommon(common([{ text: '移してください。', evidence: ['INT-018'] }]), sources).problems, []);
@@ -985,7 +987,7 @@ test('承認した部品が、決まった文面で入っている', () => {
 test('電話番号の記録がない業者は載せて、記録がないと表示する', () => {
   const manual = fixture();
   manual.contacts[0].phone = '';
-  const html = renderManual(manual);
+  const html = renderManual(withReplies(manual));
   assert.ok(html.includes('電話番号の記録がありません'));
   assert.ok(!/href="tel:"/.test(html));
 });
@@ -1139,7 +1141,7 @@ test('未承認の部品があれば取扱説明書を作らず、承認済み�
 test('部品を使った手順は、表示で「確認済みの標準手順」と示す', () => {
   const manual = fixture();
   manual.statements.find((s) => s.id === manual.symptom_pages[0].steps[0]).evidence.push('LIB-001');
-  assert.ok(renderManual(manual).includes('確認済みの標準手順'));
+  assert.ok(renderManual(withReplies(manual)).includes('確認済みの標準手順'));
 });
 
 test('Writer と Verifier に部品を渡し、承認の状態は渡さない', () => {
