@@ -139,6 +139,8 @@ body {
   background: var(--bg);
   color: var(--ink);
   overflow-wrap: anywhere;
+  /* 行末に1文字だけ残る折り返しを避ける。対応していないブラウザーでは、ふつうに折り返す */
+  text-wrap: pretty;
 }
 
 main {
@@ -266,7 +268,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   color: var(--ink-2);
 }
 
-.top-status span {
+.top-status-text span {
   white-space: pre-wrap;
 }
 
@@ -854,12 +856,13 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   font-size: 19px;
   font-weight: 500;
   line-height: 1.7;
+  word-break: auto-phrase;
 }
 
 .first-steps.is-many .first-body {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: var(--s3);
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: var(--s2);
 }
 
 .first-steps.is-many .first-body::before {
@@ -868,10 +871,10 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin-top: 3px;
-  font-size: 15px;
+  width: 24px;
+  height: 24px;
+  margin-top: 5px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
   border: 2px solid var(--ink);
@@ -1598,7 +1601,9 @@ details[open] .plus-v {
     top: 0;
     z-index: 5;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, auto) auto minmax(0, auto);
+    justify-content: space-between;
+    grid-template-rows: 64px;
     align-items: center;
     gap: var(--s3);
     height: 64px;
@@ -1627,9 +1632,15 @@ details[open] .plus-v {
     text-overflow: ellipsis;
   }
 
+  .brand {
+    min-width: 0;
+  }
+
   .brand-title {
+    overflow: hidden;
     font-size: 17px;
     white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .topnav {
@@ -1641,7 +1652,7 @@ details[open] .plus-v {
   .topnav a {
     display: flex;
     align-items: center;
-    padding: 0 var(--s3);
+    padding: 0 var(--s2);
     font-size: 16px;
     color: var(--ink);
     text-decoration: none;
@@ -1655,12 +1666,28 @@ details[open] .plus-v {
     box-shadow: inset 0 -2px 0 var(--accent);
   }
 
+  /* 幅が足りなければ2行にし、それでも長い名前は省略して、バーの高さを守る */
   .top-status {
     justify-content: flex-end;
-    text-align: right;
-    flex-wrap: wrap;
-    gap: 0 var(--s2);
+    gap: var(--s2);
+    min-width: 0;
     line-height: 1.3;
+  }
+
+  .top-status-text {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0 var(--s2);
+    min-width: 0;
+    text-align: right;
+  }
+
+  .top-status-text span {
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .top-mark {
@@ -1880,51 +1907,6 @@ details[open] .plus-v {
     color: var(--ink-2);
   }
 
-  /* 表：2列以上の本文では、ふつうの表にする */
-  .symptom-body .info-table {
-    display: table;
-  }
-
-  .symptom-body .info-table thead {
-    position: static;
-    display: table-header-group;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    clip-path: none;
-  }
-
-  .symptom-body .info-table tbody {
-    display: table-row-group;
-  }
-
-  .symptom-body .info-table tr {
-    display: table-row;
-    border-top: 0;
-  }
-
-  .symptom-body .info-table th, .symptom-body .info-table td {
-    display: table-cell;
-    padding: 10px var(--s3) 10px 0;
-    vertical-align: middle;
-    border-top: 1px solid var(--line);
-    text-align: left;
-  }
-
-  .symptom-body .info-table th {
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: .04em;
-    color: var(--ink-2);
-    border-top: 0;
-  }
-
-  .symptom-body .info-drive {
-    width: auto;
-    height: auto;
-    background: transparent;
-  }
-
   /* 連絡先：社内の相談先と業者を、2列のカードに */
   .contact-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1988,6 +1970,62 @@ details[open] .plus-v {
 
   .company-jump {
     margin-top: var(--s2);
+  }
+}
+
+/* ---- 1024px 以上。本文に十分な幅があるので、上部のナビを中央に置き、表をふつうの表にする ---- */
+@media (min-width: 1024px) {
+  .topbar {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    justify-content: normal;
+  }
+
+  .topnav a {
+    padding: 0 var(--s3);
+  }
+
+  .symptom-body .info-table {
+    display: table;
+  }
+
+  .symptom-body .info-table thead {
+    position: static;
+    display: table-header-group;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+
+  .symptom-body .info-table tbody {
+    display: table-row-group;
+  }
+
+  .symptom-body .info-table tr {
+    display: table-row;
+    border-top: 0;
+  }
+
+  .symptom-body .info-table th, .symptom-body .info-table td {
+    display: table-cell;
+    padding: 10px var(--s3) 10px 0;
+    vertical-align: middle;
+    border-top: 1px solid var(--line);
+    text-align: left;
+  }
+
+  .symptom-body .info-table th {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: var(--ink-2);
+    border-top: 0;
+  }
+
+  .symptom-body .info-drive {
+    width: auto;
+    height: auto;
+    background: transparent;
   }
 }
 
@@ -2138,6 +2176,49 @@ details[open] .plus-v {
     color: var(--ink);
     background: none;
     border: 1px solid var(--ink);
+  }
+
+  /* 紙では「いまここ」に意味がない。チェック欄はペンで使えるので残す */
+  .step-now {
+    display: none;
+  }
+
+  .step.is-current {
+    background: none;
+    box-shadow: none;
+  }
+
+  .step.is-current input {
+    top: 16px;
+  }
+
+  /* 一覧のバッジは、縮めずに文字まで出す */
+  .col-list .sym {
+    display: block;
+    min-height: 0;
+    margin: 0;
+    padding: 4pt 0;
+  }
+
+  .col-list .sym-meta {
+    display: inline-block;
+    height: auto;
+    margin-left: 8pt;
+  }
+
+  .col-list .badge {
+    display: inline-flex;
+    width: auto;
+    height: 24px;
+    padding: 0 8px;
+  }
+
+  .col-list .badge-text {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
   }
 
   .btn-call {

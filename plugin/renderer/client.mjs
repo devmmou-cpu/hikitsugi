@@ -239,8 +239,13 @@ export const CLIENT_SCRIPT = String.raw`
     // 2列以上の幅で、いま開いている症状を一覧に示す
     const symptomHref = '#' + panel.id;
     for (const link of symptoms) {
-      if (link.getAttribute('href') === symptomHref) link.setAttribute('aria-current', 'true');
-      else link.removeAttribute('aria-current');
+      if (link.getAttribute('href') === symptomHref) {
+        link.setAttribute('aria-current', 'true');
+        // 一覧が列の中でスクロールするので、開いている症状が隠れないようにする
+        if (window.matchMedia('(min-width: 768px)').matches) link.scrollIntoView({ block: 'nearest' });
+      } else {
+        link.removeAttribute('aria-current');
+      }
     }
     // 画面の途中の用語や見出しへ移るリンクは、そこまで動かす
     if (target && target !== panel) {

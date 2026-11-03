@@ -270,7 +270,7 @@ const draftBand = ({ review }) => (review ? '' : '<p class="draft-band" role="no
 /** 上部バーの確認の表示。角印の代わりに、文字のない 24px の印を添える。 */
 function topStatus({ review }) {
   if (!review) return '<p class="top-status"><span>前任者の確認前</span></p>';
-  return `<p class="top-status">${icon('stamp', 'top-mark')}<span>${esc(review.reviewer)} 確認 </span><span>${esc(formatDate(review.confirmed_on))}</span></p>`;
+  return `<p class="top-status">${icon('stamp', 'top-mark')}<span class="top-status-text"><span>${esc(review.reviewer)} 確認 </span><span>${esc(formatDate(review.confirmed_on))}</span></span></p>`;
 }
 
 function topbarHtml(ctx) {
@@ -463,13 +463,13 @@ function railHtml(ctx, page, contact, leading) {
   if (!page.info_rows.length && !contact) return '';
   const statusId = `copy-status-rail-${esc(page.id)}`;
   const info = page.info_rows.length ? `<div class="rail-block"><h3 class="label">この症状で使う会社の情報</h3>\n${infoTables(ctx, page)}\n</div>` : '';
-  // 連絡先が本文の主役のページでは、右の列の電話を控えめにする。主役を1つにするため
+  // 右の列の電話は枠だけにする。塗りつぶした電話は本文の連絡先にあり、画面の主役を1つにするため
   const contactBlock = contact
     ? [
         '<div class="rail-block">',
         `<h3 class="label">${leading ? '連絡先' : '直らなかったら'}</h3>`,
         `<p class="rail-name">${esc(contact.name)}</p>`,
-        contact.phone ? callHtml(contact.phone, leading) : '',
+        contact.phone ? callHtml(contact.phone, true) : '',
         contact.hours ? `<p class="rail-hours">${ctx.text(contact.hours)}</p>` : '',
         leading ? '' : `<button type="button" class="btn btn-copy tap js-only" data-copy="message-${esc(page.id)}" data-status="${statusId}">文面をコピー</button>`,
         leading ? '' : copyStatusHtml(statusId),
