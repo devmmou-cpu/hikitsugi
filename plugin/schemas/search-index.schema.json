@@ -1,0 +1,20 @@
+{
+  "$comment": "症状ごとの普段の言い方。phrase-writer の出力",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["pages"],
+  "properties": {
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "phrases"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "phrases": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    }
+  }
+}

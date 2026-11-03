@@ -94,6 +94,12 @@ Writer は1回に1つの部分だけを書きます。`status` の `round` と `
 
 終わったら `hikitsugi check-verification <round>` を実行します。不合格なら、自動で次の回の writer に戻り、指摘のあった部分だけを書き直します。差し戻しは最大2回です。
 
+### phrases
+`hikitsugi phrase-task` を実行し、`hikitsugi:phrase-writer` に次を依頼します。
+> `hikitsugi-work/phrase-pages.json` を読み、結果の JSON（`pages`）を `hikitsugi-work/phrases.json` に保存してください。
+
+終わったら `hikitsugi check-phrases` を実行します。問題が表示されたら、その内容を伝えて直してもらいます。
+
 ### review
 前任者本人に、ページごとに確認してもらいます。**全文を精読してもらう必要はありません。** 確認が終わるまで、取扱説明書には「下書き（前任者の確認前）」の帯が付き、確認の印は出ません。
 

@@ -12,6 +12,7 @@ import { buildRevision, carryForward, markReviewed, mergeVerification, prepareFo
 import { coverageLeaks } from '../lib/coverage-check.mjs';
 import { bodyFields } from '../lib/page-check.mjs';
 import { plainProblems } from '../lib/plain-check.mjs';
+import { pagesForPhrases, phraseProblems, withSearchIndex } from '../lib/search-index.mjs';
 import { applyRetireeCheck } from '../lib/retiree-check.mjs';
 import { composeProcedures, libraryForAgents } from '../lib/procedures.mjs';
 import { appendEntry, appendReviewEntry, checkNextQuestion, emptyTranscript, interviewProgress, QUESTION_LIMIT } from '../lib/transcript.mjs';
@@ -55,6 +56,7 @@ export function nextStep(work) {
   }
   if (!has(`edited-${round}.json`)) return { step: 'editor', round };
   if (!has(`verification-${round}.json`)) return { step: 'verifier', round };
+  if (state.passed && !readJson(join(work, 'manual-final.json')).search_index) return { step: 'phrases' };
   if (state.passed && !state.review?.done) {
     const manual = readJson(join(work, 'manual-final.json'));
     const page = manual.symptom_pages.find((candidate) => !state.review?.pages?.[candidate.id]);
@@ -329,7 +331,9 @@ function checkVerification(work, [round]) {
   if (result.passed) {
     const { page_fix: _fix, todo: _todo, ...rest } = state;
     writeJson(join(work, 'state.json'), { ...rest, passed: true });
-    writeJson(join(work, 'manual-final.json'), manual);
+    // 書き直しのあとは症状が変わることがあるので、言い方は作り直す
+    const { search_index: _old, ...fresh } = manual;
+    writeJson(join(work, 'manual-final.json'), fresh);
     return `合格しました（文章 ${manual.statements.length} 件）`;
   }
   const line = `不合格：矛盾 ${result.counts.contradiction} 件、根拠なし ${result.counts.unsupported} 件、危険 ${result.counts.dangerous} 件、判定なし ${result.unanswered.length} 件`;
@@ -342,6 +346,25 @@ function checkVerification(work, [round]) {
   // 用語の説明だけの指摘なら、Writer の仕事はない。すぐに組み立てて Editor へ進む
   if (!todo.length) return `${line}\n${assembleRound(work, next)}`;
   return `${line}\n差し戻します（直す部分：${todo.join('、')}）`;
+}
+
+// ---- 普段の言葉で探す索引 ----
+function phraseTask(work) {
+  writeJson(join(work, 'phrase-pages.json'), { pages: pagesForPhrases(readJson(join(work, 'manual-final.json'))) });
+  return '症状の一覧を保存しました（phrase-pages.json）';
+}
+
+function checkPhrases(work) {
+  const state = readJson(join(work, 'state.json'));
+  const finalPath = join(work, 'manual-final.json');
+  const manual = readJson(finalPath);
+  const raw = checkSchema('search-index', readJson(join(work, 'phrases.json')));
+  const problems = phraseProblems(raw, manual, state.retiree);
+  if (problems.length) throw new Problem(`言い方に問題があります：\n${problems.join('\n')}`);
+  const indexed = withSearchIndex(manual, raw);
+  checkSchema('manual', indexed);
+  writeJson(finalPath, indexed);
+  return `言い方を入れました（${indexed.search_index.reduce((sum, entry) => sum + entry.phrases.length, 0)} 件）`;
 }
 
 // ---- 前任者の確認 ----
@@ -466,6 +489,8 @@ const COMMANDS = {
   'check-writer': checkWriter,
   'merge-edits': mergeEdits,
   'check-verification': checkVerification,
+  'phrase-task': phraseTask,
+  'check-phrases': checkPhrases,
   'review-start': reviewStart,
   'before-leaving': beforeLeaving,
   'review-show': reviewShow,

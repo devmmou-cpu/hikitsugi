@@ -4,8 +4,9 @@ import { applyEdits } from '../../plugin/lib/apply-edits.mjs';
 import { plainProblems } from '../../plugin/lib/plain-check.mjs';
 import { assembleManual, checkCommon, checkPage, commonSchema, droppedFromCommon, mergeRewritten, ownersOf, pageSchema, previousPiece } from '../../plugin/lib/assemble.mjs';
 import { coverageLeaks } from '../../plugin/lib/coverage-check.mjs';
+import { pagesForPhrases, phraseProblems } from '../../plugin/lib/search-index.mjs';
 import { composeProcedures, libraryForAgents } from '../../plugin/lib/procedures.mjs';
-import { buildRequest, callAgent, clientOf, LiveFailure, loadAgent, stripUnsupported, tagged } from './adapters/live.mjs';
+import { buildRequest, callAgent, clientOf, LiveFailure, loadAgent, responseSchema, stripUnsupported, tagged } from './adapters/live.mjs';
 
 // 共通部分のあとにページを同時に書く数。前置きのキャッシュが効くので、費用は同時に書いても変わらない
 const PAGE_CONCURRENCY = 4;
@@ -55,6 +56,27 @@ export function buildWriterRequest({ survey, transcript, retiree, task = { part:
     { type: 'text', text: stable, cache_control: { type: 'ephemeral' } },
     { type: 'text', text: `${tagged(dynamic)}\n\n${structure || task.revision ? `${what}の問題を直して、この部分の全体を返してください。` : `${what}を書いてください。`}` },
   ]);
+}
+
+export function buildPhraseRequest({ manual, structure, agent = loadAgent('plugin/agents/phrase-writer.md') }) {
+  const sections = { pages: pagesForPhrases(manual) };
+  if (structure) sections.structure_problems = structure;
+  return buildRequest(agent, responseSchema('search-index', ['pages']), `${tagged(sections)}\n\n${structure ? '問題を直して、全部のページを返してください。' : '全部のページの言い方を作ってください。'}`);
+}
+
+/** 症状ごとの言い方を作る。形の問題は1回だけ直してもらう。 */
+export async function runPhraseWriterLive({ manual, retiree, client, record = () => {} }) {
+  const api = await clientOf(client);
+  const agent = loadAgent('plugin/agents/phrase-writer.md');
+  let structure;
+  let problems = [];
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    const parsed = await callAgent({ api, agent, params: buildPhraseRequest({ manual, structure, agent }), record, estimate: false });
+    problems = phraseProblems(parsed, manual, retiree);
+    if (!problems.length) return parsed;
+    structure = { previous_output: parsed, problems };
+  }
+  throw new LiveFailure('phrases', problems.slice(0, 10).join(' / '));
 }
 
 export function buildEditorRequest({ manual, survey, transcript, retiree, findings, agent = loadAgent('plugin/agents/plain-japanese-editor.md') }) {

@@ -443,6 +443,31 @@
           }
         }
       }
+    },
+    "search_index": {
+      "$comment": "症状ごとの普段の言い方。画面の中で探すために HTML に入れる。検証の対象ではないのでプログラムで検査する",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "page",
+          "phrases"
+        ],
+        "properties": {
+          "page": {
+            "type": "string",
+            "minLength": 1
+          },
+          "phrases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
     }
   }
 }

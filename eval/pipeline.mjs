@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { buildRevision, carryForward, markReviewed, mergeVerification, prepareForRender, summarizeVerification, UnapprovedPartsError, verificationScope } from '../plugin/lib/handover.mjs';
 import { applyRetireeCheck } from '../plugin/lib/retiree-check.mjs';
+import { withSearchIndex } from '../plugin/lib/search-index.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { clientOf, runGapFinderLive, runVerifierLive } from './lib/adapters/live.mjs';
@@ -19,7 +20,7 @@ import { maskCredentials } from './lib/runner.mjs';
 import * as gapsScorer from './lib/scorers/gaps.mjs';
 import * as interviewScorer from './lib/scorers/interview.mjs';
 import * as manualScorer from './lib/scorers/manual.mjs';
-import { runEditorLive, runWriterLive } from './lib/writing.mjs';
+import { runEditorLive, runPhraseWriterLive, runWriterLive } from './lib/writing.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const MAX_RESENDS = 2;
@@ -135,7 +136,9 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
 
       if (result.passed) {
         // 模擬評価。実際の /hikitsugi:start では、前任者がページごとに確認する
-        const reviewed = markReviewed(manual, RETIREE, survey.as_of);
+        const phrases = await once('search-index', null, () => runPhraseWriterLive({ manual, retiree: RETIREE, client: api, record }));
+        const reviewed = withSearchIndex(markReviewed(manual, RETIREE, survey.as_of), phrases);
+        summary.search_phrases = reviewed.search_index.reduce((sum, entry) => sum + entry.phrases.length, 0);
         save('manual-final', reviewed);
         summary.review = { mode: '模擬（全ページ このままでよい）', pages: reviewed.symptom_pages.length };
         summary.before_leaving = reviewed.before_leaving?.length ?? 0;

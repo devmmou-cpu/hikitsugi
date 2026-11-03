@@ -64,10 +64,13 @@ const ICONS = {
   stamp: '<rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><path d="M8 12.3l2.8 2.8L16.2 9.300"/>',
 };
 
-const icon = (name, extra = '') => `<svg class="icon${extra ? ` ${extra}` : ''}" viewBox="0 0 24 24" role="presentation" focusable="false">${ICONS[name]}</svg>`;
+const icon = (name, extra = '') => `<svg class="icon${extra ? ` ${extra}` : ''}" role="presentation"><use href="#i-${name}"/></svg>`;
+
+// アイコンの形は1か所にまとめる。同じ形を何度も書くと、ファイルが上限の 200KB を超える
+const ICON_DEFS = `<svg class="icon-defs" width="0" height="0" role="presentation">${Object.entries({ ...ICONS, minus: '<path d="M5 12h14"/>', 'plus-v': '<path d="M12 5v14"/>' }).map(([name, shape]) => `<symbol id="i-${name}" viewBox="0 0 24 24">${shape}</symbol>`).join('')}</svg>`;
 
 /** 開閉の印。縦の線を CSS で消して「＋」と「−」を切り替える。 */
-const PLUS_MINUS = '<svg class="icon plus" viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M5 12h14"/><path class="plus-v" d="M12 5v14"/></svg>';
+const PLUS_MINUS = '<svg class="icon plus" role="presentation"><use href="#i-minus"/><use class="plus-v" href="#i-plus-v"/></svg>';
 
 const BADGE_ICONS = { self: 'check', check_first: 'alert', vendor: 'phone', internal: 'people' };
 
@@ -691,6 +694,14 @@ function tabsHtml() {
 }
 
 // ---- 全体 ----
+/** 探すための索引。画面には出さない。通信はしない。< を消して、script の外に出ないようにする。 */
+function searchIndexHtml({ search_index: index, statements, symptom_pages: pages }) {
+  if (!index?.length) return '';
+  const textOf = new Map(statements.map((s) => [s.id, s.text]));
+  const rows = index.map(({ page, phrases }) => ({ page, title: textOf.get(pages.find((p) => p.id === page)?.title) ?? '', phrases }));
+  return `<script type="application/json" id="search-index">${JSON.stringify(rows).replace(/</g, '\\u003c')}</script>\n`;
+}
+
 /** 取扱説明書の中身から HTML の文字列を作る。入力に異常があれば例外を投げる。 */
 export function renderManual(manual) {
   checkInput(manual);
@@ -720,6 +731,7 @@ ${STYLES}
 </style>
 </head>
 <body>
+${ICON_DEFS}
 ${draftBand(manual)}${topbarHtml(ctx)}
 <main>
 ${introPanel(ctx)}
@@ -736,7 +748,7 @@ ${companyPanel(ctx)}
 </main>
 ${footerHtml()}
 ${tabsHtml()}
-<script>
+${searchIndexHtml(manual)}<script>
 ${CLIENT_SCRIPT}
 </script>
 </body>

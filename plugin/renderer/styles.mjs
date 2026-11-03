@@ -183,6 +183,12 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   outline-offset: 2px;
 }
 
+.icon-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
 .icon {
   width: 24px;
   height: 24px;

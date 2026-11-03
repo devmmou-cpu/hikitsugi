@@ -216,6 +216,11 @@ function pipelineClient({ verdicts }) {
     }
     // 連絡先の名前と番号は根拠と照合されるので、それを含む事実を選ぶ
     if (system.includes('模擬の担当者')) return { fact_ids: ['F-05'] };
+    if (system.includes('phrase-writer')) {
+      const body = JSON.stringify(params.messages);
+      const ids = [...new Set([...body.matchAll(/\\"id\\":\\"(T\d+)\\"/g)].map((m) => m[1]))];
+      return { pages: ids.map((id) => ({ id, phrases: Array.from({ length: 15 }, (_, i) => `${id} の言い方 ${i}`) })) };
+    }
     if (system.includes('Writer')) {
       const task = taggedIn(params, 'task');
       // 書き直しでは、前の版をそのまま返す。載せ漏れがあれば足す
@@ -268,6 +273,8 @@ test('通し：合格すれば HTML を作り、エージェントごとの費�
     assert.ok(summary.leaks[0].found > 0);
     assert.equal(summary.leaks[0].remaining, 0);
     assert.equal(summary.before_leaving, 0);
+    assert.equal(summary.search_phrases, 15);
+    assert.ok(readFileSync(join(dir, 'manual.html'), 'utf8').includes('id="search-index"'));
     assert.equal(summary.review.pages, 1);
     assert.match(summary.review.mode, /模擬/);
     const final = JSON.parse(readFileSync(join(dir, 'manual-final.json'), 'utf8'));
@@ -434,6 +441,16 @@ test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途�
     write('verification-2.json', results(scope, 'correct'));
     assert.match(hikitsugi('check-verification', ['2']), /合格/);
 
+    // 普段の言葉で探す索引を作る
+    assert.deepEqual(nextStep(work), { step: 'phrases' });
+    hikitsugi('phrase-task');
+    assert.equal(JSON.parse(readFileSync(join(work, 'phrase-pages.json'), 'utf8')).pages[0].id, 'T1');
+    const phrases = (n) => ({ pages: [{ id: 'T1', phrases: Array.from({ length: n }, (_, i) => `言い方 ${i}`) }] });
+    write('phrases.json', phrases(3));
+    assert.throws(() => hikitsugi('check-phrases'), /言い方は重ならずに/);
+    write('phrases.json', phrases(15));
+    assert.match(hikitsugi('check-phrases'), /言い方を入れました（15 件）/);
+
     // 前任者の確認。終わるまでは下書き
     assert.deepEqual(nextStep(work), { step: 'review', reviewer: null, page: 'T1', pages: 1 });
     assert.throws(() => hikitsugi('review-ok', ['T1']), /確認を始められる段階ではありません/);
@@ -468,6 +485,10 @@ test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途�
     assert.deepEqual(scope3, [fixed.page.reassurance]);
     write('verification-3.json', results(scope3, 'correct'));
     assert.match(hikitsugi('check-verification', ['3']), /合格/);
+    // 書き直しのあとは、言い方も作り直す
+    assert.equal(nextStep(work).step, 'phrases');
+    write('phrases.json', phrases(15));
+    hikitsugi('check-phrases');
 
     // 全ページが「このままでよい」で、確認の印が付く
     assert.equal(nextStep(work).page, 'T1');
