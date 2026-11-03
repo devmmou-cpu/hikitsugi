@@ -379,22 +379,37 @@
       }
     },
     "glossary": {
+      "$comment": "用語の説明。one_line と analogy は一般の説明で文字のまま、company は根拠を持つ文章の ID、help_page は困ったときに見る手順ページ",
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "term",
-          "explanation"
+          "one_line",
+          "analogy",
+          "company"
         ],
         "properties": {
           "term": {
             "type": "string",
             "minLength": 1
           },
-          "explanation": {
+          "one_line": {
+            "type": "string",
+            "minLength": 1
+          },
+          "analogy": {
+            "type": "string",
+            "minLength": 1
+          },
+          "company": {
             "type": "string",
             "pattern": "^STM-\\d{3}$"
+          },
+          "help_page": {
+            "type": "string",
+            "minLength": 1
           }
         }
       }

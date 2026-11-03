@@ -217,8 +217,8 @@ test('連絡先のタブに業者のカードがあり、全項目が読める',
 test('用語は押して開閉でき、説明が読める', () => {
   const manual = fixture();
   const details = [...html.matchAll(/<details\b[\s\S]*?<\/details>/gi)].map((m) => m[0]);
-  for (const { term, explanation } of manual.glossary) {
-    const found = details.find((d) => visibleText(d).includes(term) && visibleText(d).includes(textOf(manual, explanation)));
+  for (const { term, company } of manual.glossary) {
+    const found = details.find((d) => visibleText(d).includes(term) && visibleText(d).includes(textOf(manual, company)));
     assert.ok(found, `用語の開閉がありません: ${term}`);
     assert.match(found, /<summary\b/i);
   }

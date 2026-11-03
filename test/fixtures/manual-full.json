@@ -1420,6 +1420,28 @@
         "INV-020",
         "INT-013"
       ]
+    },
+    {
+      "id": "STM-195",
+      "text": "事務所にある、印刷とスキャンに使う機器です。",
+      "evidence": [
+        "INV-013",
+        "INT-012"
+      ]
+    },
+    {
+      "id": "STM-196",
+      "text": "この会社の共有の書類や記録を指します。",
+      "evidence": [
+        "INT-007"
+      ]
+    },
+    {
+      "id": "STM-197",
+      "text": "この機器は借りて使っています。",
+      "evidence": [
+        "INT-006"
+      ]
     }
   ],
   "symptom_pages": [
@@ -1982,91 +2004,154 @@
   "glossary": [
     {
       "term": "NAS",
-      "explanation": "STM-173"
+      "one_line": "社内のファイルをまとめて置く、ネットにつながった保管庫です。",
+      "analogy": "みんなで使う書類棚のようなものです。",
+      "company": "STM-173",
+      "help_page": "T1"
     },
     {
       "term": "USB",
-      "explanation": "STM-174"
+      "one_line": "機器をつないでデータをやりとりする差し込み口の決まりです。",
+      "analogy": "共通の形のコンセントのようなものです。",
+      "company": "STM-174"
     },
     {
       "term": "UTM",
-      "explanation": "STM-175"
+      "one_line": "外からの攻撃を防ぐ機能をまとめた機器です。",
+      "analogy": "会社の入口の警備員のようなものです。",
+      "company": "STM-175"
     },
     {
       "term": "ルーター",
-      "explanation": "STM-176"
+      "one_line": "社内の機器をインターネットにつなぐ機器です。",
+      "analogy": "会社の外へ出る玄関のようなものです。",
+      "company": "STM-176"
     },
     {
       "term": "AP",
-      "explanation": "STM-177"
+      "one_line": "Wi-Fi の電波を出す機器です。",
+      "analogy": "無線の電話の親機のようなものです。",
+      "company": "STM-177"
     },
     {
       "term": "無線 AP",
-      "explanation": "STM-178"
+      "one_line": "Wi-Fi の電波を出す機器です。",
+      "analogy": "無線の電話の親機のようなものです。",
+      "company": "STM-178"
     },
     {
       "term": "Wi-Fi",
-      "explanation": "STM-179"
+      "one_line": "線をつながずにネットにつなぐ仕組みです。",
+      "analogy": "声が届く範囲で話せる無線のようなものです。",
+      "company": "STM-179"
     },
     {
       "term": "LAN ケーブル",
-      "explanation": "STM-180"
+      "one_line": "機器どうしをつなぐ通信用の線です。",
+      "analogy": "電話線のようなものです。",
+      "company": "STM-180"
     },
     {
       "term": "バックアップ",
-      "explanation": "STM-181"
+      "one_line": "データの控えを別の場所に取っておくことです。",
+      "analogy": "大事な書類のコピーを金庫に入れておくようなものです。",
+      "company": "STM-181"
     },
     {
       "term": "共有フォルダ",
-      "explanation": "STM-182"
+      "one_line": "社内のみんなで使うファイルの置き場です。",
+      "analogy": "部署の共用の棚のようなものです。",
+      "company": "STM-182"
     },
     {
       "term": "ネットワークドライブ",
-      "explanation": "STM-183"
+      "one_line": "社内の共有の場所を、PC の中の場所のように見せる仕組みです。",
+      "analogy": "共用の棚への近道のようなものです。",
+      "company": "STM-183"
     },
     {
       "term": "サーバー",
-      "explanation": "STM-184"
+      "one_line": "ほかの PC に機能やデータを渡すコンピューターです。",
+      "analogy": "みんなの注文を受ける厨房のようなものです。",
+      "company": "STM-184"
     },
     {
       "term": "サーバーラック",
-      "explanation": "STM-185"
+      "one_line": "サーバーをまとめて収める専用の棚です。",
+      "analogy": "機器を入れる背の高い棚のようなものです。",
+      "company": "STM-185"
     },
     {
       "term": "ディスク",
-      "explanation": "STM-186"
+      "one_line": "データを記録する部品です。",
+      "analogy": "文字を書き込むノートのようなものです。",
+      "company": "STM-186"
     },
     {
       "term": "ドメイン",
-      "explanation": "STM-187"
+      "one_line": "会社のホームページやメールの宛先に使う名前です。",
+      "analogy": "インターネット上の住所のようなものです。",
+      "company": "STM-187"
     },
     {
       "term": "独自ドメイン",
-      "explanation": "STM-188"
+      "one_line": "その会社だけが使う、ホームページやメールの名前です。",
+      "analogy": "会社専用の住所のようなものです。",
+      "company": "STM-188"
     },
     {
       "term": "Microsoft 365",
-      "explanation": "STM-189"
+      "one_line": "メールや文書作成をまとめて使える契約のサービスです。",
+      "analogy": "仕事の道具一式の月ぎめレンタルのようなものです。",
+      "company": "STM-189"
     },
     {
       "term": "スポット",
-      "explanation": "STM-190"
+      "one_line": "決まった契約ではなく、必要なときだけ頼む形です。",
+      "analogy": "その都度呼ぶ修理屋さんのようなものです。",
+      "company": "STM-190"
     },
     {
       "term": "管理画面",
-      "explanation": "STM-191"
+      "one_line": "機器やサービスの設定を変える画面です。",
+      "analogy": "機械の裏にある設定盤のようなものです。",
+      "company": "STM-191"
     },
     {
       "term": "共有アドレス",
-      "explanation": "STM-192"
+      "one_line": "複数の人で受け取るメールの宛先です。",
+      "analogy": "部署の共用の郵便受けのようなものです。",
+      "company": "STM-192"
     },
     {
       "term": "生産管理システム",
-      "explanation": "STM-193"
+      "one_line": "工場の生産の計画や実績を記録するソフトです。",
+      "analogy": "工場の予定表と日報を一冊にしたようなものです。",
+      "company": "STM-193"
     },
     {
       "term": "CAD",
-      "explanation": "STM-194"
+      "one_line": "図面をコンピューターで描くソフトです。",
+      "analogy": "コンピューターの製図板のようなものです。",
+      "company": "STM-194"
+    },
+    {
+      "term": "複合機",
+      "one_line": "印刷、コピー、スキャンを1台でする機器です。",
+      "analogy": "コピー機に読み取りの機能を足したようなものです。",
+      "company": "STM-195"
+    },
+    {
+      "term": "データ",
+      "one_line": "PC に保存する書類や記録のことです。",
+      "analogy": "棚にしまう書類のようなものです。",
+      "company": "STM-196"
+    },
+    {
+      "term": "リース",
+      "one_line": "機器を買わずに借りて使う契約です。",
+      "analogy": "会社の車を借りて使うようなものです。",
+      "company": "STM-197"
     }
   ],
   "review": {

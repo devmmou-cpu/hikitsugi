@@ -2,6 +2,8 @@
 // /hikitsugi:start と評価の両方で使う。
 
 import { isActionText } from './page-check.mjs';
+import { plainTextProblem } from './plain-check.mjs';
+import { hasCredential } from './transcript.mjs';
 
 const PROTECTED = /[0-9０-９]+(?:[-:：.,／/年月日時分台名回週][0-9０-９]*)*|[A-Za-z][A-Za-z0-9_\\-]*(?:[.\\][A-Za-z0-9_\\-]+)*/gu;
 
@@ -71,15 +73,18 @@ export function applyEdits(manual, edits, { revert = true, retiree } = {}) {
   const added = [];
   const glossary = [...manual.glossary];
   const terms = new Set(glossary.map((entry) => entry.term));
-  for (const { term, text, evidence } of edits.glossary) {
+  const pages = new Set(manual.symptom_pages?.map((page) => page.id));
+  for (const { term, one_line: oneLine, analogy, company, evidence, help_page: helpPage } of edits.glossary) {
     if (terms.has(term)) continue;
     // 後任向けの説明に、退職する担当者の名前を入れない。残った語は Editor がもう一度書く
-    if (namesRetiree(text)) continue;
+    if ([oneLine, analogy, company].some(namesRetiree)) continue;
+    // 一言とたとえは根拠の照合をしないので、書いてはいけないものはここで止める
+    if ([oneLine, analogy].some((text) => plainTextProblem(text) || hasCredential(text))) continue;
     terms.add(term);
     next += 1;
     const id = `STM-${String(next).padStart(3, '0')}`;
-    added.push({ id, text, evidence });
-    glossary.push({ term, explanation: id });
+    added.push({ id, text: company, evidence });
+    glossary.push({ term, one_line: oneLine, analogy, company: id, ...(pages.has(helpPage) ? { help_page: helpPage } : {}) });
   }
   return { manual: { ...manual, statements: [...statements, ...added], glossary }, changes };
 }

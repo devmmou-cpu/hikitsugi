@@ -181,11 +181,16 @@
   "glossary": [
     {
       "term": "NAS",
-      "explanation": "STM-016"
+      "one_line": "社内のファイルをまとめて置く、ネットにつながった保管庫です。",
+      "analogy": "みんなで使う書類棚のようなものです。",
+      "company": "STM-016",
+      "help_page": "T1"
     },
     {
       "term": "ネットワークドライブ",
-      "explanation": "STM-017"
+      "one_line": "社内の共有の場所を、PC の中の場所のように見せる仕組みです。",
+      "analogy": "共用の棚への近道のようなものです。",
+      "company": "STM-017"
     }
   ],
   "review": {

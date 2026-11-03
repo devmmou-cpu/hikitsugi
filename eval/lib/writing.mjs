@@ -31,10 +31,13 @@ const EDITOR_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['term', 'text', 'evidence'],
+        required: ['term', 'one_line', 'analogy', 'company', 'evidence', 'help_page'],
         properties: {
           term: { type: 'string' },
-          text: { type: 'string' },
+          one_line: { type: 'string' },
+          analogy: { type: 'string' },
+          company: { type: 'string' },
+          help_page: { type: 'string' },
           evidence: { type: 'array', items: { type: 'string', pattern: '^(INV-\\d{3,5}|INT-\\d{3})$' } },
         },
       },

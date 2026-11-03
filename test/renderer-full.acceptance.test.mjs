@@ -148,7 +148,7 @@ test('会社のIT：用語集の全語が、押して開閉でき、説明が読
   const text = strip(section);
   for (const entry of manual.glossary) {
     assert.ok(text.includes(entry.term), entry.term);
-    assert.ok(text.includes(textOf(entry.explanation)), entry.explanation);
+    assert.ok(text.includes(textOf(entry.company)), entry.company);
   }
   assert.ok(tags(section, 'details').length >= manual.glossary.length);
 });

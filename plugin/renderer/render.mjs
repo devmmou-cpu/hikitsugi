@@ -67,7 +67,10 @@ const ICONS = {
 const icon = (name, extra = '') => `<svg class="icon${extra ? ` ${extra}` : ''}" role="presentation"><use href="#i-${name}"/></svg>`;
 
 // アイコンの形は1か所にまとめる。同じ形を何度も書くと、ファイルが上限の 200KB を超える
-const ICON_DEFS = `<svg class="icon-defs" width="0" height="0" role="presentation">${Object.entries({ ...ICONS, minus: '<path d="M5 12h14"/>', 'plus-v': '<path d="M12 5v14"/>' }).map(([name, shape]) => `<symbol id="i-${name}" viewBox="0 0 24 24">${shape}</symbol>`).join('')}</svg>`;
+const iconDefs = (review) => `<svg class="icon-defs" width="0" height="0" role="presentation">${Object.entries({ ...ICONS, minus: '<path d="M5 12h14"/>', 'plus-v': '<path d="M12 5v14"/>' }).map(([name, shape]) => `<symbol id="i-${name}" viewBox="0 0 24 24">${shape}</symbol>`).join('')}${review ? `<symbol id="i-seal" viewBox="0 0 64 64">${sealParts(review).body}</symbol>` : ''}</svg>`;
+
+/** CSS のコメント、字下げ、空行を除く。ファイルの上限のため。値は変えない。 */
+const compactCss = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]+/gm, '').replace(/\n{2,}/g, '\n');
 
 /** 開閉の印。縦の線を CSS で消して「＋」と「−」を切り替える。 */
 const PLUS_MINUS = '<svg class="icon plus" role="presentation"><use href="#i-minus"/><use class="plus-v" href="#i-plus-v"/></svg>';
@@ -163,7 +166,7 @@ function assertNoCredentials(manual) {
       [`${c.id} の名前`, c.name],
       [`${c.id} の電話番号`, c.phone],
     ]),
-    ...manual.glossary.map((g) => ['用語', g.term]),
+    ...manual.glossary.flatMap((g) => [['用語', g.term], [`${g.term} の一言`, g.one_line], [`${g.term} のたとえ`, g.analogy]]),
   ];
   const found = fields.filter(([, text]) => CREDENTIAL.test(text.normalize('NFKC'))).map(([where]) => where);
   if (found.length) {
@@ -186,7 +189,7 @@ function referencedStatements(manual) {
     ...manual.contacts.flatMap((c) => [c.role, c.hours, c.contract_location, c.what_to_tell].filter(Boolean)),
     ...manual.routines.flatMap((r) => [r.title, ...r.steps]),
     ...manual.devices.flatMap((d) => [d.name, d.location, d.purpose, d.impact, d.credential_location, d.caution].filter(Boolean)),
-    ...manual.glossary.map((g) => g.explanation),
+    ...manual.glossary.map((g) => g.company),
   ];
 }
 
@@ -249,8 +252,24 @@ const copyStatusHtml = (statusId) => `<span class="js-only copy-status" id="${st
 const hoursHtml = (ctx, id) => `<p class="contact-hours">${icon('clock')}<span>${ctx.text(id)}</span></p>`;
 
 /** 用語の説明。JavaScript なしでも読めるように開いておき、JavaScript があれば閉じる。 */
-const termHtml = (ctx, term, id) =>
-  `<details class="term" id="${esc(id)}" open><summary class="tap"><span>${esc(term.term)}とは？</span>${PLUS_MINUS}</summary><p>${ctx.text(term.explanation)}</p></details>`;
+/**
+ * 手順ページの用語。一言だけを出し、続きは会社のITの説明へ送る。
+ * 4段をすべてのページに書くと、同じ文が繰り返されてファイルが上限の 200KB を超えるため。
+ */
+const pageTermHtml = (ctx, term, id) =>
+  `<details class="term" id="${esc(id)}" open><summary class="tap"><span>${esc(term.term)}とは？</span>${PLUS_MINUS}</summary><p>${statementHtml(term.one_line, ctx.words)} <a class="tap text-link" href="#g-all-${ctx.manual.glossary.indexOf(term)}">くわしく</a></p></details>`;
+
+/** 用語の説明。一言で、たとえ、この会社では、困ったときはの順に出す。 */
+function termHtml(ctx, term, id) {
+  const page = term.help_page && ctx.manual.symptom_pages.find((candidate) => candidate.id === term.help_page);
+  const rows = [
+    ['一言で', statementHtml(term.one_line, ctx.words)],
+    ['たとえ', statementHtml(term.analogy, ctx.words)],
+    ['この会社では', ctx.text(term.company)],
+    ...(page ? [['困ったときは', `<a class="tap text-link" href="#symptom-${esc(page.id)}">${ctx.text(page.title)}</a>`]] : []),
+  ];
+  return `<details class="term" id="${esc(id)}" open><summary class="tap"><span>${esc(term.term)}とは？</span>${PLUS_MINUS}</summary><dl class="facts">${rows.map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join('')}</dl></details>`;
+}
 
 const emptyHtml = (text) => `<p class="empty">${esc(text)}</p>`;
 
@@ -266,21 +285,30 @@ const goalHtml = (ctx, id) => (id ? `<p class="goal">${icon('check')}<span>${ctx
 
 // ---- 確認の印 ----
 /** 角印。文字は実寸で 14px にするので、64px の大きさで描く。色は墨で、押せないことを示す。 */
-function sealHtml(review) {
+function sealParts(review) {
   const [, month, day] = review.confirmed_on.split('-');
   const name = esc(review.reviewer);
   // 長い名前は枠の中に収める
   const fit = [...review.reviewer].length > 3 ? ' textLength="52" lengthAdjust="spacingAndGlyphs"' : '';
   const line = (y, text, attrs = '') => `<text x="32" y="${y}" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor"${attrs}>${text}</text>`;
-  return [
-    `<svg class="seal" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="${name} 確認 ${esc(formatDate(review.confirmed_on))}">`,
-    '<rect x="1" y="1" width="62" height="62" rx="6" fill="none" stroke="currentColor" stroke-width="2"/>',
-    line(20, name, fit),
-    line(37, '確認'),
-    line(54, `${esc(month)}.${esc(day)}`),
-    '</svg>',
-  ].join('');
+  return {
+    open: `<svg class="seal" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="${name} 確認 ${esc(formatDate(review.confirmed_on))}">`,
+    body: [
+      '<rect x="1" y="1" width="62" height="62" rx="6" fill="none" stroke="currentColor" stroke-width="2"/>',
+      line(20, name, fit),
+      line(37, '確認'),
+      line(54, `${esc(month)}.${esc(day)}`),
+    ].join(''),
+  };
 }
+
+const sealHtml = (review) => {
+  const { open, body } = sealParts(review);
+  return `${open}${body}</svg>`;
+};
+
+/** 手順ページの角印。ページごとに同じ図形を書かず、定義を参照する。 */
+const sealUseHtml = (review) => `${sealParts(review).open}<use href="#i-seal"/></svg>`;
 
 /** 新しく描いたオコジョ。白い体と黒い尾先。 */
 const OKOJO = [
@@ -518,7 +546,7 @@ function evidenceHtml(ctx, ids) {
   ];
   const { review } = ctx.manual;
   const state = review ? `この手順は、前任の${esc(review.reviewer)}さんが確認済みです。` : 'この手順は、前任者の確認前です。';
-  return `<div class="evidence">${review ? sealHtml(review) : ''}<p><span>${state}</span><span>もとにした情報：${sources.join('、')}</span></p></div>`;
+  return `<div class="evidence">${review ? sealUseHtml(review) : ''}<p><span>${state}</span><span>もとにした情報：${sources.join('、')}</span></p></div>`;
 }
 
 const CIRCLED = ['①', '②', '③', '④'];
@@ -527,7 +555,7 @@ function symptomPanel(ctx, page) {
   const contact = page.fallback ? ctx.contacts.get(page.fallback.contact) : null;
   const terms = pageTerms(ctx, page, contact);
   const allTerms = [...terms.steps.flat(), ...terms.rest];
-  const shownIds = [...pageStatementIds(page), ...allTerms.map((term) => term.explanation), ...(contact?.hours ? [contact.hours] : [])];
+  const shownIds = [...pageStatementIds(page), ...(contact?.hours ? [contact.hours] : [])];
   // 3部構成。部がないページは番号を詰め、見出しもそのページに合う言葉にする
   const hasFirst = page.first_steps.length > 0;
   const hasSteps = page.steps.length > 0;
@@ -543,7 +571,7 @@ function symptomPanel(ctx, page) {
   const looseBands = hasSteps ? '' : [bandsHtml(ctx, page.branches, 'branch'), bandsHtml(ctx, page.exceptions, 'exception')].filter(Boolean).join('\n');
   const backLink = `<a class="tap back" href="#tab-help">${icon('back')}<span>症状の一覧に戻る</span></a>`;
   const termsBlock = allTerms.length
-    ? `<div class="terms-block"><h3 class="sub-title">このページのことば</h3>\n<div class="terms">\n${allTerms.map((term) => termHtml(ctx, term, termAnchor(ctx, page, term))).join('\n')}\n</div></div>`
+    ? `<div class="terms-block"><h3 class="sub-title">このページのことば</h3>\n<div class="terms">\n${allTerms.map((term) => pageTermHtml(ctx, term, termAnchor(ctx, page, term))).join('\n')}\n</div></div>`
     : '';
   const parts = [
     `<article id="symptom-${esc(page.id)}" class="panel symptom" data-tab="tab-help">`,
@@ -727,11 +755,11 @@ export function renderManual(manual) {
 ${CLIENT_HEAD_SCRIPT}
 </script>
 <style>
-${STYLES}
+${compactCss(STYLES)}
 </style>
 </head>
 <body>
-${ICON_DEFS}
+${iconDefs(manual.review)}
 ${draftBand(manual)}${topbarHtml(ctx)}
 <main>
 ${introPanel(ctx)}

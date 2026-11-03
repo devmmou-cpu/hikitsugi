@@ -212,7 +212,7 @@ test('取扱説明書：1文が50字を超えると検出する（51字で失敗
 test('取扱説明書：用語集にない専門用語を検出し、載せれば合格する', () => {
   const statements = [{ id: 'STM-001', text: 'NAS を確認します。', evidence: [okInv] }];
   assert.deepEqual(scoreManual(baseManual(statements)).unexplained_terms, ['NAS']);
-  const glossary = [{ term: 'NAS', explanation: 'STM-001' }];
+  const glossary = [{ term: 'NAS', company: 'STM-001' }];
   assert.deepEqual(scoreManual(baseManual(statements, glossary)).unexplained_terms, []);
 });
 

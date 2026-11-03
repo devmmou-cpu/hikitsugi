@@ -1378,8 +1378,12 @@ details.term summary::-webkit-details-marker {
   opacity: 0;
 }
 
+details.term > dl,
 details.term > p {
   padding: 0 var(--s4) var(--s4);
+}
+
+details.term > p {
   color: var(--ink-2);
 }
 

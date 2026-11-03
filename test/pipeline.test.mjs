@@ -76,7 +76,7 @@ test('用語の説明は新しい文章として番号を続けて振り、同�
   const last = Number(manual.statements.at(-1).id.slice(4));
   const { manual: edited } = applyEdits(manual, {
     rewrites: [],
-    glossary: [{ term: '新しい語', text: '説明です。', evidence: ['INT-001'] }, { term: manual.glossary[0].term, text: '重複', evidence: ['INT-001'] }],
+    glossary: [{ term: '新しい語', one_line: '一言です。', analogy: 'たとえです。', company: '説明です。', evidence: ['INT-001'], help_page: '' }, { term: manual.glossary[0].term, one_line: '重複', analogy: '重複', company: '重複', evidence: ['INT-001'], help_page: '' }],
   });
   assert.equal(edited.glossary.length, manual.glossary.length + 1);
   assert.equal(edited.statements.at(-1).id, `STM-${String(last + 1).padStart(3, '0')}`);
@@ -86,7 +86,7 @@ test('用語の説明は新しい文章として番号を続けて振り、同�
 test('長い文と説明のない語を見つける', () => {
   assert.equal(longSentences('あ'.repeat(51) + '。').length, 1);
   assert.equal(longSentences('あ'.repeat(49) + '。').length, 0);
-  const manual = { statements: [{ id: 'STM-001', text: 'NAS と UTM を確認します。' }], glossary: [{ term: 'NAS', explanation: 'STM-002' }] };
+  const manual = { statements: [{ id: 'STM-001', text: 'NAS と UTM を確認します。' }], glossary: [{ term: 'NAS', company: 'STM-002' }] };
   assert.deepEqual(plainProblems(manual).unexplained_terms, ['UTM']);
 });
 
@@ -104,11 +104,11 @@ test('判定のない文章があれば合格にしない', () => {
 
 test('差し戻しでは前の版から用語の説明を外し、文章が増え続けないようにする', () => {
   const manual = fixture();
-  const explanation = manual.glossary[0].explanation;
-  const kept = manual.statements.find((s) => s.id !== explanation && !manual.glossary.some((g) => g.explanation === s.id)).id;
-  const revision = buildRevision(manual, [{ statement: kept, verdict: 'unsupported' }, { statement: explanation, verdict: 'unsupported' }]);
+  const company = manual.glossary[0].company;
+  const kept = manual.statements.find((s) => s.id !== company && !manual.glossary.some((g) => g.company === s.id)).id;
+  const revision = buildRevision(manual, [{ statement: kept, verdict: 'unsupported' }, { statement: company, verdict: 'unsupported' }]);
   assert.deepEqual(revision.previous_manual.glossary, []);
-  assert.ok(!revision.previous_manual.statements.some((s) => s.id === explanation));
+  assert.ok(!revision.previous_manual.statements.some((s) => s.id === company));
   assert.ok(revision.previous_manual.statements.some((s) => s.id === kept));
   assert.deepEqual(revision.findings.map((f) => f.statement), [kept]);
 });
@@ -121,7 +121,7 @@ test('差し戻しでは合格済みの用語の説明を引き継ぎ、変わ�
       { id: 'STM-003', text: '説明A', evidence: ['INT-001'] },
       { id: 'STM-004', text: '説明B', evidence: ['INT-001'] },
     ],
-    glossary: [{ term: 'A', explanation: 'STM-003' }, { term: 'B', explanation: 'STM-004' }],
+    glossary: [{ term: 'A', company: 'STM-003' }, { term: 'B', company: 'STM-004' }],
   };
   const written = {
     statements: [{ id: 'STM-001', text: '本文1', evidence: ['INT-001'] }, { id: 'STM-002', text: '直した本文2', evidence: ['INT-001'] }],
@@ -130,15 +130,15 @@ test('差し戻しでは合格済みの用語の説明を引き継ぎ、変わ�
   const { manual, changed } = carryForward(previous, [{ statement: 'STM-002' }, { statement: 'STM-004' }], written);
   assert.deepEqual(changed, ['STM-002']);
   // 指摘された説明 B だけが落ちる。文章は増えない
-  assert.deepEqual(manual.glossary, [{ term: 'A', explanation: 'STM-003' }]);
+  assert.deepEqual(manual.glossary, [{ term: 'A', company: 'STM-003' }]);
   assert.deepEqual(manual.statements.map((s) => s.id), ['STM-001', 'STM-002', 'STM-003']);
 });
 
 test('Writer が説明と同じ ID を別の文章に使っていたら、説明の番号を振り直す', () => {
-  const previous = { statements: [{ id: 'STM-001', text: '説明', evidence: ['INT-001'] }], glossary: [{ term: 'A', explanation: 'STM-001' }] };
+  const previous = { statements: [{ id: 'STM-001', text: '説明', evidence: ['INT-001'] }], glossary: [{ term: 'A', company: 'STM-001' }] };
   const written = { statements: [{ id: 'STM-001', text: '新しい本文', evidence: ['INT-001'] }], glossary: [] };
   const { manual } = carryForward(previous, [], written);
-  assert.deepEqual(manual.glossary, [{ term: 'A', explanation: 'STM-002' }]);
+  assert.deepEqual(manual.glossary, [{ term: 'A', company: 'STM-002' }]);
   assert.equal(manual.statements.find((s) => s.id === 'STM-002').text, '説明');
 });
 
@@ -185,9 +185,9 @@ const fillMissing = (previous, missing) => {
 
 const glossaryEdits = () => {
   const manual = fixture();
-  return manual.glossary.map(({ term, explanation }) => {
-    const statement = manual.statements.find((s) => s.id === explanation);
-    return { term, text: statement.text, evidence: statement.evidence };
+  return manual.glossary.map(({ term, company }) => {
+    const statement = manual.statements.find((s) => s.id === company);
+    return { term, one_line: `${term} の一言です。`, analogy: `${term} のたとえです。`, company: statement.text, evidence: statement.evidence, help_page: '' };
   });
 };
 
@@ -956,7 +956,7 @@ test('Editor は後任向けの文章と用語の説明に、退職する担当�
   const manual = fixture();
   const id = manual.statements[0].id;
   const before = manual.statements[0].text;
-  const { manual: edited, changes } = applyEdits(manual, { rewrites: [{ id, text: '田中さんの手順です。' }], glossary: [{ term: '新しい語', text: '田中さんが管理しています。', evidence: ['INT-018'] }] }, { retiree: '田中' });
+  const { manual: edited, changes } = applyEdits(manual, { rewrites: [{ id, text: '田中さんの手順です。' }], glossary: [{ term: '新しい語', one_line: '一言です。', analogy: 'たとえです。', help_page: '', company: '田中さんが管理しています。', evidence: ['INT-018'] }] }, { retiree: '田中' });
   assert.equal(edited.statements[0].text, before);
   assert.deepEqual(changes, [{ statement: id, missing: ['退職する担当者の名前'] }]);
   assert.ok(!edited.glossary.some((g) => g.term === '新しい語'));

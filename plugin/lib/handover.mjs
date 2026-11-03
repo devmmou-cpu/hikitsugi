@@ -32,7 +32,7 @@ export function summarizeVerification(verification, manual) {
  * 残すと、説明の文章が参照されないまま残り、作り直した分だけ文章が増え続けるため。
  */
 export function buildRevision(manual, findings) {
-  const glossaryIds = new Set(manual.glossary.map((entry) => entry.explanation));
+  const glossaryIds = new Set(manual.glossary.map((entry) => entry.company));
   return {
     previous_manual: { ...manual, glossary: [], statements: manual.statements.filter((statement) => !glossaryIds.has(statement.id)) },
     findings: findings.filter((finding) => !glossaryIds.has(finding.statement)),
@@ -54,8 +54,8 @@ export function carryForward(previous, findings, written) {
   const carried = [];
   const glossary = [];
   for (const entry of previous.glossary) {
-    if (flagged.has(entry.explanation)) continue;
-    const statement = before.get(entry.explanation);
+    if (flagged.has(entry.company)) continue;
+    const statement = before.get(entry.company);
     const same = current.get(statement.id);
     if (same?.text === statement.text) {
       glossary.push(entry);
@@ -68,7 +68,7 @@ export function carryForward(previous, findings, written) {
       id = `STM-${String(next).padStart(3, '0')}`;
     }
     carried.push({ ...statement, id });
-    glossary.push({ ...entry, explanation: id });
+    glossary.push({ ...entry, company: id });
   }
   const changed = written.statements
     .filter((statement) => !statement.library && before.get(statement.id)?.text !== statement.text)
