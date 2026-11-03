@@ -100,6 +100,9 @@ test('書き出した HTML のパスを、ツールの実行から探す', () =>
   assert.deepEqual(writtenHtmlPaths({ cwd, tool_name: 'Edit', tool_input: { file_path: '/a/b.mjs' } }), []);
   assert.deepEqual(writtenHtmlPaths({ cwd, tool_name: 'Bash', tool_input: { command: 'node plugin/renderer/render.mjs in.json out/manual.html' } }), ['/work/out/manual.html']);
   assert.deepEqual(writtenHtmlPaths({ cwd, tool_name: 'Bash', tool_input: { command: 'cat x.html' } }), []);
+  // 名前が引数に出ただけでは、束の出力先と取り違えない
+  assert.deepEqual(writtenHtmlPaths({ cwd, tool_name: 'Bash', tool_input: { command: 'grep -n x plugin/renderer/phone.mjs plugin/lib/page-check.mjs plugin/lib/assemble.mjs' } }), []);
+  assert.deepEqual(writtenHtmlPaths({ cwd, tool_name: 'Bash', tool_input: { command: 'node plugin/renderer/phone.mjs in.json out/phone' } }), ['/work/out/phone']);
   assert.deepEqual(writtenHtmlPaths({ cwd, tool_name: 'Bash', tool_input: { command: 'node --env-file=.env eval/pipeline.mjs --set okojo' }, tool_response: { stdout: '保存先：eval/results/r1\n' } }), ['/work/eval/results/r1/manual.html']);
   assert.deepEqual(writtenHtmlPaths({ cwd, tool_name: 'Bash', tool_input: { command: 'node "x/scripts/hikitsugi.mjs" render' } }), ['/work/hikitsugi-work/manual.html']);
 });

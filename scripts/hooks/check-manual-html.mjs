@@ -60,7 +60,8 @@ export function writtenHtmlPaths(input) {
   }
   const command = input.tool_input?.command ?? '';
   // スマホ向けの束は、出力先のフォルダを渡す
-  const bundle = command.match(/phone\.mjs["']?\s+(?:"[^"]+"|\S+)\s+(?:"([^"]+)"|([^\s;&|]+))/);
+  // 実行したときだけを見る。grep などの引数に phone.mjs の名前が出ただけのときは、出力先ではない
+  const bundle = command.match(/\bnode\b[^;&|]*?phone\.mjs["']?\s+(?:"[^"]+"|\S+)\s+(?:"([^"]+)"|([^\s;&|]+))/);
   if (bundle) return [at(bundle[1] ?? bundle[2])];
   if (!/render\.mjs|hikitsugi(?:\.mjs)?["']?\s+render|eval\/pipeline\.mjs/.test(command)) return [];
   const output = typeof input.tool_response === 'string' ? input.tool_response : `${input.tool_response?.stdout ?? ''}`;
@@ -87,7 +88,8 @@ const isPhoneFile = (path) => basename(dirname(path)) === 'phone' || /^(?:\d{2}_
 
 function checkFiles(paths) {
   let blocked = false;
-  for (const path of withPhoneBundles(paths).filter((candidate) => existsSync(candidate))) {
+  // HTML だけを調べて改名する。ほかのファイルを止めると、プログラムや文書が消えたように見える
+  for (const path of withPhoneBundles(paths).filter((candidate) => /\.html?$/i.test(candidate) && existsSync(candidate))) {
     const html = readFileSync(path, 'utf8');
     const size = fileSize(html) > PC_FILE_LIMIT ? [`上限の ${PC_FILE_LIMIT / 1024}KB を超えています`] : [];
     const problems = [...manualHtmlProblems(html), ...(isPhoneFile(path) ? phoneFileProblems(html) : size)];
