@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 // push の前に実行する秘密情報の点検。依存なし。問題があれば終了コード 1。
 // 使い方：node scripts/check-secrets.mjs [リポジトリのフォルダ]
+//         node scripts/check-secrets.mjs --files <ファイルかフォルダ>...（書き出した HTML の点検。スマホ向けの束にも使う）
 
 import { execFileSync, spawnSync } from 'node:child_process';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
 // 実際のキーの形だけを探す。E5 の評価用ダミーは対象外で、eval/lib/integrity.mjs が別に検査する。
 const SECRET_PATTERNS = [
@@ -14,6 +17,15 @@ const SECRET_PATTERNS = [
   ['環境変数への直書き', /ANTHROPIC_API_KEY\s*=\s*["']?[A-Za-z0-9_-]{8,}/],
   ['キーの代入', /(?:api[_-]?key|secret|token)["']?\s*[:=]\s*["'][A-Za-z0-9_\-]{20,}["']/i],
 ];
+
+/** 文字列にキーの形がないか調べる。値そのものは返さない。 */
+export const secretProblems = (text) => SECRET_PATTERNS.filter(([, pattern]) => pattern.test(text)).map(([label]) => `${label} の形があります`);
+
+/** 書き出したファイルを点検する。フォルダは中のファイルすべてを見る。 */
+export function checkSecretFiles(paths) {
+  const files = paths.flatMap((path) => (statSync(path).isDirectory() ? readdirSync(path).map((name) => join(path, name)).filter((file) => statSync(file).isFile()) : [path]));
+  return files.flatMap((file) => secretProblems(readFileSync(file, 'utf8')).map((problem) => `${file}: ${problem}`));
+}
 
 const SECRET_FILE = /(^|\/)(\.env(\..+)?|.*\.pem|.*\.key|id_rsa|id_ed25519)$/;
 const MUST_BE_IGNORED = ['.env', '.env.local', 'secret.pem', 'secret.key'];
@@ -53,7 +65,16 @@ export function checkSecrets(cwd) {
   return [...new Set(problems)];
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--files') {
+  const problems = checkSecretFiles(process.argv.slice(3));
+  if (problems.length) {
+    console.error('秘密情報の点検：問題があります。配らないでください。');
+    for (const problem of problems) console.error(`- ${problem}`);
+    process.exitCode = 1;
+  } else {
+    console.log('秘密情報の点検：問題なし（書き出したファイル）');
+  }
+} else if (import.meta.url === `file://${process.argv[1]}`) {
   const problems = checkSecrets(process.argv[2] ?? process.cwd());
   if (problems.length) {
     console.error('秘密情報の点検：問題があります。push しないでください。');

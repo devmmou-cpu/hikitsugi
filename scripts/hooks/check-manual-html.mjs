@@ -3,11 +3,14 @@
 // パスワードらしい文字列や、架空の形式以外の電話番号、ドメインがあれば、ファイルを .blocked に改名して止める。
 // 開発用の検査で、配布するプラグインには含めない。値そのものは表示しない。
 //
-// 単独でも使える：node scripts/hooks/check-manual-html.mjs --file <入力.html>
+// スマホ向けの束（manual.html の隣の phone/ と、phone.mjs の出力先）の全ファイルにも同じ検査をする。
+// 単独でも使える：node scripts/hooks/check-manual-html.mjs --file <入力.html またはフォルダ>
 
-import { existsSync, readFileSync, realpathSync, renameSync } from 'node:fs';
-import { isAbsolute, join, resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync, realpathSync, renameSync, statSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { secretProblems } from '../check-secrets.mjs';
+import { phoneFileProblems } from '../../plugin/renderer/phone.mjs';
 
 const CREDENTIAL = /(?:パスワード|パスコード|暗証番号|認証コード|password|passcode)(?:は|が|:|=|\s)[\s、,]*[「『"'(]?[!-~]{4,}/iu;
 const PHONE = /(?<![\d-])0\d{0,4}-\d{1,4}-\d{3,4}(?![\d-])/g;
@@ -37,6 +40,7 @@ export function manualHtmlProblems(html) {
   if (phones.length) problems.push(`架空の形式（03-0000-01xx）以外の電話番号が ${phones.length} 件あります`);
   const domains = (text.match(DOMAIN) ?? []).filter((domain) => !FILE_EXTENSION.test(domain) && !ALLOWED_DOMAIN.test(domain));
   if (domains.length) problems.push(`架空の形式（<名前>.example）以外のドメインが ${domains.length} 件あります`);
+  problems.push(...secretProblems(html));
   return problems;
 }
 
@@ -49,6 +53,9 @@ export function writtenHtmlPaths(input) {
     return /\.html?$/i.test(path) ? [at(path)] : [];
   }
   const command = input.tool_input?.command ?? '';
+  // スマホ向けの束は、出力先のフォルダを渡す
+  const bundle = command.match(/phone\.mjs["']?\s+(?:"[^"]+"|\S+)\s+(?:"([^"]+)"|([^\s;&|]+))/);
+  if (bundle) return [at(bundle[1] ?? bundle[2])];
   if (!/render\.mjs|hikitsugi(?:\.mjs)?["']?\s+render|eval\/pipeline\.mjs/.test(command)) return [];
   const output = typeof input.tool_response === 'string' ? input.tool_response : `${input.tool_response?.stdout ?? ''}`;
   const paths = [...command.matchAll(/(?:^|[\s"'=])([^\s"'=;&|]+\.html)(?=$|[\s"';&|])/g)].map((m) => at(m[1]));
@@ -59,10 +66,24 @@ export function writtenHtmlPaths(input) {
   return [...new Set(paths)];
 }
 
+const htmlIn = (dir) => (existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith('.html')).map((name) => join(dir, name)) : []);
+
+/** フォルダは中の HTML に広げる。manual.html の隣にスマホ向けの束があれば、それも含める。 */
+export function withPhoneBundles(paths) {
+  return [...new Set(paths.flatMap((path) => {
+    if (existsSync(path) && statSync(path).isDirectory()) return htmlIn(path);
+    return basename(path) === 'manual.html' ? [path, ...htmlIn(join(dirname(path), 'phone'))] : [path];
+  }))];
+}
+
+/** スマホ向けの束のファイルか。束の決まり（script、リンク、大きさ）も確かめる。 */
+const isPhoneFile = (path) => basename(dirname(path)) === 'phone' || /^(?:\d{2}_)/.test(basename(path));
+
 function checkFiles(paths) {
   let blocked = false;
-  for (const path of paths.filter((candidate) => existsSync(candidate))) {
-    const problems = manualHtmlProblems(readFileSync(path, 'utf8'));
+  for (const path of withPhoneBundles(paths).filter((candidate) => existsSync(candidate))) {
+    const html = readFileSync(path, 'utf8');
+    const problems = [...manualHtmlProblems(html), ...(isPhoneFile(path) ? phoneFileProblems(html) : [])];
     if (!problems.length) continue;
     blocked = true;
     // 問題のあるファイルを、そのまま開いたり渡したりできないようにする

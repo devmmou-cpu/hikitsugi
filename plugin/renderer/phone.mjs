@@ -1,0 +1,263 @@
+#!/usr/bin/env node
+// スマホ向けの出力。症状ごとの小さな HTML を、フォルダの束として作る。
+//
+// iPhone の OneDrive の表示では、JavaScript もページ内リンクも動かず、上から順に読むことしかできない（本人の実機）。
+// そこで OneDrive のフォルダの一覧を目次にして、1ファイルに1症状だけを置く。
+// - script も、リンクも、チェック欄も、開閉も置かない。読むだけで足りるようにする
+// - その症状で使う会社の情報の表と連絡先を、同じファイルに同梱する
+// - 電話番号、コピー欄、用語の出し方は、実機の確認を待つ仮の形（番号は大きな文字、枠は user-select: all、用語は開いたまま）
+//
+// 使い方：node plugin/renderer/phone.mjs <入力.json> <出力フォルダ>
+
+import { mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { contactProblems, pageProblems } from '../lib/page-check.mjs';
+import { actionHtml, BADGE_LABELS, CATEGORY_LABELS, checkInput, compactCss, esc, evidenceLines, infoTables, makeContext, pageTerms, stepParts } from './render.mjs';
+import { STYLES } from './styles.mjs';
+
+export const PHONE_FILE_LIMIT = 200 * 1024;
+const SYMPTOM_NAME_MAX = 30;
+const LAST_NUMBER = 99;
+const CIRCLED = ['①', '②', '③', '④'];
+
+/** 配色は PC 用と同じものを使う。暗い色は OS の設定に従う。 */
+const TOKENS = STYLES.slice(STYLES.indexOf(':root {'), STYLES.indexOf(':root[data-theme="dark"]'));
+
+const PHONE_STYLES = compactCss(`${TOKENS}
+* { box-sizing: border-box; }
+html {
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", "Noto Sans JP", system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body { margin: 0; padding: var(--s4); overflow-wrap: anywhere; }
+h1, h2, h3, p, ul, ol, dl, dd, blockquote { margin: 0; }
+.nb { white-space: nowrap; }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-size: 14px; color: var(--ink-2); }
+.chip-secret { padding: 0 var(--s2); font-size: 13px; font-weight: 700; color: var(--ink); border: 1px solid var(--ink); border-radius: 4px; }
+.draft { margin-top: var(--s3); padding: var(--s2) var(--s3); font-weight: 700; color: var(--warn-fg); background: var(--warn-bg); border-radius: 8px; }
+h1 { margin-top: var(--s4); font-size: 26px; line-height: 1.4; }
+.verdict { margin-top: var(--s3); font-size: 15px; font-weight: 700; color: var(--ink-2); }
+.verdict-text { margin-top: var(--s2); }
+.safe { margin-top: var(--s3); color: var(--ink-2); }
+.part { margin-top: var(--s6); }
+h2 { font-size: 22px; line-height: 1.4; }
+h3 { margin-top: var(--s4); font-size: 17px; }
+.first { padding: var(--s4); background: var(--card); border: 2px solid var(--accent); border-radius: 12px; }
+.first-body { margin-top: var(--s2); font-size: 19px; font-weight: 500; }
+.goal { margin-top: var(--s3); padding: var(--s2) var(--s3); color: var(--ok-fg); background: var(--ok-bg); border-radius: 8px; }
+.band { margin-top: var(--s3); padding: var(--s2) var(--s3); background: var(--card-2); border-radius: 8px; }
+.notes, .phone-steps { padding-left: 1.5em; }
+.notes li, .phone-steps li { margin-top: var(--s2); }
+.step-note { font-size: 15px; color: var(--ink-2); }
+.info-table { width: 100%; margin-top: var(--s2); font-size: 15px; border-collapse: collapse; background: var(--card); }
+.info-table th, .info-table td { padding: var(--s2); text-align: left; vertical-align: top; border: 1px solid var(--line); }
+.info-table th { white-space: nowrap; }
+.info-drive { white-space: nowrap; text-align: center; }
+code, kbd { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; }
+.contact { margin-top: var(--s3); padding: var(--s4); background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.contact-name { margin-top: 0; font-size: 19px; }
+.contact-role { display: block; font-size: 15px; font-weight: 400; color: var(--ink-2); }
+.num { margin-top: var(--s2); font-size: 26px; font-weight: 700; line-height: 1.3; letter-spacing: .02em; }
+.no-phone { margin-top: var(--s2); font-weight: 700; color: var(--danger-fg); }
+.label { margin-top: var(--s3); font-size: 15px; font-weight: 700; }
+.say { margin-top: var(--s1); padding: var(--s3) var(--s4); background: var(--card-2); border-left: 4px solid var(--line-strong); border-radius: 0 8px 8px 0; -webkit-user-select: all; user-select: all; }
+.terms dt { margin-top: var(--s3); font-weight: 700; }
+.terms dd { color: var(--ink-2); }
+.foot { margin-top: var(--s7); padding-top: var(--s3); font-size: 14px; color: var(--ink-2); border-top: 1px solid var(--line); }
+.foot p + p { margin-top: var(--s1); }
+`);
+
+/** 症状名をファイル名に使える形にする。30字で切り、使えない文字と、先頭と末尾の空白とピリオドを置き換える。 */
+export function safeSymptomName(title) {
+  const cleaned = title.normalize('NFC').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_');
+  const cut = [...cleaned].slice(0, SYMPTOM_NAME_MAX).join('');
+  return cut.replace(/^[\s.]+|[\s.]+$/g, (edge) => '_'.repeat([...edge].length));
+}
+
+/** 「番号_【判定】症状.html」の名前を作る。 */
+export const phoneFileName = (number, badge, title) => `${String(number).padStart(2, '0')}_【${BADGE_LABELS[badge]}】${safeSymptomName(title)}.html`;
+
+/** 番号は PC 版と同じ分類の順。同じ分類の中は、説明書の順のまま。 */
+function orderedPages(manual) {
+  return CATEGORY_LABELS.flatMap(([category]) => manual.symptom_pages.filter((page) => page.category === category));
+}
+
+function documentHtml(ctx, title, body, footLines = []) {
+  const { manual } = ctx;
+  return `<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title>
+<style>
+${PHONE_STYLES}
+</style>
+</head>
+<body>
+<p class="top"><span class="chip-secret">社外秘</span><span>${esc(manual.company_name)} ITの取扱説明書</span></p>
+${manual.review ? '' : '<p class="draft">下書き（前任者の確認前）</p>\n'}${body}
+<div class="foot">
+${[...footLines, 'ほかの症状は、フォルダの一覧から開いてください。'].map((line) => `<p>${line}</p>`).join('\n')}
+</div>
+</body>
+</html>
+`;
+}
+
+/** 連絡先の枠。電話番号は実機の確認まで、大きな文字のテキストにする。 */
+function contactHtml(ctx, contact, sayLabel, sayId) {
+  const parts = [
+    '<div class="contact">',
+    `<h3 class="contact-name">${esc(contact.name)}<span class="contact-role">${esc(ctx.raw(contact.role))}</span></h3>`,
+    !contact.phone && contact.id.startsWith('VEN-') ? '<p class="no-phone">電話番号の記録がありません</p>' : contact.phone ? `<p class="num">${esc(contact.phone)}</p>` : '',
+    contact.hours ? `<p>${ctx.text(contact.hours)}</p>` : '',
+    sayId ? `<p class="label">${sayLabel}</p>\n<blockquote class="say">${ctx.text(sayId)}</blockquote>` : '',
+    '</div>',
+  ];
+  return parts.filter(Boolean).join('\n');
+}
+
+function symptomHtml(ctx, page, fileTitle) {
+  const contact = page.fallback ? ctx.contacts.get(page.fallback.contact) : null;
+  const hasFirst = page.first_steps.length > 0;
+  const hasSteps = page.steps.length > 0;
+  const contactLeads = !hasFirst && !hasSteps && Boolean(contact);
+  let part = 0;
+  const number = () => CIRCLED[part++];
+  const internal = contact?.id.startsWith('INH-');
+  const bands = (ids) => ids.map((id) => `<p class="band">${ctx.text(id)}</p>`).join('\n');
+  const goal = (id) => (id ? `<p class="goal">${ctx.text(id)}</p>` : '');
+  const list = (ids) => ids.map((id) => {
+    const [body, note] = stepParts(ctx.raw(id));
+    return `<li>${actionHtml(body, ctx.words)}${note ? `<p class="step-note">${actionHtml(note, ctx.words)}</p>` : ''}</li>`;
+  }).join('\n');
+
+  // 番号は読む順に振るので、上から順に組み立てる
+  const contactPart = () => {
+    if (!contact) return '';
+    const heading = hasFirst || hasSteps ? 'それでもだめなら' : internal ? '相談してください' : '連絡してください';
+    return `<section class="part">\n<h2>${number()} ${heading}</h2>\n${contactHtml(ctx, contact, internal ? '相談のときに伝える文面' : '業者に送る文面', page.fallback.message)}\n</section>`;
+  };
+  const leading = contactLeads ? contactPart() : '';
+  const first = hasFirst
+    ? `<section class="part first">\n<h2>${number()} まずこれだけ</h2>\n${page.first_steps.map((id) => `<p class="first-body">${actionHtml(ctx.raw(id), ctx.words)}</p>`).join('\n')}\n${goal(page.first_goal)}\n</section>`
+    : '';
+  const notes = page.notes.length ? `<section class="part">\n<h2>先に知っておくこと</h2>\n<ul class="notes">\n${page.notes.map((id) => `<li>${ctx.text(id)}</li>`).join('\n')}\n</ul>\n</section>` : '';
+  const info = page.info_rows.length ? `<section class="part">\n<h2>この症状で使う会社の情報</h2>\n${infoTables(ctx, page)}\n</section>` : '';
+  const steps = hasSteps
+    ? `<section class="part">\n<h2>${number()} ${hasFirst ? 'それでも直らなければ' : 'やること'}</h2>\n${bands(page.branches)}\n<ol class="phone-steps">\n${list(page.steps)}\n</ol>\n${goal(page.goal)}\n${bands(page.exceptions)}\n</section>`
+    : [bands(page.branches), bands(page.exceptions)].filter(Boolean).join('\n');
+  const closing = contactLeads ? '' : contactPart();
+  const noContact = contact ? '' : '<section class="part">\n<h2>連絡先</h2>\n<p>連絡先は、フォルダの中の 00_連絡先 を開いてください。</p>\n</section>';
+
+  const terms = pageTerms(ctx, page, contact);
+  const allTerms = [...terms.steps.flat(), ...terms.rest];
+  const termsPart = allTerms.length
+    ? `<section class="part terms">\n<h2>このページのことば</h2>\n<dl>\n${allTerms.map((term) => `<dt>${esc(term.term)}</dt>\n<dd>${esc(term.one_line)}</dd>`).join('\n')}\n</dl>\n</section>`
+    : '';
+
+  const body = [
+    `<h1>${ctx.text(page.title)}</h1>`,
+    `<p class="verdict">${esc(BADGE_LABELS[page.badge.value])}　目安 約${esc(page.minutes)}分</p>`,
+    `<p class="verdict-text">${ctx.text(page.badge.statement)}</p>`,
+    `<p class="safe">${ctx.text(page.reassurance)}</p>`,
+    leading,
+    first,
+    notes,
+    info,
+    steps,
+    closing,
+    noContact,
+    termsPart,
+  ].filter(Boolean).join('\n');
+  const shown = [page.title, page.badge.statement, page.reassurance, ...page.first_steps, ...page.steps, ...page.notes, ...page.info_rows, ...page.branches, ...page.exceptions, ...(page.fallback ? [page.fallback.message] : [])];
+  return documentHtml(ctx, fileTitle, body, evidenceLines(ctx, shown));
+}
+
+/** 連絡先の一覧。まず誰に言うかの順に、社内の相談先を先に並べる。 */
+function contactsHtml(ctx, heading, lead, fileTitle) {
+  const { contacts } = ctx.manual;
+  const inside = contacts.filter((c) => c.id.startsWith('INH-'));
+  const vendors = contacts.filter((c) => !c.id.startsWith('INH-'));
+  const card = (c) => {
+    const location = c.contract_location ? `<p class="label">契約番号の控えの場所</p>\n<p>${ctx.text(c.contract_location)}</p>\n` : '';
+    return contactHtml(ctx, c, c.id.startsWith('INH-') ? '相談のときに伝えること' : '電話で伝えること', c.what_to_tell).replace(/<\/div>$/, `${location}</div>`);
+  };
+  const body = [
+    `<h1>${heading}</h1>`,
+    `<p class="verdict-text">${lead}</p>`,
+    inside.length ? `<section class="part">\n<h2>まず社内に相談</h2>\n${inside.map(card).join('\n')}\n</section>` : '',
+    vendors.length ? `<section class="part">\n<h2>業者</h2>\n${vendors.map(card).join('\n')}\n</section>` : '',
+    contacts.length ? '' : '<p>連絡先は、まだこの説明書に入っていません。</p>',
+  ].filter(Boolean).join('\n');
+  return documentHtml(ctx, fileTitle, body);
+}
+
+/** 1ファイルの問題を返す。外へ出ない、ほかへ飛ばない、大きすぎない。 */
+export function phoneFileProblems(html) {
+  const problems = [];
+  if (Buffer.byteLength(html) > PHONE_FILE_LIMIT) problems.push(`上限の ${PHONE_FILE_LIMIT / 1024}KB を超えています`);
+  if (/<script\b/i.test(html)) problems.push('script があります');
+  if (/<a\b|\bhref\s*=/i.test(html)) problems.push('リンクがあります');
+  if (/<(?:input|details|button|iframe|img|link|svg)\b/i.test(html)) problems.push('操作する部品か、読み込む部品があります');
+  if (/\bsrc\s*=|url\s*\(|@import/i.test(html)) problems.push('外部を読み込む指定があります');
+  return problems;
+}
+
+/**
+ * スマホ向けのファイルの一覧を作る。{ name, html } の配列で、並びはフォルダの一覧と同じ。
+ * 入力か出力に問題があれば、例外を投げて1つも作らない。
+ */
+export function renderPhoneBundle(manual) {
+  checkInput(manual);
+  const shape = [...pageProblems(manual), ...contactProblems(manual)];
+  if (shape.length) throw new Error(`手順ページの形に問題があります:\n${shape.map((p) => `- ${p}`).join('\n')}`);
+  const pages = orderedPages(manual);
+  if (pages.length >= LAST_NUMBER) throw new Error(`症状が多すぎて、番号が 99 に届きます（${pages.length} ページ）`);
+
+  const ctx = makeContext(manual);
+  const bundle = [
+    { name: '00_連絡先.html', html: contactsHtml(ctx, '連絡先', '困ったときに連絡する相手です。', '連絡先') },
+    ...pages.map((page, index) => {
+      const title = ctx.raw(page.title);
+      return { name: phoneFileName(index + 1, page.badge.value, title), html: symptomHtml(ctx, page, title) };
+    }),
+    { name: '99_当てはまる症状がないとき.html', html: contactsHtml(ctx, '当てはまる症状がないとき', '次の相手に、困っていることをそのまま伝えてください。', '当てはまる症状がないとき') },
+  ];
+  const problems = bundle.flatMap(({ name, html }) => phoneFileProblems(html).map((problem) => `${name}: ${problem}`));
+  if (problems.length) throw new Error(`スマホ向けのファイルに問題があります:\n${problems.map((p) => `- ${p}`).join('\n')}`);
+  return bundle;
+}
+
+/** フォルダを作り直して書き出す。古い症状のファイルが残らないようにする。 */
+export function writePhoneBundle(manual, dir) {
+  const bundle = renderPhoneBundle(manual);
+  mkdirSync(dir, { recursive: true });
+  for (const name of readdirSync(dir)) if (/\.html(?:\.blocked)?$/.test(name)) rmSync(join(dir, name));
+  for (const { name, html } of bundle) writeFileSync(join(dir, name), html);
+  return bundle;
+}
+
+function main(args) {
+  if (args.length !== 2) {
+    console.error('使い方: node plugin/renderer/phone.mjs <入力.json> <出力フォルダ>');
+    return 2;
+  }
+  try {
+    const bundle = writePhoneBundle(JSON.parse(readFileSync(args[0], 'utf8')), resolve(args[1]));
+    console.log(`スマホ向けのファイルを作りました：${resolve(args[1])}（${bundle.length} ファイル）`);
+  } catch (error) {
+    console.error(`入力に問題があります: ${error.message}`);
+    return 1;
+  }
+  return 0;
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) process.exitCode = main(process.argv.slice(2));

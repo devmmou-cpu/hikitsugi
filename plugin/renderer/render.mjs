@@ -16,7 +16,7 @@ import { STYLES } from './styles.mjs';
 const SCHEMA = JSON.parse(readFileSync(new URL('../schemas/manual.schema.json', import.meta.url), 'utf8'));
 
 // ---- 画面の固定の文言 ----
-const BADGE_LABELS = { self: '自分で直せる', check_first: '確認してから', vendor: '業者へ連絡', internal: '社内で相談' };
+export const BADGE_LABELS = { self: '自分で直せる', check_first: '確認してから', vendor: '業者へ連絡', internal: '社内で相談' };
 
 // 凡例の短い説明。バッジの意味を「はじめに」で一度だけ伝える
 const BADGE_MEANINGS = {
@@ -26,7 +26,7 @@ const BADGE_MEANINGS = {
   internal: '社内の人に聞きます',
 };
 
-const CATEGORY_LABELS = [
+export const CATEGORY_LABELS = [
   ['net', 'インターネット'],
   ['print_scan', '印刷とスキャン'],
   ['file', 'ファイル'],
@@ -70,7 +70,7 @@ const icon = (name, extra = '') => `<svg class="icon${extra ? ` ${extra}` : ''}"
 const iconDefs = (review) => `<svg class="icon-defs" width="0" height="0" role="presentation">${Object.entries({ ...ICONS, minus: '<path d="M5 12h14"/>', 'plus-v': '<path d="M12 5v14"/>' }).map(([name, shape]) => `<symbol id="i-${name}" viewBox="0 0 24 24">${shape}</symbol>`).join('')}${review ? `<symbol id="i-seal" viewBox="0 0 64 64">${sealParts(review).body}</symbol>` : ''}</svg>`;
 
 /** CSS のコメント、字下げ、空行を除く。ファイルの上限のため。値は変えない。 */
-const compactCss = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]+/gm, '').replace(/\n{2,}/g, '\n');
+export const compactCss = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]+/gm, '').replace(/\n{2,}/g, '\n');
 
 /** 開閉の印。縦の線を CSS で消して「＋」と「−」を切り替える。 */
 const PLUS_MINUS = '<svg class="icon plus" role="presentation"><use href="#i-minus"/><use class="plus-v" href="#i-plus-v"/></svg>';
@@ -87,7 +87,7 @@ const TABS = [
 
 // ---- 文字の扱い ----
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ESCAPES[c]);
+export const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ESCAPES[c]);
 
 /** 2026-11-05 を 2026年11月5日 にする。文字列のまま変換する。 */
 function formatDate(isoDate) {
@@ -99,7 +99,7 @@ function formatDate(isoDate) {
  * 文章を HTML にする。\\ で始まる接続先は、見ながら入力する値なので、コードの形で示す。
  * 文字は変えない（タグを除けば元の文章のまま。コピーする文面も変わらない）。
  */
-function statementHtml(text, words) {
+export function statementHtml(text, words) {
   return wrapWords(pathsHtml(esc(text)), words);
 }
 
@@ -128,7 +128,7 @@ function wrapWords(html, words) {
 }
 
 /** 操作の文の中のキーの名前を kbd で囲む。文字は変えない。 */
-const actionHtml = (text, words) => wrapWords(pathsHtml(esc(text)).replace(/(?<![A-Za-z0-9-])([A-Z][A-Za-z0-9]*) (のキー|キー)/g, (_, key, rest) => `<kbd>${key}</kbd> ${rest}`), words);
+export const actionHtml = (text, words) => wrapWords(pathsHtml(esc(text)).replace(/(?<![A-Za-z0-9-])([A-Z][A-Za-z0-9]*) (のキー|キー)/g, (_, key, rest) => `<kbd>${key}</kbd> ${rest}`), words);
 
 /** 語が使われているか。英数字の語は単語の境界で判定する（NAS が別の英単語の一部に当たらないように）。 */
 function usesTerm(text, term) {
@@ -193,7 +193,7 @@ function referencedStatements(manual) {
   ];
 }
 
-function checkInput(manual) {
+export function checkInput(manual) {
   const errors = validate(SCHEMA, manual);
   if (errors.length) throw new Error(`入力の形式が違います:\n${errors.map((e) => `- ${e}`).join('\n')}`);
 
@@ -399,7 +399,7 @@ const pickPromptHtml = () =>
  * 手順ページに添える用語を選ぶ。同じ用語はページの中で最初の1回だけ。
  * 手順で使う語はその手順の下からリンクし、説明はすべてページの最後に置く。
  */
-function pageTerms(ctx, page, contact) {
+export function pageTerms(ctx, page, contact) {
   const shown = new Set();
   const pick = (id) => {
     const terms = termsInText(ctx.manual.glossary, ctx.raw(id)).filter((g) => !shown.has(g.term));
@@ -434,7 +434,7 @@ function notesHtml(ctx, page, leading) {
 }
 
 /** この症状で使う会社の情報。値は検証した文章から読む。本文と右の列で同じものを出す。 */
-function infoTables(ctx, page) {
+export function infoTables(ctx, page) {
   const rows = page.info_rows.map((id) => parseInfoRow(ctx.raw(id)));
   const drives = rows.filter((row) => row.type === 'drive');
   const values = rows.filter((row) => row.type === 'value');
@@ -453,7 +453,7 @@ function infoHtml(ctx, page) {
 }
 
 /** 部品の補足は、手順の下に分けて出す。チェックの対象は最初の1文の操作だけ。 */
-function stepParts(text) {
+export function stepParts(text) {
   const end = text.indexOf('。');
   return end < 0 || end === text.length - 1 ? [text, ''] : [text.slice(0, end + 1), text.slice(end + 1)];
 }
@@ -535,7 +535,7 @@ function railHtml(ctx, page, contact, leading) {
 }
 
 /** ページに表示した記述の根拠から、確かめ方の一文を作る。as_of は調査の日付で、確認の日付とは別のもの。 */
-function evidenceHtml(ctx, ids) {
+export function evidenceLines(ctx, ids) {
   const evidence = ids.flatMap((id) => ctx.statements.get(id).evidence);
   const has = (prefix) => evidence.some((ref) => ref.startsWith(prefix));
   const sources = [
@@ -546,7 +546,13 @@ function evidenceHtml(ctx, ids) {
   ];
   const { review } = ctx.manual;
   const state = review ? `この手順は、前任の${esc(review.reviewer)}さんが確認済みです。` : 'この手順は、前任者の確認前です。';
-  return `<div class="evidence">${review ? sealUseHtml(review) : ''}<p><span>${state}</span><span>もとにした情報：${sources.join('、')}</span></p></div>`;
+  return [state, `もとにした情報：${sources.join('、')}`];
+}
+
+function evidenceHtml(ctx, ids) {
+  const { review } = ctx.manual;
+  const [state, sources] = evidenceLines(ctx, ids);
+  return `<div class="evidence">${review ? sealUseHtml(review) : ''}<p><span>${state}</span><span>${sources}</span></p></div>`;
 }
 
 const CIRCLED = ['①', '②', '③', '④'];
@@ -732,20 +738,24 @@ function searchIndexHtml({ search_index: index, statements, symptom_pages: pages
   return `<script type="application/json" id="search-index">${JSON.stringify(rows).replace(/</g, '\\u003c')}</script>\n`;
 }
 
-/** 取扱説明書の中身から HTML の文字列を作る。入力に異常があれば例外を投げる。 */
-export function renderManual(manual) {
-  checkInput(manual);
-
+/** 画面を組み立てるときに使う、文章と連絡先の引き方。 */
+export function makeContext(manual) {
   const statements = new Map(manual.statements.map((s) => [s.id, s]));
-  const ctx = {
+  const words = wordPattern(manual.glossary);
+  return {
     manual,
     statements,
     contacts: new Map(manual.contacts.map((c) => [c.id, c])),
     raw: (id) => statements.get(id).text,
-    words: wordPattern(manual.glossary),
-    text: (id) => statementHtml(statements.get(id).text, wordPattern(manual.glossary)),
+    words,
+    text: (id) => statementHtml(statements.get(id).text, words),
   };
+}
 
+/** 取扱説明書の中身から HTML の文字列を作る。入力に異常があれば例外を投げる。 */
+export function renderManual(manual) {
+  checkInput(manual);
+  const ctx = makeContext(manual);
   const company = esc(manual.company_name);
   return `<!doctype html>
 <html lang="ja" class="no-js" data-company="${esc(manual.company)}">

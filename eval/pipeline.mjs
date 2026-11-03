@@ -12,6 +12,7 @@ import { applyRetireeCheck } from '../plugin/lib/retiree-check.mjs';
 import { withSearchIndex } from '../plugin/lib/search-index.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
+import { writePhoneBundle } from '../plugin/renderer/phone.mjs';
 import { clientOf, runGapFinderLive, runVerifierLive } from './lib/adapters/live.mjs';
 import { UsageError } from './lib/adapters/errors.mjs';
 import { runInterviewLive } from './lib/interview-loop.mjs';
@@ -151,6 +152,7 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
         }
         const { manual: forRender, omitted } = prepared;
         writeFileSync(join(dir, 'manual.html'), renderManual(forRender));
+        writePhoneBundle(forRender, join(dir, 'phone'));
         return finish('passed', { resends: round - 1, omitted });
       }
       revision = buildRevision(manual, result.findings);

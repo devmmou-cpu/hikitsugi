@@ -3,6 +3,7 @@
 // 依存なし。インストール済みの Chrome を、Node 標準の WebSocket で操作する。外部へは通信しない。
 //
 // 使い方：node scripts/screenshots.mjs <入力.html> <出力フォルダ>
+//         node scripts/screenshots.mjs <スマホ向けの束のフォルダ> <出力フォルダ>（JavaScript なしで全ファイルを撮る）
 // 環境変数 CHROME_PATH で Chrome の場所を変えられる。
 // 終了コード：0＝成功、1＝画面の検査で問題あり（理由を表示）、2＝引数の誤りや Chrome の起動失敗
 //
@@ -12,11 +13,12 @@
 // 仕様（docs/design/visual-spec.md）の値を測る。一覧は scripts/visual-spec-checks.mjs にある。
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CHECKS, COLOR_CHECKS, VIEWPORTS } from './visual-spec-checks.mjs';
+import { phoneFileProblems } from '../plugin/renderer/phone.mjs';
 
 // 長いページは分割して撮る。1枚が大きすぎると Chrome が応答しなくなるため
 const SLICE_HEIGHT = 5000;
@@ -177,6 +179,69 @@ const MEASURE = `(() => {
   return JSON.stringify({ overflow, wide, layout: [...new Set(layout)], small: [...new Set(small)].slice(0, 10), lowContrast: [...new Set(lowContrast)].slice(0, 10), brokenWords: [...new Set(brokenWords)].slice(0, 10), low: [...new Set(low)].slice(0, 10), height: Math.ceil(Math.max(root.scrollHeight, document.body.scrollHeight)) });
 })()`;
 
+/** スマホ向けの束を撮る。iPhone の OneDrive と同じ条件にするため、JavaScript を止める。 */
+async function shootBundle(input, output, chromePath) {
+  const names = readdirSync(input).filter((name) => name.endsWith('.html')).sort();
+  if (!names.length) throw new Usage(`HTML がありません：${input}`);
+  const { endpoint, stop } = await launchChrome(chromePath);
+  const problems = [];
+  const shots = [];
+  try {
+    const browser = await connect(endpoint);
+    const { targetId } = await browser.send('Target.createTarget', { url: 'about:blank' });
+    const { sessionId } = await browser.send('Target.attachToTarget', { targetId, flatten: true });
+    const page = (method, params) => browser.send(method, params, sessionId);
+    browser.on('Network.requestWillBeSent', ({ request }) => {
+      if (!/^(file|data|about):/.test(request.url)) problems.push(`外部への読み込みがあります：${request.url}`.slice(0, 200));
+    });
+    await page('Page.enable');
+    await page('Runtime.enable');
+    await page('Network.enable');
+    await page('Network.setBlockedURLs', { urls: ['http://*', 'https://*'] });
+    await page('Emulation.setScriptExecutionDisabled', { value: true });
+    const evaluate = async (expression) => (await page('Runtime.evaluate', { expression, returnByValue: true })).result.value;
+    const settle = () => new Promise((done) => setTimeout(done, 200));
+    for (const name of names) {
+      const path = join(input, name);
+      for (const problem of phoneFileProblems(readFileSync(path, 'utf8'))) problems.push(`${name}：${problem}`);
+      const number = name.slice(0, 2);
+      await page('Page.navigate', { url: pathToFileURL(path).href });
+      await settle();
+      // 小さい iPhone の幅でも、はみ出さないこと
+      await page('Emulation.setDeviceMetricsOverride', { width: 320, height: 640, deviceScaleFactor: 2, mobile: true });
+      await settle();
+      const narrow = JSON.parse(await evaluate(MEASURE));
+      if (narrow.overflow > 0) problems.push(`${name} 320px：横にはみ出しています（${narrow.overflow}px）${narrow.wide.join('、')}`);
+      await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 2, mobile: true });
+      for (const theme of ['light', 'dark']) {
+        await page('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] });
+        await settle();
+        const metrics = JSON.parse(await evaluate(MEASURE));
+        const label = `${name} ${theme}`;
+        if (metrics.overflow > 0) problems.push(`${label}：横にはみ出しています（${metrics.overflow}px）${metrics.wide.join('、')}`);
+        if (metrics.small.length) problems.push(`${label}：小さすぎる文字があります ${metrics.small.join('、')}`);
+        if (metrics.lowContrast.length) problems.push(`${label}：コントラスト比が 4.5 未満の文字があります ${metrics.lowContrast.join('、')}`);
+        if (metrics.brokenWords.length) problems.push(`${label}：語の途中で折り返しています ${metrics.brokenWords.join('、')}`);
+        const { data } = await page('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width: 375, height: Math.min(metrics.height, 8000), scale: 1 } });
+        writeFileSync(join(output, `${number}-${theme}.png`), Buffer.from(data, 'base64'));
+        shots.push(`${number}-${theme}`);
+      }
+    }
+    browser.close();
+  } finally {
+    await stop();
+  }
+  writeFileSync(join(output, 'report.json'), JSON.stringify({ files: names, shots, problems }, null, 2) + '\n');
+  console.log(`撮影しました：${names.length} ファイル、${shots.length} 枚（${output}）`);
+  if (problems.length) {
+    console.error(`画面の検査で問題が ${problems.length} 件あります：`);
+    for (const problem of problems) console.error(`- ${problem}`);
+    return 1;
+  }
+  console.log('画面の検査：問題なし（JavaScript なし、外部読み込みなし、リンクなし、200KB 以内、横のはみ出し、文字の大きさ、コントラスト）');
+  return 0;
+}
+
 async function main([inputArg, outputArg]) {
   if (!inputArg || !outputArg) throw new Usage('使い方：node scripts/screenshots.mjs <入力.html> <出力フォルダ>');
   const input = resolve(inputArg);
@@ -185,6 +250,7 @@ async function main([inputArg, outputArg]) {
   mkdirSync(output, { recursive: true });
   const chromePath = process.env.CHROME_PATH ?? DEFAULT_CHROME;
   if (!existsSync(chromePath)) throw new Usage(`Chrome が見つかりません：${chromePath}`);
+  if (statSync(input).isDirectory()) return shootBundle(input, output, chromePath);
 
   const url = pathToFileURL(input).href;
   const { endpoint, stop } = await launchChrome(chromePath);
@@ -417,7 +483,7 @@ async function main([inputArg, outputArg]) {
     // 印刷の見え方
     await go('');
     // PDF は分割で受け取る。1回の応答には上限（4MiB）があり、超えると返事が来ないため
-    const { stream } = await page('Page.printToPDF', { printBackground: false, paperWidth: 8.27, paperHeight: 11.69, transferMode: 'ReturnAsStream' });
+    const { stream } = await page('Page.printToPDF', { printBackground: false, paperWidth: 8.27, paperHeight: 11.69, generateTaggedPDF: true, generateDocumentOutline: true, transferMode: 'ReturnAsStream' });
     const chunks = [];
     for (;;) {
       const { data, base64Encoded, eof } = await page('IO.read', { handle: stream, size: 1024 * 1024 });

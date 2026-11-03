@@ -18,6 +18,7 @@ import { composeProcedures, libraryForAgents } from '../lib/procedures.mjs';
 import { appendEntry, appendReviewEntry, checkNextQuestion, emptyTranscript, interviewProgress, QUESTION_LIMIT } from '../lib/transcript.mjs';
 import { validate } from '../lib/validate.mjs';
 import { renderManual } from '../renderer/render.mjs';
+import { writePhoneBundle } from '../renderer/phone.mjs';
 
 const PLUGIN = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const MAX_RESENDS = 2;
@@ -423,6 +424,7 @@ function reviewOk(work, [pageId]) {
   const today = new Date().toLocaleDateString('sv');
   writeJson(finalPath, checkSchema('manual', markReviewed(manual, state.review.reviewer, today)));
   rmSync(join(work, 'manual.html'), { force: true });
+  rmSync(join(work, 'phone'), { recursive: true, force: true });
   writeJson(join(work, 'state.json'), { ...state, review: { ...state.review, pages, done: true, confirmed_on: today } });
   return '全ページの確認が終わりました';
 }
@@ -472,7 +474,9 @@ function render(work, [outPath]) {
   const target = resolve(outPath ?? join(work, 'manual.html'));
   writeFileSync(target, renderManual(manual));
   if (target !== resolve(join(work, 'manual.html'))) writeFileSync(join(work, 'manual.html'), renderManual(manual));
-  const notes = [manual.review ? `取扱説明書を作りました：${target}` : `下書きを作りました：${target}`];
+  const phoneDir = join(dirname(target), 'phone');
+  const bundle = writePhoneBundle(manual, phoneDir);
+  const notes = [manual.review ? `取扱説明書を作りました：${target}` : `下書きを作りました：${target}`, `スマホ向けのファイル：${phoneDir}（${bundle.length} ファイル）`];
   if (omitted.routines || omitted.devices) notes.push(`表示プログラムが未対応のため外した項目：定期作業 ${omitted.routines} 件、機器 ${omitted.devices} 件`);
   return notes.join('\n');
 }
