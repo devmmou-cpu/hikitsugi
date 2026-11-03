@@ -4,6 +4,8 @@
 //
 // 使い方：node scripts/screenshots.mjs <入力.html> <出力フォルダ>
 //         node scripts/screenshots.mjs <スマホ向けの束のフォルダ> <出力フォルダ>（JavaScript なしで全ファイルを撮る）
+//         どちらも --baseline <前回の出力フォルダ> を付けると、前回と画素で比べ、変わった画像の名前を表示する（comparison.json）。
+//         差分は問題とは数えない。意図した変更でも出るので、名前を見て判断する
 // 環境変数 CHROME_PATH で Chrome の場所を変えられる。
 // 終了コード：0＝成功、1＝画面の検査で問題あり（理由を表示）、2＝引数の誤りや Chrome の起動失敗
 //
@@ -17,6 +19,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { compareAndReport } from './compare-shots.mjs';
 import { CHECKS, COLOR_CHECKS, VIEWPORTS } from './visual-spec-checks.mjs';
 import { phoneFileProblems } from '../plugin/renderer/phone.mjs';
 
@@ -643,7 +646,17 @@ async function main([inputArg, outputArg]) {
 }
 
 try {
-  process.exitCode = await main(process.argv.slice(2));
+  const args = process.argv.slice(2);
+  const at = args.indexOf('--baseline');
+  const baseline = at >= 0 ? args[at + 1] : null;
+  const rest = at >= 0 ? args.filter((_, index) => index !== at && index !== at + 1) : args;
+  if (at >= 0 && (!baseline || !existsSync(baseline))) {
+    console.error('--baseline には、前回の出力フォルダを指定してください');
+    process.exitCode = 2;
+  } else {
+    process.exitCode = await main(rest);
+    if (baseline && process.exitCode !== 2) compareAndReport(rest[1], baseline);
+  }
 } catch (error) {
   if (!(error instanceof Usage)) throw error;
   console.error(error.message);
