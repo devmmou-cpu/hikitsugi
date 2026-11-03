@@ -39,7 +39,7 @@
     { "id": "LIB-026", "use_for": "コピーしたファイルの数を確かめるとき", "text": "フォルダーを右クリックして、「プロパティ」を選んでください。「内容」の欄に、ファイルの数が出ます。", "kinds": ["steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" },
     { "id": "LIB-027", "use_for": "感染が疑われる PC を Wi-Fi から切るとき。LIB-010 のあとに使う", "text": "「Wi-Fi」のボタンを押して、色のない状態にしてください。", "kinds": ["first_steps", "steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" },
     { "id": "LIB-028", "use_for": "OneDrive の同期を再開するとき", "text": "画面の右下にある、雲のマークを押してください。見つからないときは、「^」を押すと出てきます。", "kinds": ["first_steps", "steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" },
-    { "id": "LIB-029", "use_for": "OneDrive の同期を再開するとき", "text": "「同期の再開」を押してください。", "kinds": ["first_steps", "steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" },
+    { "id": "LIB-029", "use_for": "OneDrive の同期を再開するとき", "text": "画面右下の雲のマークを押し、右上の歯車を押して、「同期の再開」を押してください。", "kinds": ["first_steps", "steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" },
     { "id": "LIB-030", "use_for": "電話番号の記録がない業者に連絡するとき。そのページの手順の先頭に使う", "text": "請求書や契約書で、電話番号を確かめてください。", "kinds": ["steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" }
   ]
 }

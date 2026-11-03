@@ -1,6 +1,6 @@
 // 取扱説明書を表示プログラムへ渡す前の処理。/hikitsugi:start と評価の両方で使う。
 
-import { withoutPcNotes, withoutReplies } from './reply.mjs';
+import { withoutPcNotes, withoutReplies, withReplies } from './reply.mjs';
 import { loadLibrary, unapprovedParts } from './procedures.mjs';
 
 /** 未承認の部品が使われているときの例外。 */
@@ -15,7 +15,20 @@ export class UnapprovedPartsError extends Error {
 export function prepareForRender(manual, library = loadLibrary()) {
   const unapproved = unapprovedParts(manual, library);
   if (unapproved.length) throw new UnapprovedPartsError(unapproved);
-  return { manual, omitted: { routines: 0, devices: 0, statements: 0 } };
+  return { ...withCurrentParts(manual, library), omitted: { routines: 0, devices: 0, statements: 0 } };
+}
+
+/**
+ * 保存した説明書の部品の文面を、いまの承認済みの文面にそろえ、部品を写した文（社員に返す文、業者に伝える文）を組み直す。
+ * 本人が部品の文面を直したあと、古い文面の説明書を作らないため。部品が同じなら、何も変えない。
+ */
+function withCurrentParts(manual, library) {
+  const texts = new Map(library.procedures.map((part) => [part.id, part.text]));
+  const isStale = (statement) => texts.has(statement.library) && statement.text !== texts.get(statement.library);
+  const stale = manual.statements.filter(isStale);
+  if (!stale.length) return { manual, updatedParts: [] };
+  const statements = manual.statements.map((statement) => (isStale(statement) ? { ...statement, text: texts.get(statement.library) } : statement));
+  return { manual: withReplies({ ...manual, statements }, library), updatedParts: [...new Set(stale.map((statement) => statement.library))].sort() };
 }
 
 /** 検証結果を判定ごとに数え、指摘の一覧を返す。 */
