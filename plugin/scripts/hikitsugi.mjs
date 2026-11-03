@@ -11,6 +11,7 @@ import { assembleManual, checkCommon, checkPage, commonSchema, mergeRewritten, o
 import { buildRevision, carryForward, markReviewed, mergeVerification, prepareForRender, summarizeVerification, UnapprovedPartsError, verificationScope } from '../lib/handover.mjs';
 import { bodyFields } from '../lib/page-check.mjs';
 import { plainProblems } from '../lib/plain-check.mjs';
+import { applyRetireeCheck } from '../lib/retiree-check.mjs';
 import { composeProcedures, libraryForAgents } from '../lib/procedures.mjs';
 import { appendEntry, appendReviewEntry, checkNextQuestion, emptyTranscript, QUESTION_LIMIT } from '../lib/transcript.mjs';
 import { validate } from '../lib/validate.mjs';
@@ -72,16 +73,16 @@ function writerParts(work, state, round) {
   return ['common', ...(existsSync(common) ? readJson(common).page_plan.map((entry) => entry.id) : [])];
 }
 
-function init(work, [surveyPath, ...nameParts]) {
+function init(work, [surveyPath, retiree, ...nameParts]) {
   const companyName = nameParts.join(' ').trim();
-  if (!surveyPath || !companyName) throw new UsageError('使い方：init <調査データ.json> <会社名>');
+  if (!surveyPath || !retiree || !companyName) throw new UsageError('使い方：init <調査データ.json> <退職する人の名前> <会社名>');
   const survey = checkSchema('survey', readJson(resolve(surveyPath)));
   mkdirSync(work, { recursive: true });
   writeJson(join(work, 'survey.json'), survey);
   writeJson(join(work, 'checklist.json'), readJson(join(PLUGIN, 'checklist/handover-items.json')));
   writeJson(join(work, 'library.json'), libraryForAgents());
   writeJson(join(work, 'transcript.json'), emptyTranscript(survey.company));
-  writeJson(join(work, 'state.json'), { company: survey.company, company_name: companyName, round: 1, interview_done: false, passed: false });
+  writeJson(join(work, 'state.json'), { company: survey.company, company_name: companyName, retiree, round: 1, interview_done: false, passed: false });
   return `準備ができました（調査データ ${survey.items.length} 件）`;
 }
 
@@ -168,7 +169,7 @@ function writerTask(work, [round, part]) {
       task = { part: 'page', entry, contacts: contactsForPages(previous.statements, previous.contacts), revision };
     }
   }
-  writeJson(join(work, 'writer-task.json'), task);
+  writeJson(join(work, 'writer-task.json'), { ...task, retiree: state.retiree });
   return `${part} を書く準備ができました（writer-task.json）`;
 }
 
@@ -291,7 +292,8 @@ function checkVerification(work, [round]) {
     const inScope = new Set(scope);
     results = mergeVerification(readJson(join(work, `verification-${Number(round) - 1}.json`)), raw.results.filter((result) => inScope.has(result.statement)), manual, scope).results;
   }
-  const verification = { schema_version: 1, company: state.company, round: Number(round), results };
+  // 退職する担当者を連絡先にしている文章は、AI の判定によらず文字列の照合で「危険」にする
+  const { verification } = applyRetireeCheck({ schema_version: 1, company: state.company, round: Number(round), results }, manual, state.retiree);
   checkSchema('verification', verification);
   writeJson(path, verification);
   const result = summarizeVerification(verification, manual);

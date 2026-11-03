@@ -28,8 +28,8 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/hikitsugi.mjs" <コマンド>
 ## 段階
 
 ### init
-1. 調査データのファイルのパスと、会社名を聞きます。
-2. `hikitsugi init <調査データ> <会社名>` を実行します。
+1. 調査データのファイルのパス、退職する人の名前、会社名を聞きます。
+2. `hikitsugi init <調査データ> <退職する人の名前> <会社名>` を実行します。
 
 ### gap-finder
 `hikitsugi:gap-finder` に次を依頼します。
@@ -73,14 +73,14 @@ Writer は1回に1つの部分だけを書きます。`status` の `round` と `
 
 ### verifier
 `hikitsugi:verifier` に次を依頼します。
-> `hikitsugi-work/survey.json`、`hikitsugi-work/transcript.json`、`hikitsugi-work/library.json`、`hikitsugi-work/edited-<round>.json`、`hikitsugi-work/verify-scope-<round>.json` を読み、`verify-scope-<round>.json` にある ID の記述を、`edited-<round>.json` の `statements` から探して検証し、結果の JSON（`results`）を `hikitsugi-work/verification-<round>.json` に保存してください。
+> `hikitsugi-work/survey.json`、`hikitsugi-work/transcript.json`、`hikitsugi-work/library.json`、`hikitsugi-work/edited-<round>.json`、`hikitsugi-work/verify-scope-<round>.json`、`hikitsugi-work/state.json` を読み、`state.json` の `retiree` を退職する担当者として、`verify-scope-<round>.json` にある ID の記述を、`edited-<round>.json` の `statements` から探して検証し、結果の JSON（`results`）を `hikitsugi-work/verification-<round>.json` に保存してください。
 
 終わったら `hikitsugi check-verification <round>` を実行します。不合格なら、自動で次の回の writer に戻り、指摘のあった部分だけを書き直します。差し戻しは最大2回です。
 
 ### review
 前任者本人に、ページごとに確認してもらいます。**全文を精読してもらう必要はありません。** 確認が終わるまで、取扱説明書には「下書き（前任者の確認前）」の帯が付き、確認の印は出ません。
 
-1. `reviewer` が `null` のときは、確認する人の名前を聞いて `hikitsugi review-start <名前>` を実行します。続けて `hikitsugi render` を実行し、下書きの HTML の場所を伝えます。
+1. `reviewer` が `null` のときは、`state.json` の `retiree` の名前で `hikitsugi review-start <名前>` を実行します。続けて `hikitsugi render` を実行し、下書きの HTML の場所を伝えます。
 2. `status` の `page` について `hikitsugi review-show <page>` を実行し、表示された内容を見せます。
 3. AskUserQuestion で聞きます。選択肢は「このままでよい」と「直す」の2つです。何ページ目かも伝えます。
 4. 「このままでよい」なら `hikitsugi review-ok <page>` を実行します。

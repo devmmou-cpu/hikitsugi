@@ -44,9 +44,9 @@ const EDITOR_SCHEMA = {
  * Writer のリクエスト。調査データ、聞き取り、部品は全部分で同じなので、先頭に置いてキャッシュする。
  * @param task 書く部分。{ part: 'common' } か { part: 'page', entry, contacts }。書き直しなら revision を持つ
  */
-export function buildWriterRequest({ survey, transcript, task = { part: 'common' }, structure, agent = loadAgent('plugin/agents/writer.md') }) {
+export function buildWriterRequest({ survey, transcript, retiree, task = { part: 'common' }, structure, agent = loadAgent('plugin/agents/writer.md') }) {
   const stable = tagged({ survey, transcript, library: libraryForAgents() });
-  const dynamic = { task: JSON.stringify(task) };
+  const dynamic = { task: JSON.stringify(retiree ? { ...task, retiree } : task) };
   if (structure) dynamic.structure_problems = structure;
   const what = task.part === 'common' ? '共通部分' : `手順ページ ${task.entry.id}`;
   const schema = stripUnsupported(task.part === 'common' ? commonSchema() : pageSchema());
@@ -64,11 +64,11 @@ export function buildEditorRequest({ manual, survey, transcript, findings, agent
 }
 
 /** 1つの部分を書く。形の問題や途中で切れた出力は、1回だけ直してもらう。 */
-async function writePiece({ api, agent, survey, transcript, task, check, record }) {
+async function writePiece({ api, agent, survey, transcript, retiree, task, check, record }) {
   let structure;
   let last;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-    const params = buildWriterRequest({ survey, transcript, task, structure, agent });
+    const params = buildWriterRequest({ survey, transcript, retiree, task, structure, agent });
     try {
       const { output, problems } = check(await callAgent({ api, agent, params, record, estimate: false }));
       if (!problems.length) return output;
@@ -102,14 +102,14 @@ const contactsForPages = (common) => {
  * @param revision { previous_manual, findings }
  * @param store { get(name), set(name, value) }。書き終えた部分を保存して、止まっても続きから再開するため
  */
-export async function runWriterLive({ survey, transcript, companyName, revision, client, record = () => {}, store = { get: () => undefined, set: () => {} } }) {
+export async function runWriterLive({ survey, transcript, companyName, retiree, revision, client, record = () => {}, store = { get: () => undefined, set: () => {} } }) {
   const api = await clientOf(client);
   const agent = loadAgent('plugin/agents/writer.md');
   const sources = { survey, transcript };
   const once = async (name, task, check) => {
     const saved = store.get(name);
     if (saved) return saved;
-    const output = await writePiece({ api, agent, survey, transcript, task, check, record });
+    const output = await writePiece({ api, agent, survey, transcript, retiree, task, check, record });
     store.set(name, output);
     return output;
   };

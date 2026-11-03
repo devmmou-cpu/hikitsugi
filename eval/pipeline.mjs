@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { buildRevision, carryForward, markReviewed, mergeVerification, prepareForRender, summarizeVerification, UnapprovedPartsError, verificationScope } from '../plugin/lib/handover.mjs';
+import { applyRetireeCheck } from '../plugin/lib/retiree-check.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { clientOf, runGapFinderLive, runVerifierLive } from './lib/adapters/live.mjs';
@@ -22,8 +23,8 @@ import { runEditorLive, runWriterLive } from './lib/writing.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const MAX_RESENDS = 2;
-// 評価では、模擬の田中さんが全ページを「このままでよい」にする設定で進める
-const MOCK_REVIEWER = '田中';
+// 評価の会社では、退職するのは田中さん。模擬の田中さんが全ページを「このままでよい」にする設定で進める
+const RETIREE = '田中';
 
 const schemaCheck = (name, value) => {
   const problems = validate(readJson(join(ROOT, 'plugin/schemas', `${name}.schema.json`)), value);
@@ -106,7 +107,7 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
         set: (name, value) => save(`writer-${round}-${name}`, value),
       };
       const written = await once(`manual-${round}-writer`, 'manual', () =>
-        runWriterLive({ survey, transcript, companyName: info.name, revision, client: api, record, store: pieces }),
+        runWriterLive({ survey, transcript, companyName: info.name, retiree: RETIREE, revision, client: api, record, store: pieces }),
       );
       const edited = await once(`manual-${round}-editor`, null, () => {
         // 差し戻しでは合格済みの用語の説明を引き継ぎ、変わった文章だけを直す
@@ -117,22 +118,24 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
       // 差し戻しのあとは、変わった文章だけをかけ直す。合格済みの文章のばらつきで止まらないように
       const scope = previousManual ? verificationScope(previousManual, previousVerification, manual) : manual.statements.map((statement) => statement.id);
       const inScope = new Set(scope);
-      const verification = await once(`verification-${round}`, 'verification', async () => {
+      const judged = await once(`verification-${round}`, 'verification', async () => {
         const fresh = await runVerifierLive({
-          input: { survey, transcript, statements: { schema_version: 1, company: survey.company, statements: manual.statements.filter((statement) => inScope.has(statement.id)) } },
+          input: { survey, transcript, retiree: RETIREE, statements: { schema_version: 1, company: survey.company, statements: manual.statements.filter((statement) => inScope.has(statement.id)) } },
           client: api,
           record,
           round,
         });
         return previousManual ? { ...mergeVerification(previousVerification, fresh.results, manual, scope), round } : fresh;
       });
+      // 退職する担当者を連絡先にしている文章は、AI の判定によらず文字列の照合で「危険」にする
+      const { verification, hits: retireeHits } = applyRetireeCheck(judged, manual, RETIREE);
       const result = summarizeVerification(verification, manual);
       const scores = manualScorer.summarize(manualScorer.score(manual, null, context));
-      summary.rounds.push({ round, verified: scope.length, counts: result.counts, unanswered: result.unanswered, fact_changes_reverted: edited.changes.length, manual: scores });
+      summary.rounds.push({ round, verified: scope.length, retiree_hits: retireeHits, counts: result.counts, unanswered: result.unanswered, fact_changes_reverted: edited.changes.length, manual: scores });
 
       if (result.passed) {
         // 模擬評価。実際の /hikitsugi:start では、前任者がページごとに確認する
-        const reviewed = markReviewed(manual, MOCK_REVIEWER, survey.as_of);
+        const reviewed = markReviewed(manual, RETIREE, survey.as_of);
         save('manual-final', reviewed);
         summary.review = { mode: '模擬（全ページ このままでよい）', pages: reviewed.symptom_pages.length };
         let prepared;

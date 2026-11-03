@@ -15,6 +15,7 @@ import { applyEdits, missingTokens } from '../plugin/lib/apply-edits.mjs';
 import { assembleManual, commonStatementIds, mergeRewritten, ownersOf, previousPiece } from '../plugin/lib/assemble.mjs';
 import { buildRevision, carryForward, markReviewed, mergeVerification, prepareForRender, summarizeVerification, UnapprovedPartsError, verificationScope } from '../plugin/lib/handover.mjs';
 import { longSentences, plainProblems } from '../plugin/lib/plain-check.mjs';
+import { applyRetireeCheck, namesRetireeAsContact, retireeFindings } from '../plugin/lib/retiree-check.mjs';
 import { composeProcedures, libraryForAgents, loadLibrary, unapprovedParts } from '../plugin/lib/procedures.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { pageStatementIds, parseInfoRow } from '../plugin/lib/page-check.mjs';
@@ -323,7 +324,9 @@ test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途�
     writeFileSync(surveyPath, JSON.stringify(input.survey));
     assert.equal(nextStep(work).step, 'init');
 
-    hikitsugi('init', [surveyPath, 'テスト', '会社']);
+    assert.throws(() => hikitsugi('init', [surveyPath, '田中']), /退職する人の名前/);
+    hikitsugi('init', [surveyPath, '田中', 'テスト', '会社']);
+    assert.equal(JSON.parse(readFileSync(join(work, 'state.json'), 'utf8')).retiree, '田中');
     assert.equal(JSON.parse(readFileSync(join(work, 'state.json'), 'utf8')).company_name, 'テスト 会社');
     assert.equal(nextStep(work).step, 'gap-finder');
 
@@ -457,7 +460,7 @@ test('/hikitsugi:start：差し戻しの上限に達すると not_passed で止�
     const write = (name, value) => writeFileSync(join(work, name), JSON.stringify(value));
     const surveyPath = join(dir, 'survey.json');
     writeFileSync(surveyPath, JSON.stringify(input.survey));
-    hikitsugi('init', [surveyPath, '会社']);
+    hikitsugi('init', [surveyPath, '田中', '会社']);
     write('gaps.json', { schema_version: 1, company: 'okojo', coverage: [], gaps: [] });
     write('state.json', { company: 'okojo', company_name: '会社', round: 3, interview_done: true, passed: false });
     const stamped = { ...fixture(), company_name: '会社' };
@@ -741,6 +744,112 @@ test('Verifier にかけ直すのは、前回「正しい」でない文章と�
   assert.equal(merged.results.length, 4);
 });
 
+// ---- 退職する担当者 ----
+
+test('退職する担当者を連絡先、転送先、相談先として書いた文を、文字列の照合で見つける', () => {
+  for (const text of [
+    '怪しいメールを開かずに、田中さんへ転送してもらってください。',
+    'LAN ケーブルを抜いてください。Wi-Fi を切ってください。そのあと、田中さんと社長に連絡してください。',
+    '感染が疑われるときは、社長のほかに田中さんにも連絡します。',
+    '困ったら田中さんに相談してください。',
+    '分からなければ田中に聞いてください。',
+    '連絡先は田中さんです。',
+    '田中さんが相談先です。',
+    '田中さんまでお問い合わせください。報告も同じです。'.replace('お問い合わせください。報告も同じです。', '問い合わせてください。'),
+    'スキャンは田中さんのアドレスへ送ってください。'.replace('田中さんのアドレスへ', '田中さんへ'),
+  ]) assert.equal(namesRetireeAsContact(text, '田中'), true, text);
+  for (const text of [
+    'Microsoft 365 の管理者は田中さんだけです。',
+    '管理者は田中さんと社長です。',
+    '田中さんの PC は事務所にあります。',
+    '田中さんが作った手順です。',
+    '社長に連絡してください。',
+    '記録がありません。社内で相談してください。',
+  ]) assert.equal(namesRetireeAsContact(text, '田中'), false, text);
+  // 名字と名前で登録されていても、名字で見つける
+  assert.equal(namesRetireeAsContact('田中さんに連絡してください。', '田中 太郎'), true);
+  assert.equal(namesRetireeAsContact('田中太郎さんに連絡してください。', '田中 太郎'), true);
+  assert.equal(namesRetireeAsContact('田中さんに連絡してください。', '田中さん'), true);
+  assert.equal(namesRetireeAsContact('田中さんに連絡してください。', ''), false);
+});
+
+test('照合に当たった文章は、AI が正しいと判定しても「危険」になり、合格しない', () => {
+  const manual = { statements: [{ id: 'STM-001', text: '田中さんに連絡してください。' }, { id: 'STM-002', text: '社長に連絡してください。' }], contacts: [] };
+  const verification = { results: [{ statement: 'STM-001', verdict: 'correct', reason: '', checked: [], conflicts_with: [] }, { statement: 'STM-002', verdict: 'correct', reason: '', checked: [], conflicts_with: [] }] };
+  const { verification: checked, hits } = applyRetireeCheck(verification, manual, '田中');
+  assert.equal(hits, 1);
+  const result = summarizeVerification(checked, manual);
+  assert.equal(result.passed, false);
+  assert.equal(result.counts.dangerous, 1);
+  assert.deepEqual(result.findings.map((f) => f.statement), ['STM-001']);
+  assert.match(result.findings[0].reason, /文字列の照合/);
+  assert.ok(!JSON.stringify(checked).includes('"statement":"STM-001","verdict":"correct"'));
+});
+
+test('連絡先の一覧に退職する担当者が載っていれば、役割の文章を指摘する', () => {
+  const manual = { statements: [{ id: 'STM-001', text: '社内の相談先' }], contacts: [{ id: 'INH-01', name: '田中さん', role: 'STM-001' }] };
+  assert.deepEqual(retireeFindings(manual, '田中').map((f) => f.statement), ['STM-001']);
+});
+
+test('通し：退職する担当者を連絡先にした文章は、照合で差し戻す。件数を記録する', () =>
+  withTemp(async (dir) => {
+    const client = pipelineClient({ verdicts: ['correct', 'correct', 'correct'] });
+    const realStream = client.messages.stream;
+    let fixedOnRevision = 0;
+    client.messages.stream = (params) => {
+      const stream = realStream(params);
+      if (!params.system.includes('Writer')) return stream;
+      const task = taggedIn(params, 'task');
+      assert.equal(task.retiree, '田中');
+      return {
+        finalMessage: async () => {
+          const message = await stream.finalMessage();
+          const body = JSON.parse(message.content[0].text);
+          if (task.part === 'page') {
+            const reassurance = body.statements.find((s) => s.id === body.page.reassurance);
+            if (task.revision) {
+              reassurance.text = 'データは消えません。';
+              fixedOnRevision += 1;
+            } else reassurance.text = '困ったら田中さんに相談してください。';
+          }
+          return { ...message, content: [{ type: 'text', text: JSON.stringify(body) }] };
+        },
+      };
+    };
+    const summary = await runPipeline({ set: 'okojo', setDir: SET, dir, client });
+    assert.equal(summary.status, 'passed', summary.error);
+    assert.equal(summary.rounds[0].retiree_hits, 1);
+    assert.equal(summary.rounds[0].counts.dangerous, 1);
+    assert.equal(summary.rounds[1].retiree_hits, 0);
+    assert.equal(fixedOnRevision, 1);
+    const final = JSON.parse(readFileSync(join(dir, 'manual-final.json'), 'utf8'));
+    assert.ok(!final.statements.some((s) => s.text.includes('田中さんに相談')));
+    // Verifier にも退職する担当者を渡す
+    const verifier = client.sent.find((p) => p.system.includes('Verifier'));
+    assert.ok(JSON.stringify(verifier.messages).includes('<retiree>'));
+  }));
+
+test('/hikitsugi:start：退職する担当者を連絡先にした文章は、照合で差し戻す', () =>
+  withTemp(async (dir) => {
+    const work = join(dir, 'work');
+    const hikitsugi = (command, args = [], stdin = '') => run(command, args, { work, stdin });
+    const write = (name, value) => writeFileSync(join(work, name), JSON.stringify(value));
+    const surveyPath = join(dir, 'survey.json');
+    writeFileSync(surveyPath, JSON.stringify(input.survey));
+    hikitsugi('init', [surveyPath, '田中', '会社']);
+    const manual = fixture();
+    manual.statements.find((s) => s.id === manual.symptom_pages[0].reassurance).text = '困ったら田中さんに相談してください。';
+    write('state.json', { company: 'okojo', company_name: '会社', retiree: '田中', round: 1, interview_done: true, passed: false });
+    write('gaps.json', { schema_version: 1, company: 'okojo', coverage: [], gaps: [] });
+    write('manual-1.json', manual);
+    write('edited-1.json', manual);
+    write('verification-1.json', { results: manual.statements.map((s) => ({ statement: s.id, verdict: 'correct', reason: '', checked: [], conflicts_with: [] })) });
+    assert.match(hikitsugi('check-verification', ['1']), /危険 1 件/);
+    assert.deepEqual(JSON.parse(readFileSync(join(work, 'state.json'), 'utf8')).todo, ['T1']);
+    hikitsugi('writer-task', ['2', 'T1']);
+    assert.equal(JSON.parse(readFileSync(join(work, 'writer-task.json'), 'utf8')).retiree, '田中');
+  }));
+
 test('確認の印は、確認した人と日付を取扱説明書に付ける', () => {
   const reviewed = markReviewed(fixture(), '田中', '2026-11-06');
   assert.deepEqual(reviewed.review, { reviewer: '田中', confirmed_on: '2026-11-06' });
@@ -816,6 +925,15 @@ test('Editor は会社の情報の表の文章を変えられない', () => {
   const { manual: edited, changes } = applyEdits(manual, { rewrites: [{ id, text: '言い換えた文です。' }], glossary: [] });
   assert.equal(edited.statements.find((s) => s.id === id).text, before);
   assert.deepEqual(changes, [{ statement: id, missing: ['表の文章'] }]);
+});
+
+test('Editor は手順を2文に分けられない', () => {
+  const manual = fixture();
+  const id = manual.symptom_pages[0].steps[0];
+  const before = manual.statements.find((s) => s.id === id).text;
+  const { manual: edited, changes } = applyEdits(manual, { rewrites: [{ id, text: '事務所に PC があります。その PC の電源を確かめてください。' }], glossary: [] });
+  assert.equal(edited.statements.find((s) => s.id === id).text, before);
+  assert.deepEqual(changes, [{ statement: id, missing: ['手順の形'] }]);
 });
 
 test('部品の順番が決まった順と逆なら見つける', () => {

@@ -98,7 +98,10 @@ export function buildRequest(agent, schema, content, { maxTokens = MAX_TOKENS } 
 
 /** リクエストを組み立てる。引数は input だけなので、正解を混ぜることができない。 */
 export function buildVerifierRequest(input, agent = loadVerifierAgent()) {
-  const content = `${tagged({ survey: input.survey, transcript: input.transcript, library: libraryForAgents(), statements: input.statements })}\n\nstatements のすべての記述を検証してください。`;
+  const sections = { survey: input.survey, transcript: input.transcript, library: libraryForAgents() };
+  if (input.retiree) sections.retiree = input.retiree;
+  sections.statements = input.statements;
+  const content = `${tagged(sections)}\n\nstatements のすべての記述を検証してください。`;
   return buildRequest(agent, verifierResponseSchema(), content);
 }
 

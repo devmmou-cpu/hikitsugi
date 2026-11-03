@@ -1,6 +1,8 @@
 // Editor の出力を取扱説明書に反映する。事実が変わっていないかは、AI ではなくプログラムが確かめる。
 // /hikitsugi:start と評価の両方で使う。
 
+import { isActionText } from './page-check.mjs';
+
 const PROTECTED = /[0-9０-９]+(?:[-:：.,／/年月日時分台名回週][0-9０-９]*)*|[A-Za-z][A-Za-z0-9_\\-]*(?:[.\\][A-Za-z0-9_\\-]+)*/gu;
 
 /** 文章の中の、変えてはいけない語（数字や英字の名前）を取り出す。 */
@@ -31,6 +33,8 @@ export function applyEdits(manual, edits, { revert = true } = {}) {
   }
   // 会社の情報の表の文章は、決まった形から値を読むので直さない
   const tableStatements = new Set(manual.symptom_pages.flatMap((page) => page.info_rows));
+  // 手順は「〜してください」で終わる1文。やさしく直して2文に分けると、チェックの意味が変わるので受け付けない
+  const stepStatements = new Set(manual.symptom_pages.flatMap((page) => [...page.first_steps, ...page.steps]));
   const changes = [];
   const statements = manual.statements.map((statement) => {
     const text = rewrites.get(statement.id);
@@ -42,6 +46,10 @@ export function applyEdits(manual, edits, { revert = true } = {}) {
     }
     if (tableStatements.has(statement.id)) {
       if (text !== statement.text) changes.push({ statement: statement.id, missing: ['表の文章'] });
+      return statement;
+    }
+    if (stepStatements.has(statement.id) && !isActionText(text)) {
+      changes.push({ statement: statement.id, missing: ['手順の形'] });
       return statement;
     }
     const missing = missingTokens(statement.text, text, names);
