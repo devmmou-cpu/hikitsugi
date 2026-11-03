@@ -410,6 +410,17 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   border-radius: 12px;
 }
 
+/* ---- 電話番号。文字のハイフンを入れず、区切りは余白で見せる ---- */
+.tel {
+  white-space: nowrap;
+  -webkit-user-select: all;
+  user-select: all;
+}
+
+.tel > span + span {
+  margin-left: .3em;
+}
+
 /* ---- 普段の言葉で探す（JavaScript があるときだけ） ---- */
 .js .search-box {
   display: block;

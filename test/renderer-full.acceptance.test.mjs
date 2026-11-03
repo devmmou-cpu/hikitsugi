@@ -211,6 +211,23 @@ test('外部への読み込みがない', () => {
   assert.ok(!/https?:\/\//i.test(html));
 });
 
+test('電話番号：リンク先は数字だけで、表示は文字のハイフンのない部品。受付は番号の上', () => {
+  for (const contact of manual.contacts.filter((c) => c.phone)) {
+    assert.ok(html.includes(`href="tel:${contact.phone.replaceAll('-', '')}"`), contact.phone);
+    assert.ok(!html.includes(`href="tel:${contact.phone}"`), contact.phone);
+    const parts = contact.phone.split('-').map((part) => `<span>${part}</span>`).join('');
+    assert.ok(html.includes(`<span class="tel">${parts}</span>`), contact.phone);
+  }
+  const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+  assert.match(css, /\.tel\s*\{[^}]*-webkit-user-select:\s*all;[^}]*user-select:\s*all/);
+  assert.match(css, /\.say\s*\{[^}]*-webkit-user-select:\s*all;[^}]*user-select:\s*all/);
+  for (const [box] of html.matchAll(/<div class="(?:card )?contact-box">[\s\S]*?<\/div>\s*<\/div>|<aside class="rail"[\s\S]*?<\/aside>/g)) {
+    const hours = box.search(/class="(?:contact-hours|rail-hours)"/);
+    const call = box.search(/href="tel:/);
+    if (hours >= 0 && call >= 0) assert.ok(hours < call, '受付は番号の上');
+  }
+});
+
 test('ファイルの大きさは上限の 1MB 以下で、目標の 500KB にも収まる', () => {
   assert.ok(Buffer.byteLength(html) <= 500 * 1024, `${Buffer.byteLength(html)} バイト`);
 });

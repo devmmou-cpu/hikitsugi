@@ -130,7 +130,7 @@ test('JavaScript なしで全部の記述が読める', () => {
 test('連絡先の名前と電話番号が、JavaScript なしで読める', () => {
   const text = visibleText(html);
   assert.ok(text.includes('カワウソシステムサービス'));
-  assert.ok(text.includes('03-0000-0102'));
+  assert.ok(text.includes('03 0000 0102') || text.includes('0300000102'));
 });
 
 test('JavaScript なしの状態で、内容を隠していない', () => {

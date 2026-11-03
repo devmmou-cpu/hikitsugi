@@ -10,6 +10,7 @@ import { plainProblems } from '../plugin/lib/plain-check.mjs';
 import { loadLibrary } from '../plugin/lib/procedures.mjs';
 import { composeReply, REPLY_LINES_MAX, replyProblems, withoutReplies, withReplies } from '../plugin/lib/reply.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
+import { summarizeReplies } from '../eval/reply-verify.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const fixture = () => JSON.parse(readFileSync(join(ROOT, 'test/fixtures/manual-full.json'), 'utf8'));
@@ -105,6 +106,22 @@ test('Writer の出力の形に入らない。Editor への直しの依頼にも
   const reply = manual.statements.find((statement) => statement.usage);
   reply.text = `${'長'.repeat(80)}。`;
   assert.ok(!plainProblems(manual).long_sentences.some((row) => row.id === reply.id));
+});
+
+test('補足つきの部品も文面のまま写す', () => {
+  const manual = fixture();
+  const page = firstActionPage(manual);
+  const part = parts.get('LIB-028');
+  const first = statementOf(manual, page.first_steps[0]);
+  first.library = part.id;
+  first.text = part.text;
+  assert.deepEqual(replyProblems(withReplies(manual)), []);
+  assert.ok(replyOf(withReplies(manual), withReplies(manual).symptom_pages.find((p) => p.id === page.id)).text.startsWith(part.text));
+});
+
+test('社員に返す文の判定を数える。回答がない文章を「正しい」に数えない', () => {
+  const statements = [{ id: 'STM-001' }, { id: 'STM-002' }, { id: 'STM-003' }];
+  assert.deepEqual(summarizeReplies(statements, [{ statement: 'STM-001', verdict: 'correct' }, { statement: 'STM-002', verdict: 'dangerous' }]), { total: 3, correct: 1, contradiction: 0, unsupported: 0, dangerous: 1, unanswered: 1 });
 });
 
 test('Verifier には usage を付けて渡す。プロンプトに定型文の扱いがある', () => {

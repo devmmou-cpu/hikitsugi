@@ -89,7 +89,7 @@ test('各ファイルは1症状だけで、上から ① → ② → ③ の順�
     if (page.fallback) {
       const contact = manual.contacts.find((c) => c.id === page.fallback.contact);
       assert.ok(text.includes(contact.name), `${name}: 連絡先の名前`);
-      if (contact.phone) assert.ok(text.includes(contact.phone), `${name}: 電話番号`);
+      if (contact.phone) assert.ok(text.includes(contact.phone.replaceAll('-', '')), `${name}: 電話番号`);
       if (page.first_steps.length || page.steps.length) {
         assert.ok(position(html, page.first_steps.length ? 'まずこれだけ' : 'やること') < position(html, 'それでもだめなら'), name);
       }
@@ -123,6 +123,32 @@ test('社員に返す文は ① の直下で、② より前。① がなけれ�
     if (page.first_steps.length) assert.ok(text.indexOf('まずこれだけ') < reply, name);
     for (const later of ['それでも直らなければ', 'やること', 'それでもだめなら', '相談してください', '連絡してください']) {
       if (text.includes(`${later}\n`)) assert.ok(reply < text.indexOf(`${later}\n`), `${name}: ${later}`);
+    }
+  }
+});
+
+test('電話番号：文字のハイフンを入れず、桁ごとの要素に分け、全体を選べるようにする', () => {
+  const css = bundle[0].html.match(/<style>([\s\S]*?)<\/style>/)[1];
+  assert.match(css, /\.tel\s*\{[^}]*-webkit-user-select:\s*all;[^}]*user-select:\s*all/);
+  assert.match(css, /\.tel > span \+ span\s*\{\s*margin-left/);
+  assert.match(css, /\.say\s*\{[^}]*-webkit-user-select:\s*all;[^}]*user-select:\s*all/);
+  for (const { name, html } of bundle) {
+    const body = html.replace(/<style>[\s\S]*?<\/style>/, '');
+    assert.doesNotMatch(plain(body), /0\d{0,4}-\d{1,4}-\d{3,4}/, `${name}: ハイフンの文字が残っています`);
+  }
+  assert.match(bundle[0].html, /<p class="num"><span class="tel"><span>03<\/span><span>0000<\/span><span>01\d\d<\/span><\/span><\/p>/);
+});
+
+test('連絡先の順：会社名 → 役割 → 受付 → 番号 → 注記 → 送る文面', () => {
+  for (const { name, html } of bundle) {
+    for (const [card] of html.matchAll(/<div class="contact">[\s\S]*?<\/div>/g)) {
+      const at = (mark) => card.indexOf(mark);
+      if (!card.includes('class="num"')) continue;
+      assert.ok(at('contact-name') < at('contact-role'), name);
+      const hours = card.match(/<\/h3>\s*<p>/);
+      if (hours) assert.ok(hours.index < at('class="num"'), `${name}: 受付は番号の上`);
+      assert.ok(at('class="num"') < at('class="note"'), name);
+      if (card.includes('class="say"')) assert.ok(at('class="note"') < at('class="say"'), name);
     }
   }
 });
@@ -204,6 +230,12 @@ test('書き出し後の検査：束の全ファイルが合格する。問題�
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('書き出し後の検査：桁ごとに分けた電話番号も、架空の形式かを調べる', () => {
+  const tel = (a, b, c) => `<span class="tel"><span>${a}</span><span>${b}</span><span>${c}</span></span>`;
+  assert.match(manualHtmlProblems(`<p>${tel('06', '0000', '0000')}</p>`).join(), /電話番号/);
+  assert.deepEqual(manualHtmlProblems(`<p>${tel('03', '0000', '0101')}</p>`), []);
 });
 
 test('書き出し後の検査：phone.mjs の出力先のフォルダを、ツールの実行から探す', () => {

@@ -98,11 +98,19 @@ function formatDate(isoDate) {
 }
 
 /**
+ * 電話番号の表示。iPhone では長押しの選択がハイフンで切れて「発信」が出ないので（本人の実機）、
+ * 文字としてのハイフンを入れず、区切りは CSS の余白で見せる。
+ */
+export const telHtml = (phone) => `<span class="tel">${String(phone).split('-').map((part) => `<span>${esc(part)}</span>`).join('')}</span>`;
+
+const PHONE_IN_TEXT = /(?<![\d-])0\d{0,4}-\d{1,4}-\d{3,4}(?![\d-])/g;
+
+/**
  * 文章を HTML にする。\\ で始まる接続先は、見ながら入力する値なので、コードの形で示す。
- * 文字は変えない（タグを除けば元の文章のまま。コピーする文面も変わらない）。
+ * 文字は電話番号のハイフンのほかは変えない。
  */
 export function statementHtml(text, words) {
-  return wrapWords(pathsHtml(esc(text)), words);
+  return wrapWords(pathsHtml(esc(text)), words).replace(PHONE_IN_TEXT, telHtml);
 }
 
 /** 接続先をコードの形にする。 */
@@ -130,7 +138,7 @@ function wrapWords(html, words) {
 }
 
 /** 操作の文の中のキーの名前を kbd で囲む。文字は変えない。 */
-export const actionHtml = (text, words) => wrapWords(pathsHtml(esc(text)).replace(/(?<![A-Za-z0-9-])([A-Z][A-Za-z0-9]*) (のキー|キー)/g, (_, key, rest) => `<kbd>${key}</kbd> ${rest}`), words);
+export const actionHtml = (text, words) => wrapWords(pathsHtml(esc(text)).replace(/(?<![A-Za-z0-9-])([A-Z][A-Za-z0-9]*) (のキー|キー)/g, (_, key, rest) => `<kbd>${key}</kbd> ${rest}`), words).replace(PHONE_IN_TEXT, telHtml);
 
 /** 語が使われているか。英数字の語は単語の境界で判定する（NAS が別の英単語の一部に当たらないように）。 */
 function usesTerm(text, term) {
@@ -244,7 +252,7 @@ const etaHtml = (minutes) => `<span class="eta">目安 約${esc(minutes)}分</sp
 function callHtml(phone, quiet = false) {
   if (!isPhoneNumber(phone)) return `<p class="phone-text">電話番号：${esc(phone)}</p>`;
   const kind = quiet ? 'btn-call-quiet' : 'btn-call';
-  return `<a class="btn ${kind} tap" href="tel:${esc(phone)}">${icon('phone')}<span class="btn-text"><span class="btn-label">電話をかける</span><span class="num">${esc(phone)}</span></span></a>`;
+  return `<a class="btn ${kind} tap" href="tel:${esc(phone.replaceAll('-', ''))}">${icon('phone')}<span class="btn-text"><span class="btn-label">電話をかける</span><span class="num">${telHtml(phone)}</span></span></a>`;
 }
 
 /** PC では電話を押せないことがあるので、番号をコピーできるようにする。2列以上の幅でだけ出す。 */
@@ -521,8 +529,8 @@ function contactPartHtml(ctx, page, contact, heading, leading) {
     `<h3 class="part-title">${heading}</h3>`,
     '<div class="contact-box">',
     `<h4 class="contact-name">${esc(contact.name)}<span class="contact-role">${esc(ctx.raw(contact.role))}</span></h4>`,
-    !contact.phone && contact.id.startsWith('VEN-') ? '<p class="no-phone">電話番号の記録がありません</p>' : contact.phone ? `<div class="call-row">${callHtml(contact.phone)}${copyNumberHtml(contact.phone, statusId)}</div>` : '',
     contact.hours ? hoursHtml(ctx, contact.hours) : '',
+    !contact.phone && contact.id.startsWith('VEN-') ? '<p class="no-phone">電話番号の記録がありません</p>' : contact.phone ? `<div class="call-row">${callHtml(contact.phone)}${copyNumberHtml(contact.phone, statusId)}</div>` : '',
     `<p class="say-label">${internal ? '相談のときに伝える文面' : '業者に送る文面'}</p>`,
     `<blockquote class="say" id="${messageId}">${ctx.text(page.fallback.message)}</blockquote>`,
     `<button type="button" class="btn btn-copy tap js-only" data-copy="${messageId}" data-status="${statusId}">文面をコピー</button>`,
@@ -543,8 +551,8 @@ function railHtml(ctx, page, contact, leading) {
         '<div class="rail-block">',
         `<h3 class="label">${leading ? '連絡先' : '直らなかったら'}</h3>`,
         `<p class="rail-name">${esc(contact.name)}</p>`,
-        contact.phone ? callHtml(contact.phone, true) : '',
         contact.hours ? `<p class="rail-hours">${ctx.text(contact.hours)}</p>` : '',
+        contact.phone ? callHtml(contact.phone, true) : '',
         leading ? '' : `<button type="button" class="btn btn-copy tap js-only" data-copy="message-${esc(page.id)}" data-status="${statusId}">文面をコピー</button>`,
         leading ? '' : copyStatusHtml(statusId),
         '</div>',
@@ -647,9 +655,9 @@ function contactCard(ctx, contact) {
   return [
     '<div class="card contact-box">',
     `<h3 class="contact-name">${esc(contact.name)}<span class="contact-role">${esc(ctx.raw(contact.role))}</span></h3>`,
+    contact.hours ? hoursHtml(ctx, contact.hours) : '',
     !contact.phone && contact.id.startsWith('VEN-') ? '<p class="no-phone">電話番号の記録がありません</p>' : contact.phone ? `<div class="call-row">${callHtml(contact.phone)}${copyNumberHtml(contact.phone, statusId)}</div>` : '',
     contact.phone ? copyStatusHtml(statusId) : '',
-    contact.hours ? hoursHtml(ctx, contact.hours) : '',
     `<p class="say-label">${internal ? '相談のときに伝えること' : '電話で伝えること'}</p>`,
     `<blockquote class="say">${ctx.text(contact.what_to_tell)}</blockquote>`,
     contact.contract_location

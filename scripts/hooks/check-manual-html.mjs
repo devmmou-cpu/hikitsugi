@@ -27,7 +27,12 @@ const decode = (text) =>
 
 /** 検査する文字列を作る。CSS と JavaScript は除く。リンク先は電話番号やドメインが入るので残す。 */
 function readableText(html) {
-  const body = html.replace(/<!--[\s\S]*?-->/g, ' ').replace(/<script\b[\s\S]*?<\/script>/gi, ' ').replace(/<style\b[\s\S]*?<\/style>/gi, ' ');
+  const body = html
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    // 電話番号は桁ごとの要素に分かれているので、つないでから調べる
+    .replace(/<span class="tel">((?:<span>[^<]*<\/span>)+)<\/span>/g, (_, parts) => parts.replace(/<[^>]+>/g, ''));
   const links = [...body.matchAll(/\bhref="([^"#][^"]*)"/gi)].map((m) => m[1].replace(/^(?:tel|mailto|https?):\/{0,2}/i, ''));
   return decode(`${body.replace(/<[^>]+>/g, ' ')}\n${links.join('\n')}`).normalize('NFKC');
 }

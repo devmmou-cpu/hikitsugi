@@ -6,6 +6,7 @@
 // - script も、リンクも、チェック欄も、開閉も置かない。読むだけで足りるようにする
 // - その症状で使う会社の情報の表と連絡先を、同じファイルに同梱する
 // - tel: リンクは動かないが、番号の文字を長押しすると発信できる（本人の実機）。番号はただの文字で、下に案内を書く
+//   長押しの選択はハイフンで切れるので（本人の実機）、ハイフンの文字を入れず、余白で区切る
 // - コピー欄は長押しで選択してコピーできる（本人の実機）。文字の枠のまま、下に案内を書く
 // - 用語は details を使わず、開いたまま出す。チェック欄は付けない
 //
@@ -16,7 +17,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { fileSize, oversizeMessage, PHONE_FILE_LIMIT, writeWithinLimit } from '../lib/limits.mjs';
 import { contactProblems, pageProblems } from '../lib/page-check.mjs';
-import { actionHtml, BADGE_LABELS, CATEGORY_LABELS, checkInput, compactCss, esc, evidenceLines, infoTables, makeContext, pageTerms, stepParts } from './render.mjs';
+import { actionHtml, BADGE_LABELS, CATEGORY_LABELS, checkInput, compactCss, esc, evidenceLines, infoTables, makeContext, pageTerms, stepParts, telHtml } from './render.mjs';
 import { STYLES } from './styles.mjs';
 
 const SYMPTOM_NAME_MAX = 30;
@@ -65,6 +66,8 @@ code, kbd { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9
 .contact { margin-top: var(--s3); padding: var(--s4); background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
 .contact-name { margin-top: 0; font-size: 19px; }
 .contact-role { display: block; font-size: 15px; font-weight: 400; color: var(--ink-2); }
+.tel { white-space: nowrap; -webkit-user-select: all; user-select: all; }
+.tel > span + span { margin-left: .3em; }
 .num { margin-top: var(--s2); font-size: 22px; font-weight: 700; line-height: 1.3; letter-spacing: .02em; }
 .note { margin-top: var(--s1); font-size: 15px; color: var(--ink-2); }
 .no-phone { margin-top: var(--s2); font-weight: 700; color: var(--danger-fg); }
@@ -125,8 +128,9 @@ function contactHtml(ctx, contact, sayLabel, sayId) {
   const parts = [
     '<div class="contact">',
     `<h3 class="contact-name">${esc(contact.name)}<span class="contact-role">${esc(ctx.raw(contact.role))}</span></h3>`,
-    !contact.phone && contact.id.startsWith('VEN-') ? '<p class="no-phone">電話番号の記録がありません</p>' : contact.phone ? `<p class="num">${esc(contact.phone)}</p>\n<p class="note">${PHONE_NOTE}</p>` : '',
+    // 受付を番号の上に置く。長押しのメニューが番号の下の行に重なるため（本人の実機）
     contact.hours ? `<p>${ctx.text(contact.hours)}</p>` : '',
+    !contact.phone && contact.id.startsWith('VEN-') ? '<p class="no-phone">電話番号の記録がありません</p>' : contact.phone ? `<p class="num">${telHtml(contact.phone)}</p>\n<p class="note">${PHONE_NOTE}</p>` : '',
     sayId ? `<p class="label">${sayLabel}</p>\n${copyBoxHtml(ctx.text(sayId))}` : '',
     '</div>',
   ];

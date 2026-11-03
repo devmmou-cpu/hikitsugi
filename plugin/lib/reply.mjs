@@ -89,7 +89,6 @@ export function replyProblems(manual, library = loadLibrary()) {
     if (parts.length !== page.first_steps.length || lines.join('\n') !== parts.join('\n')) {
       problems.push(`${page.id}: 社員に返す文は、① の手順部品の文面を順番どおりに写したものだけです`);
     }
-    if (lines.some((line) => !/ください。$/.test(line))) problems.push(`${page.id}: 社員に返す文の操作は「〜してください。」で終えます`);
   }
   return problems;
 }

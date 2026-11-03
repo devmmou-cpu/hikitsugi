@@ -232,9 +232,12 @@ async function shootBundle(input, output, chromePath) {
           const shown = (el) => el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
           const note = (el, text) => shown(el) && el.nextElementSibling?.classList.contains('note') && shown(el.nextElementSibling) && el.nextElementSibling.textContent.includes(text);
           const num = document.querySelector('.num');
+          const tel = document.querySelector('.num .tel');
+          const selectAll = (el) => el && (getComputedStyle(el).userSelect === 'all' || getComputedStyle(el).webkitUserSelect === 'all');
           // 連絡先のないページは、番号の確認を除く
           if (!document.querySelector('.contact')) return { say: [...document.querySelectorAll('.say')].length > 0 && [...document.querySelectorAll('.say')].every((el) => note(el, '長押しして選択し、コピーしてください。')), term: [...document.querySelectorAll('.terms dd')].some(shown), closed: document.querySelectorAll('details').length === 0 };
-          return { num: shown(num) && getComputedStyle(num).fontSize === '22px' && getComputedStyle(num).fontWeight === '700', numNote: note(num, '番号を長押しすると、発信できます。'), say: [...document.querySelectorAll('.say')].length > 0 && [...document.querySelectorAll('.say')].every((el) => note(el, '長押しして選択し、コピーしてください。')), noteSize: getComputedStyle(document.querySelector('.note') ?? document.body).fontSize === '15px', term: [...document.querySelectorAll('.terms dd')].some(shown), closed: document.querySelectorAll('details').length === 0 };
+          
+          return { telOneRun: /^\\d+$/.test(tel?.textContent ?? '') && selectAll(tel), sayAll: [...document.querySelectorAll('.say')].every(selectAll), num: shown(num) && getComputedStyle(num).fontSize === '22px' && getComputedStyle(num).fontWeight === '700', numNote: note(num, '番号を長押しすると、発信できます。'), say: [...document.querySelectorAll('.say')].length > 0 && [...document.querySelectorAll('.say')].every((el) => note(el, '長押しして選択し、コピーしてください。')), noteSize: getComputedStyle(document.querySelector('.note') ?? document.body).fontSize === '15px', term: [...document.querySelectorAll('.terms dd')].some(shown), closed: document.querySelectorAll('details').length === 0 };
         })())`));
         for (const [key, ok] of Object.entries(parts)) if (!ok) problems.push(`${name}：実機で確かめた形になっていません（${key}）`);
       }
