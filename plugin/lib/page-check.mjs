@@ -104,6 +104,11 @@ export function pageProblems(manual) {
     if (page.badge.value === 'vendor' && !page.fallback?.contact.startsWith('VEN-')) {
       problems.push(`${page.id}: vendor のページには、使える連絡先の中の業者（VEN-）の fallback が必要です。電話番号の記録がない業者も連絡先に載せます`);
     }
+    // 番号の記録がない業者へ案内するページでは、番号の調べ方を手順に入れる
+    const target = page.fallback && manual.contacts.find((contact) => contact.id === page.fallback.contact);
+    if (target?.id.startsWith('VEN-') && !target.phone && ![...page.first_steps, ...page.steps].some((id) => byId.get(id)?.library === 'LIB-030')) {
+      problems.push(`${page.id}: ${target.id} は電話番号の記録がないので、steps の先頭に部品 LIB-030 を入れてください`);
+    }
     if (page.badge.value === 'internal' && !page.fallback?.contact.startsWith('INH-')) {
       problems.push(`${page.id}: internal のページには社内の相談先（INH-）の fallback が必要です`);
     }

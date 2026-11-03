@@ -597,7 +597,7 @@ test('部品に評価セットの値や、許可されていない製品名が�
   const text = JSON.stringify(library);
   for (const name of ['オコジョ', 'OKOJO', 'okojo', 'クロテン', 'カワウソ', 'イタチ', 'イイズナ', 'フェレット', '田中', '佐藤']) assert.ok(!text.includes(name), name);
   assert.ok(!/192\.168\.|03-0000-01/.test(text));
-  const allowed = new Set(['Windows', 'first', 'first_goal', 'branches', 'steps', 'goal', 'exceptions', 'kinds', 'first_steps', 'needs_table', 'true', 'false', 'null', 'E', 'Enter', 'Wi-Fi', 'PC', 'LIB-', 'network-drive', 'free-space', 'admin-screen', 'wifi', 'restart', 'schema_version', 'sequences', 'id', 'title', 'procedures', 'use_for', 'text', 'status', 'approved', 'reviewed_by', 'Okojyo-Soft', 'reviewed_on']);
+  const allowed = new Set(['Windows', 'Ctrl', 'C', 'V', 'OneDrive', 'file-copy', 'wifi-off', 'onedrive-resume', 'first', 'first_goal', 'branches', 'steps', 'goal', 'exceptions', 'kinds', 'first_steps', 'needs_table', 'true', 'false', 'null', 'E', 'Enter', 'Wi-Fi', 'PC', 'LIB-', 'network-drive', 'free-space', 'admin-screen', 'wifi', 'restart', 'schema_version', 'sequences', 'id', 'title', 'procedures', 'use_for', 'text', 'status', 'approved', 'reviewed_by', 'Okojyo-Soft', 'reviewed_on']);
   const words = (text.match(/[A-Za-z][A-Za-z_-]*/g) ?? []).filter((word) => !allowed.has(word));
   assert.deepEqual(words, []);
 });
@@ -695,7 +695,7 @@ test('社内の相談先は電話番号や受付の記録がなくてよい。�
   const vendor = withSteps([step('STM-001', 'LIB-001')]);
   vendor.contacts[0] = { ...vendor.contacts[0], phone: '', hours: null };
   // 番号の記録がない業者も載せる。番号があるのに受付の欄がなければ見つける
-  assert.equal(problemsOf(vendor), '');
+  assert.doesNotMatch(problemsOf(vendor), /電話番号が必要|hours/);
   vendor.contacts[0].phone = '03-0000-0102';
   assert.match(problemsOf(vendor), /hours と contract_location/);
 });
@@ -923,6 +923,26 @@ test('Editor は後任向けの文章と用語の説明に、退職する担当�
   assert.equal(edited.statements[0].text, before);
   assert.deepEqual(changes, [{ statement: id, missing: ['退職する担当者の名前'] }]);
   assert.ok(!edited.glossary.some((g) => g.term === '新しい語'));
+});
+
+test('番号の記録がない業者へ案内するページには、番号の調べ方の部品が要る', () => {
+  const page = withSteps([step('STM-001', 'LIB-001')]);
+  page.contacts[0].phone = '';
+  assert.match(problemsOf(page), /LIB-030/);
+  const fixed = withSteps([step('STM-001', 'LIB-030'), step('STM-002', 'LIB-001')]);
+  fixed.contacts[0].phone = '';
+  assert.doesNotMatch(problemsOf(fixed), /LIB-030/);
+});
+
+test('承認した部品が、決まった文面で入っている', () => {
+  const texts = new Map(library.procedures.map((part) => [part.id, part.text]));
+  assert.equal(texts.get('LIB-024'), 'コピーするフォルダーを1回押して選び、Ctrl キーを押しながら C のキーを押してください。');
+  assert.equal(texts.get('LIB-025'), 'コピー先のフォルダーを開いて、Ctrl キーを押しながら V のキーを押してください。');
+  assert.equal(texts.get('LIB-026'), 'フォルダーを右クリックして、「プロパティ」を選んでください。「内容」の欄に、ファイルの数が出ます。');
+  assert.equal(texts.get('LIB-027'), '「Wi-Fi」のボタンを押して、色のない状態にしてください。');
+  assert.equal(texts.get('LIB-028'), '画面の右下にある、雲のマークを押してください。見つからないときは、「^」を押すと出てきます。');
+  assert.equal(texts.get('LIB-029'), '「同期の再開」を押してください。');
+  assert.equal(texts.get('LIB-030'), '請求書や契約書で、電話番号を確かめてください。');
 });
 
 test('電話番号の記録がない業者は載せて、記録がないと表示する', () => {

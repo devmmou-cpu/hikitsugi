@@ -5,7 +5,10 @@
     { "id": "free-space", "title": "ネットワーク ドライブの空き容量を見る", "first": [], "first_goal": null, "branches": ["LIB-021"], "steps": ["LIB-001", "LIB-002", "LIB-016"], "goal": null, "exceptions": ["LIB-017"] },
     { "id": "admin-screen", "title": "機器の管理画面を開く", "first": [], "first_goal": null, "branches": [], "steps": ["LIB-008", "LIB-009"], "goal": null, "exceptions": [] },
     { "id": "wifi", "title": "PC を Wi-Fi につなぎ直す", "first": [], "first_goal": null, "branches": [], "steps": ["LIB-010", "LIB-011", "LIB-012"], "goal": null, "exceptions": [] },
-    { "id": "restart", "title": "PC を再起動する", "first": [], "first_goal": null, "branches": [], "steps": ["LIB-018", "LIB-019", "LIB-020"], "goal": null, "exceptions": [] }
+    { "id": "restart", "title": "PC を再起動する", "first": [], "first_goal": null, "branches": [], "steps": ["LIB-018", "LIB-019", "LIB-020"], "goal": null, "exceptions": [] },
+    { "id": "file-copy", "title": "フォルダーを手でコピーして、ファイルの数を確かめる", "first": [], "first_goal": null, "branches": [], "steps": ["LIB-024", "LIB-025", "LIB-026"], "goal": null, "exceptions": [] },
+    { "id": "wifi-off", "title": "感染が疑われる PC を Wi-Fi から切る", "first": ["LIB-010", "LIB-027"], "first_goal": null, "branches": [], "steps": [], "goal": null, "exceptions": [] },
+    { "id": "onedrive-resume", "title": "OneDrive の同期を再開する", "first": ["LIB-028", "LIB-029"], "first_goal": null, "branches": [], "steps": [], "goal": null, "exceptions": [] }
   ],
   "procedures": [
     { "id": "LIB-001", "use_for": "エクスプローラーを開くとき", "text": "キーボードの Windows キーを押しながら、E のキーを押してください。", "kinds": ["first_steps", "steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
@@ -30,6 +33,13 @@
     { "id": "LIB-020", "use_for": "PC を再起動するとき", "text": "電源のマークを押して、「再起動」を押してください。", "kinds": ["steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
     { "id": "LIB-021", "use_for": "止まり方。調査データに Windows 10 の PC があり、ページに PC の操作の部品を使うとき。連絡先のあるページで使う", "text": "Windows 10 の PC は、手順が違うので、連絡先へ連絡してください。", "kinds": ["branches"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-02" },
     { "id": "LIB-022", "use_for": "共有フォルダをつなぎ直すとき", "text": "「完了」を押してください。", "kinds": ["steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" },
-    { "id": "LIB-023", "use_for": "LIB-013 のあと、直ったかを確かめるとき", "text": "開けば、直っています。", "kinds": ["first_goal"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" }
+    { "id": "LIB-023", "use_for": "LIB-013 のあと、直ったかを確かめるとき", "text": "開けば、直っています。", "kinds": ["first_goal"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" },
+    { "id": "LIB-024", "use_for": "フォルダーを手でコピーするとき", "text": "コピーするフォルダーを1回押して選び、Ctrl キーを押しながら C のキーを押してください。", "kinds": ["steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" },
+    { "id": "LIB-025", "use_for": "フォルダーを手でコピーするとき", "text": "コピー先のフォルダーを開いて、Ctrl キーを押しながら V のキーを押してください。", "kinds": ["steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" },
+    { "id": "LIB-026", "use_for": "コピーしたファイルの数を確かめるとき", "text": "フォルダーを右クリックして、「プロパティ」を選んでください。「内容」の欄に、ファイルの数が出ます。", "kinds": ["steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" },
+    { "id": "LIB-027", "use_for": "感染が疑われる PC を Wi-Fi から切るとき。LIB-010 のあとに使う", "text": "「Wi-Fi」のボタンを押して、色のない状態にしてください。", "kinds": ["first_steps", "steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" },
+    { "id": "LIB-028", "use_for": "OneDrive の同期を再開するとき", "text": "画面の右下にある、雲のマークを押してください。見つからないときは、「^」を押すと出てきます。", "kinds": ["first_steps", "steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" },
+    { "id": "LIB-029", "use_for": "OneDrive の同期を再開するとき", "text": "「同期の再開」を押してください。", "kinds": ["first_steps", "steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" },
+    { "id": "LIB-030", "use_for": "電話番号の記録がない業者に連絡するとき。そのページの手順の先頭に使う", "text": "請求書や契約書で、電話番号を確かめてください。", "kinds": ["steps"], "needs_table": false, "status": "approved", "reviewed_by": "Okojyo-Soft", "reviewed_on": "2026-11-03" }
   ]
 }
