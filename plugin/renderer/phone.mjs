@@ -18,7 +18,7 @@ import { pathToFileURL } from 'node:url';
 import { fileSize, oversizeMessage, PHONE_FILE_LIMIT, writeWithinLimit } from '../lib/limits.mjs';
 import { contactProblems, pageProblems } from '../lib/page-check.mjs';
 import { firstStepFigures } from '../lib/figures.mjs';
-import { actionHtml, BADGE_ICONS, BADGE_LABELS, CATEGORY_LABELS, checkInput, compactCss, esc, evidenceLines, ICONS, infoTables, makeContext, pageTerms, stepParts, telHtml } from './render.mjs';
+import { MEMO_NO_JS, actionHtml, BADGE_ICONS, BADGE_LABELS, CATEGORY_LABELS, checkInput, compactCss, esc, evidenceLines, ICONS, infoTables, makeContext, pageTerms, stepParts, telHtml } from './render.mjs';
 import { STYLES } from './styles.mjs';
 
 const SYMPTOM_NAME_MAX = 30;
@@ -203,6 +203,7 @@ function symptomHtml(ctx, page, fileTitle) {
     steps,
     closing,
     noContact,
+    MEMO_NO_JS,
     termsPart,
   ].filter(Boolean).join('\n');
   const shown = [page.title, page.badge.statement, page.reassurance, ...page.first_steps, ...page.steps, ...page.notes, ...page.info_rows, ...page.branches, ...page.exceptions, ...(page.fallback ? [page.fallback.message] : [])];
@@ -223,7 +224,7 @@ function contactsHtml(ctx, heading, lead, fileTitle) {
     `<p class="verdict-text">${lead}</p>`,
     inside.length ? `<section class="part">\n<h2>まず社内に相談</h2>\n${inside.map(card).join('\n')}\n</section>` : '',
     vendors.length ? `<section class="part">\n<h2>業者</h2>\n${vendors.map(card).join('\n')}\n</section>` : '',
-    contacts.length ? '' : '<p>連絡先は、まだこの説明書に入っていません。</p>',
+    contacts.length ? MEMO_NO_JS : '<p>連絡先は、まだこの説明書に入っていません。</p>',
   ].filter(Boolean).join('\n');
   return documentHtml(ctx, fileTitle, body);
 }

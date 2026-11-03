@@ -169,6 +169,97 @@ export const CLIENT_SCRIPT = String.raw`
     }
   }
 
+  // ---- 後任のメモ ----
+  // 入力のたびに保存する。保存できない環境では、開いている間だけ残り、そのことを欄の下に出す
+  function setUpMemos() {
+    const company = root.getAttribute('data-company') || '';
+    const boxes = all('[data-memo]');
+    const keyOf = (box) => 'hikitsugi:' + company + ':' + box.getAttribute('data-memo');
+    const dateText = (iso) => {
+      const [year, month, day] = iso.split('-').map(Number);
+      return '最後に書いた日：' + year + '年' + month + '月' + day + '日';
+    };
+    const fit = (input) => {
+      if (window.CSS && CSS.supports && CSS.supports('field-sizing', 'content')) return;
+      input.style.height = 'auto';
+      if (input.scrollHeight) input.style.height = input.scrollHeight + 2 + 'px';
+    };
+    const show = (box, text, date) => {
+      box.querySelector('.memo-print').textContent = text;
+      box.querySelector('.memo-date').textContent = text.trim() && date ? dateText(date) : '';
+      box.classList.toggle('is-empty', !text.trim());
+    };
+    const refreshRoot = () => root.classList.toggle('has-memos', boxes.some((box) => !box.classList.contains('is-empty')));
+    const part = (tag, className, text) => {
+      const element = document.createElement(tag);
+      element.className = className;
+      if (text) element.textContent = text;
+      return element;
+    };
+    for (const box of boxes) {
+      const label = part('label', 'memo-label', '後任のメモ（確認されていません）');
+      label.htmlFor = 'memo-' + box.getAttribute('data-memo');
+      const input = part('textarea', 'memo-input');
+      input.id = label.htmlFor;
+      input.rows = 2;
+      input.placeholder = '気づいたことを書いてください。パスワードは書かないでください。';
+      box.append(label, input, part('p', 'memo-print'), part('p', 'memo-date'), part('p', 'memo-note', 'このメモは、この PC のこのブラウザーにだけ保存されます'));
+      let saved = null;
+      try {
+        saved = JSON.parse(window.localStorage.getItem(keyOf(box)));
+      } catch (error) {
+        saved = null;
+      }
+      if (saved && typeof saved.text === 'string') {
+        input.value = saved.text;
+        show(box, saved.text, saved.date);
+      }
+      input.addEventListener('input', () => {
+        const text = input.value;
+        const date = new Date().toLocaleDateString('sv');
+        show(box, text, date);
+        fit(input);
+        refreshRoot();
+        try {
+          if (text.trim()) window.localStorage.setItem(keyOf(box), JSON.stringify({ text, date }));
+          else window.localStorage.removeItem(keyOf(box));
+        } catch (error) {
+          box.querySelector('.memo-date').textContent = '保存できませんでした。閉じると消えます。';
+        }
+      });
+    }
+    refreshRoot();
+    const refit = () => boxes.forEach((box) => fit(box.querySelector('.memo-input')));
+    window.addEventListener('hashchange', refit);
+    refit();
+
+    const button = document.querySelector('button[data-memo-copy]');
+    if (!button) return;
+    const status = document.getElementById(button.getAttribute('data-status'));
+    const label = button.textContent;
+    let timer = null;
+    button.addEventListener('click', () => {
+      const filled = boxes.filter((box) => !box.classList.contains('is-empty'));
+      clearTimeout(timer);
+      if (!filled.length) {
+        status.textContent = 'メモはまだありません。';
+        timer = setTimeout(() => { status.textContent = ''; }, 2000);
+        return;
+      }
+      const text = filled.map((box) => box.getAttribute('data-memo-name') + '：' + box.querySelector('.memo-input').value.trim()).join('\n');
+      copyText(text, null).then((copied) => {
+        button.classList.toggle('is-done', copied);
+        button.textContent = copied ? 'コピーしました' : label;
+        status.textContent = copied ? filled.length + '件のメモをコピーしました。' : '自動でコピーできませんでした。';
+        timer = setTimeout(() => {
+          button.classList.remove('is-done');
+          button.textContent = label;
+          status.textContent = '';
+        }, 2000);
+      });
+    });
+  }
+
   // ---- 開閉 ----
   // HTML では開いておき（JavaScript なしで全文を読むため）、ここで閉じる。印刷のときだけ全部開く
   function setUpDetails() {
@@ -314,6 +405,7 @@ export const CLIENT_SCRIPT = String.raw`
 
   setUpChecks();
   setUpCopy();
+  setUpMemos();
   setUpDetails();
   setUpTheme();
   setUpSearch(symptoms);

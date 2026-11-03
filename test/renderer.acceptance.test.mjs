@@ -451,7 +451,9 @@ test('実装は時刻や乱数に依存せず、外部ライブラリを使わ�
   assert.ok(files.includes('render.mjs'));
   for (const file of files) {
     const source = readFileSync(join(RENDERER_DIR, file), 'utf8');
-    assert.doesNotMatch(source, /Date\.now|new Date\(|Math\.random|performance\.now/, file);
+    // 例外は、ブラウザーの中で動くメモの「最後に書いた日」の1か所だけ。HTML の出力には入らない
+    const target = file === 'client.mjs' ? source.replace("const date = new Date().toLocaleDateString('sv');", '') : source;
+    assert.doesNotMatch(target, /Date\.now|new Date\(|Math\.random|performance\.now/, file);
     for (const [, target] of source.matchAll(/(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g)) {
       assert.match(target, /^(node:|\.\/|\.\.\/lib\/)/, `${file} の読み込み先: ${target}`);
     }

@@ -509,6 +509,76 @@ async function main([inputArg, outputArg]) {
         await capture(`opened-${viewport.name}`, `${viewport.name} 開いた直後`);
       }
       await trySearch(`search-${viewport.name}`);
+      const memoPage = targets.firstPage?.replace('symptom-', '');
+      if (viewport.name === 'pc' && memoPage && !JSON.parse(await evaluate(`JSON.stringify(Boolean(document.querySelector('[data-memo="${memoPage}"]')))`))) {
+        problems.push('メモ：欄がありません（古い版の HTML かもしれません）');
+      } else if (viewport.name === 'pc' && memoPage) {
+        const id = memoPage;
+        await page('Browser.grantPermissions', { permissions: ['clipboardReadWrite', 'clipboardSanitizedWrite'] }).catch(() => {});
+        await go(`#${targets.firstPage}`);
+        const before = JSON.parse(await evaluate(`JSON.stringify((() => {
+          const box = document.querySelector('[data-memo="${id}"]');
+          const shown = (el) => el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
+          const terms = box.closest('article').querySelector('.terms-block');
+          return { shown: shown(box), empty: box.querySelector('.memo-input').value === '', date: shown(box.querySelector('.memo-date')), note: box.querySelector('.memo-note').textContent, beforeTerms: !terms || Boolean(box.compareDocumentPosition(terms) & Node.DOCUMENT_POSITION_FOLLOWING), cards: document.querySelectorAll('.contact-grid [data-memo]').length, devices: document.querySelectorAll('.device-grid [data-memo]').length };
+        })())`));
+        if (!before.shown || !before.empty || before.date) problems.push(`メモ：空の欄が正しく出ていません（${JSON.stringify(before)}）`);
+        if (!before.beforeTerms) problems.push('メモ：欄が「このページのことば」の前にありません');
+        if (!before.note.includes('このブラウザーにだけ保存')) problems.push('メモ：保存場所の説明がありません');
+        await evaluate(`document.querySelector('[data-memo="${id}"]').scrollIntoView({ block: 'center' })`);
+        await settle();
+        writeFileSync(join(output, 'memo-empty.png'), Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+        shots.push('memo-empty');
+        const MEMO = '共有の棚の鍵は総務課で借ります。\n2行目のメモです。\n3行目のメモです。\n4行目のメモです。';
+        const written = JSON.parse(await evaluate(`JSON.stringify((() => {
+          const box = document.querySelector('[data-memo="${id}"]');
+          const input = box.querySelector('.memo-input');
+          const low = input.getBoundingClientRect().height;
+          input.value = ${JSON.stringify(MEMO)};
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          return { grew: input.getBoundingClientRect().height > low, date: box.querySelector('.memo-date').textContent, stored: localStorage.getItem('hikitsugi:' + document.documentElement.dataset.company + ':${id}') };
+        })())`));
+        if (!written.grew) problems.push('メモ：書いても欄が伸びません');
+        if (!written.date.startsWith('最後に書いた日：')) problems.push('メモ：最後に書いた日が出ません');
+        if (!written.stored?.includes('2行目')) problems.push('メモ：入力しても保存されません');
+        await evaluate(`location.reload()`);
+        await settle();
+        await settle();
+        const kept = JSON.parse(await evaluate(`JSON.stringify({ value: document.querySelector('[data-memo="${id}"] .memo-input').value, date: document.querySelector('[data-memo="${id}"] .memo-date').textContent })`));
+        if (kept.value !== MEMO || !kept.date) problems.push('メモ：開き直すと残っていません');
+        await evaluate(`document.querySelector('[data-memo="${id}"]').scrollIntoView({ block: 'center' })`);
+        await settle();
+        writeFileSync(join(output, 'memo-written.png'), Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+        shots.push('memo-written');
+        const copied = JSON.parse(await evaluate(`(async () => {
+          document.querySelector('button[data-memo-copy]').click();
+          await new Promise((done) => setTimeout(done, 300));
+          const pasted = await navigator.clipboard.readText().catch(() => null);
+          return JSON.stringify({ pasted, name: document.querySelector('[data-memo="${id}"]').getAttribute('data-memo-name') });
+        })()`));
+        if (copied.pasted !== `${copied.name}：${MEMO}`) problems.push(`メモ：まとめてコピーの内容が違います（${JSON.stringify(copied.pasted)}）`);
+        // 印刷：書いたメモの内容だけが出て、入力欄と空の欄は出ない
+        await page('Emulation.setEmulatedMedia', { media: 'print', features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+        await settle();
+        const printed = JSON.parse(await evaluate(`JSON.stringify((() => {
+          const shown = (el) => getComputedStyle(el).display !== 'none';
+          const box = document.querySelector('[data-memo="${id}"]');
+          return { text: shown(box) && shown(box.querySelector('.memo-print')) ? box.querySelector('.memo-print').textContent : null, inputs: [...document.querySelectorAll('.memo-input')].filter(shown).length, others: [...document.querySelectorAll('.memo.is-empty')].filter(shown).length };
+        })())`));
+        if (printed.text !== MEMO) problems.push('メモ：印刷にメモの内容が出ません');
+        if (printed.inputs || printed.others) problems.push(`メモ：印刷に入力欄か空の欄が出ています（${JSON.stringify(printed)}）`);
+        await evaluate(`document.querySelector('[data-memo="${id}"]').scrollIntoView({ block: 'center' })`);
+        await settle();
+        writeFileSync(join(output, 'memo-print.png'), Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+        shots.push('memo-print');
+        await page('Emulation.setEmulatedMedia', { media: '', features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+        // ほかの撮影に残さない
+        await evaluate(`localStorage.removeItem('hikitsugi:' + document.documentElement.dataset.company + ':${id}')`);
+        await evaluate(`location.reload()`);
+        await settle();
+        await settle();
+        report.memo = { cards: before.cards, devices: before.devices };
+      }
 
       // 仕様の値
       await page('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
@@ -599,6 +669,9 @@ async function main([inputArg, outputArg]) {
       };
     })())`;
     const whole = JSON.parse(await evaluate(readAll));
+    const memoNoJs = JSON.parse(await evaluate(`JSON.stringify({ boxes: [...document.querySelectorAll('.memo')].filter((el) => getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0).length, lines: [...document.querySelectorAll('.memo-nojs')].filter((el) => getComputedStyle(el).display !== 'none').length })`));
+    if (memoNoJs.boxes) problems.push(`JavaScript なし：メモの欄が出ています（${memoNoJs.boxes} 件）`);
+    if (!memoNoJs.lines) problems.push('JavaScript なし：「メモは PC 版で書けます」がありません');
     if (!whole.noJs) problems.push('JavaScript なしの確認：no-js のままではありません');
     if (whole.hidden.length) problems.push(`JavaScript なし、ハッシュなし：見えない画面があります ${whole.hidden.join('、')}`);
     if (!whole.firstIsHelp) problems.push('JavaScript なし：困ったときの一覧が最初にありません');

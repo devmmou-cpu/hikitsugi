@@ -293,6 +293,99 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   display: none;
 }
 
+/* ---- 後任のメモ ---- */
+.js .memo {
+  margin-top: var(--s4);
+  padding: var(--s3);
+  border: 2px dotted var(--ink-3);
+  border-radius: 8px;
+}
+
+.memo-label {
+  display: block;
+  margin-bottom: var(--s2);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.memo-input {
+  display: block;
+  width: 100%;
+  min-height: 72px;
+  padding: var(--s2);
+  field-sizing: content;
+  resize: none;
+  overflow: hidden;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.memo-input::placeholder {
+  color: var(--ink-3);
+  opacity: 1;
+}
+
+.js .memo-print {
+  display: none;
+  white-space: pre-wrap;
+}
+
+.js .memo-date:empty {
+  display: none;
+}
+
+.memo-date, .memo-note {
+  margin-top: var(--s1);
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.memo-nojs {
+  margin-top: var(--s3);
+  font-size: 15px;
+  color: var(--ink-2);
+}
+
+.js .memo-nojs {
+  display: none;
+}
+
+.top-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s1) var(--s3);
+  min-width: 0;
+}
+
+/* 狭い幅では、メモがあるときだけ出す。上部の高さを空のまま増やさない */
+.js .btn-memo-copy {
+  display: none;
+  min-height: 44px;
+  padding: 0 var(--s3);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.js.has-memos .btn-memo-copy {
+  display: inline-flex;
+}
+
+.js .memo-copy-status:empty {
+  display: none;
+}
+
+.memo-copy-status {
+  font-size: 14px;
+}
+
 /* ---- 下部タブ ---- */
 .tabs {
   position: sticky;
@@ -1798,6 +1891,10 @@ details[open] .plus-v {
     box-shadow: inset 0 -2px 0 var(--accent);
   }
 
+  .js .btn-memo-copy {
+    display: inline-flex;
+  }
+
   /* 幅が足りなければ2行にし、それでも長い名前は省略して、バーの高さを守る */
   .top-status {
     justify-content: flex-end;
@@ -2309,6 +2406,14 @@ details[open] .plus-v {
   }
 
   body {
+    display: block;
+  }
+
+  .memo-input, .memo-note, .memo-nojs, .memo.is-empty {
+    display: none !important;
+  }
+
+  .js .memo-print {
     display: block;
   }
 

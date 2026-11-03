@@ -354,10 +354,21 @@ function topbarHtml(ctx) {
     '<header class="topbar">',
     `<p class="brand"><span class="chip-secret">社外秘</span><span class="brand-names"><span class="brand-company">${esc(ctx.manual.company_name)}</span> <span class="brand-title">ITの取扱説明書</span></span></p>`,
     `<nav class="topnav" aria-label="画面の切り替え">${links}</nav>`,
+    '<div class="top-side">',
     topStatus(ctx.manual),
+    '<button type="button" class="btn btn-memo-copy tap js-only" data-memo-copy data-status="memo-copy-status">メモをまとめてコピー</button>',
+    '<p class="copy-status memo-copy-status" id="memo-copy-status" role="status"></p>',
+    '</div>',
     '</header>',
   ].join('\n');
 }
+
+// ---- 後任のメモ ----
+// メモは確認されていない内容なので、説明書の文とは混ぜない。保存はこの PC のブラウザーの中だけで、ファイルには書かない
+export const MEMO_NO_JS = '<p class="memo-nojs">メモは PC 版で書けます</p>';
+
+// 欄の中身は JavaScript が作る。JavaScript なしでは何も出ないので、隠す指定が要らない
+const memoHtml = (id, name) => `<div class="memo is-empty" data-memo="${esc(id)}" data-memo-name="${esc(name)}"></div>`;
 
 /** 判定の凡例。はじめにと、PC の開いた直後の画面で同じものを出す。 */
 const legendHtml = () => `<ul class="legend" role="list">${Object.keys(BADGE_LABELS).map((value) => `<li>${badgeHtml(value)}<span class="legend-text">${esc(BADGE_MEANINGS[value])}</span></li>`).join('')}</ul>`;
@@ -680,6 +691,8 @@ function symptomPanel(ctx, page) {
     contactLeads ? '' : last,
     !contact && ctx.manual.contacts.length ? '<p class="tab-link"><a class="tap text-link" href="#tab-contacts">連絡先の一覧を見る</a></p>' : '',
     infoHtml(ctx, page),
+    memoHtml(page.id, ctx.raw(page.title)),
+    MEMO_NO_JS,
     termsBlock,
     evidenceHtml(ctx, shownIds, page.id),
     backLink,
@@ -691,6 +704,9 @@ function symptomPanel(ctx, page) {
 }
 
 // ---- 連絡先 ----
+/** 連絡先のカードと、その下のメモ。 */
+const contactWithMemo = (ctx, contact) => `<div class="with-memo">\n${contactCard(ctx, contact)}\n${memoHtml(contact.id, contact.name)}\n</div>`;
+
 function contactCard(ctx, contact) {
   const internal = contact.id.startsWith('INH-');
   const statusId = `copy-status-c-${esc(contact.id)}`;
@@ -713,11 +729,12 @@ function contactsPanel(ctx) {
   // まず誰に言うかの順に、社内の相談先を先に並べる
   const inside = ctx.manual.contacts.filter((c) => c.id.startsWith('INH-'));
   const vendors = ctx.manual.contacts.filter((c) => !c.id.startsWith('INH-'));
-  const grid = (items) => `<div class="contact-grid">\n${items.map((c) => contactCard(ctx, c)).join('\n')}\n</div>`;
+  const grid = (items) => `<div class="contact-grid">\n${items.map((c) => contactWithMemo(ctx, c)).join('\n')}\n</div>`;
   const body = ctx.manual.contacts.length
     ? [
         '<p class="lead">困ったときに連絡する相手です。</p>',
         '<p class="note">電話のボタンを押すと、電話をかける画面が開きます。</p>',
+        MEMO_NO_JS,
         ...(inside.length ? ['<h3 class="section-title">まず社内に相談</h3>', grid(inside)] : []),
         ...(vendors.length ? [inside.length ? '<h3 class="section-title">業者</h3>' : '', grid(vendors)] : []),
       ].filter(Boolean).join('\n')
@@ -767,6 +784,7 @@ function routinesPanel(ctx) {
 // ---- 会社のIT ----
 function deviceHtml(ctx, device) {
   return [
+    '<div class="with-memo">',
     '<article class="card device">',
     `<h4 class="device-name">${ctx.text(device.name)}</h4>`,
     factsHtml(ctx, [
@@ -777,13 +795,15 @@ function deviceHtml(ctx, device) {
       ...(device.caution ? [['やってはいけないこと', device.caution]] : []),
     ]),
     '</article>',
+    memoHtml(device.id, ctx.raw(device.name)),
+    '</div>',
   ].join('\n');
 }
 
 function companyPanel(ctx) {
   const { devices, glossary } = ctx.manual;
   const list = devices.length
-    ? `<div class="company-devices"><h3 class="section-title">機器の一覧</h3>\n<div class="device-grid">\n${devices.map((d) => deviceHtml(ctx, d)).join('\n')}\n</div></div>`
+    ? `<div class="company-devices"><h3 class="section-title">機器の一覧</h3>\n${MEMO_NO_JS}\n<div class="device-grid">\n${devices.map((d) => deviceHtml(ctx, d)).join('\n')}\n</div></div>`
     : emptyHtml('機器の一覧は、まだこの説明書に入っていません。');
   const terms = glossary.length
     ? `<div class="company-terms"><h3 class="section-title" id="company-terms" tabindex="-1">ことばの説明</h3>\n<p class="note">押すと説明が開きます。</p>\n<div class="terms">\n${glossary.map((g, index) => termHtml(ctx, g, `g-all-${index}`)).join('\n')}\n</div></div>`

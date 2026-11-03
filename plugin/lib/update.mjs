@@ -72,11 +72,13 @@ export function parseMemos(text, manual) {
   for (const page of manual.symptom_pages) names.set(statement.get(page.title), page.id);
   for (const contact of manual.contacts) names.set(contact.name, contact.id);
   for (const device of manual.devices) names.set(statement.get(device.name), device.id);
+  const known = [...names.keys()].sort((a, b) => b.length - a.length);
   const items = [];
   for (const line of text.split(/\r?\n/)) {
     const at = line.indexOf('：');
+    const found = known.find((candidate) => line.startsWith(`${candidate}：`));
     const name = at > 0 ? line.slice(0, at).trim() : null;
-    if (name && names.has(name)) items.push({ target: names.get(name), name, text: line.slice(at + 1).trim() });
+    if (found) items.push({ target: names.get(found), name: found, text: line.slice(found.length + 1).trim() });
     else if (name && !items.length) items.push({ target: null, name, text: line.slice(at + 1).trim() });
     else if (line.trim() && items.length) items.at(-1).text = `${items.at(-1).text}\n${line.trim()}`;
     else if (line.trim()) items.push({ target: null, name: '', text: line.trim() });

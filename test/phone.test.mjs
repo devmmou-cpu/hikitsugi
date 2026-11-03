@@ -286,3 +286,15 @@ test('実際の画面：JavaScript なしで全ファイルが、はみ出さず
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('後任のメモ：束には欄を出さず、PC 版で書けることだけを1行で伝える', () => {
+  const manual = JSON.parse(readFileSync(join(ROOT, 'test/fixtures/manual-full.json'), 'utf8'));
+  const files = renderPhoneBundle(manual);
+  for (const { name, html } of files) {
+    assert.doesNotMatch(html, /<textarea|data-memo|localStorage/, name);
+    assert.deepEqual(phoneFileProblems(html), [], name);
+  }
+  const lined = files.filter(({ html }) => html.includes('メモは PC 版で書けます'));
+  assert.equal(lined.length, manual.symptom_pages.length + 2, '手順ページ、連絡先、当てはまる症状がないとき');
+  for (const { html } of lined) assert.equal(html.match(/メモは PC 版で書けます/g).length, 1);
+});

@@ -395,3 +395,22 @@ test('実装は外部ライブラリを使わない', () => {
     }
   }
 });
+
+test('後任のメモ：各ページ、連絡先、機器に欄の場所があり、キーを作る ID と名前を持つ', () => {
+  const manual = JSON.parse(readFileSync(join(ROOT, 'test/fixtures/manual-full.json'), 'utf8'));
+  const out = renderManual(manual);
+  const text = new Map(manual.statements.map((statement) => [statement.id, statement.text]));
+  for (const page of manual.symptom_pages) assert.ok(out.includes(`data-memo="${page.id}" data-memo-name="${text.get(page.title).replaceAll('&', '&amp;').replaceAll('"', '&quot;')}"`), page.id);
+  for (const contact of manual.contacts) assert.ok(out.includes(`data-memo="${contact.id}"`), contact.id);
+  for (const device of manual.devices) assert.ok(out.includes(`data-memo="${device.id}"`), device.id);
+  // 欄の中身は JavaScript が作るので、JavaScript なしの HTML には入力欄がない
+  assert.doesNotMatch(out.replace(/<script\b[\s\S]*?<\/script>/gi, ''), /<textarea/);
+  assert.ok(out.includes('メモをまとめてコピー'));
+  assert.ok(out.includes('メモは PC 版で書けます'));
+  // 手順ページでは「このページのことば」の前に置く
+  const page = manual.symptom_pages.find((candidate) => out.slice(out.indexOf(`id="symptom-${candidate.id}"`)).split('</article>')[0].includes('このページのことば'));
+  const article = out.slice(out.indexOf(`id="symptom-${page.id}"`)).split('</article>')[0];
+  assert.ok(article.indexOf('data-memo=') < article.indexOf('このページのことば'));
+  const client = out.match(/<script\b[^>]*>([\s\S]*?)<\/script>/gi).join('\n');
+  assert.ok(client.includes("'hikitsugi:' + company + ':'"), 'キーは hikitsugi:会社ID:ページID');
+});
