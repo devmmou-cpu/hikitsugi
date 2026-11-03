@@ -9,6 +9,8 @@ claude --plugin-dir plugin    # 開いたら /hikitsugi:start
 npm test                      # 依存なし、ネットワークなし
 ```
 
+完成後は、同じ入口で連絡先や手順を直せます。**更新には Claude Code が要ります。読むだけなら要りません。**
+
 ## Claude の活用
 | 担当 | 役割 | モデル |
 |---|---|---|

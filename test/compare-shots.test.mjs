@@ -107,9 +107,17 @@ test('フォルダの比較：変わった画像、増えた画像、なくな�
     put(before, 'pc/gone.png', same);
     put(now, 'report.json', '{}');
 
+    // 割合は 0.1% 未満でも、数桁の文字に当たる数の画素が変われば気づく
+    const big = (from) => png(400, 400, (x, y) => (from && x < 10 && y < 3 ? [255, 255, 255] : [0, 0, 0]));
+    put(now, 'pc/phone-digits.png', big(true));
+    put(before, 'pc/phone-digits.png', big(false));
+
     const result = compareFolders(now, before, { threshold: 0.001, tolerance: 8 });
     assert.equal(result.same, 2);
-    assert.deepEqual(result.changed, [{ name: join('phone', 'dark-t1.png'), ratio: 1 }]);
+    assert.deepEqual(result.changed, [
+      { name: join('pc', 'phone-digits.png'), ratio: 0.00019, pixels: 30 },
+      { name: join('phone', 'dark-t1.png'), ratio: 1, pixels: 1600 },
+    ]);
     assert.deepEqual(result.added, [join('pc', 'new.png')]);
     assert.deepEqual(result.removed, [join('pc', 'gone.png')]);
     assert.equal(hasDifference(result), true);

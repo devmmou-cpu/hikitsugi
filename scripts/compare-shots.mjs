@@ -9,8 +9,10 @@ import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { inflateSync } from 'node:zlib';
 
-// 変わった画素の割合がこれを超えたら「差分あり」。全画面の撮影で、小さな変更（短い文1行など）に気づける値
+// 変わった画素の割合がこれを超えるか、数がこれ以上なら「差分あり」。
+// 割合だけでは、長いページの電話番号の数桁（実物の更新の確認で 0.1% 未満）を見逃すので、数でも見る
 export const DEFAULT_THRESHOLD = 0.001;
+export const DEFAULT_MIN_PIXELS = 20;
 // 1色（0〜255）の差がこれ以下の画素は同じと見なす。文字のにじみの揺れで騒がないため
 export const DEFAULT_TOLERANCE = 8;
 
@@ -65,9 +67,9 @@ export function decodePng(buffer) {
   return { width, height, channels, pixels };
 }
 
-/** 2枚を比べ、変わった画素の割合（0〜1）を返す。大きさが違えば 1。 */
-export function changedRatio(a, b, tolerance = DEFAULT_TOLERANCE) {
-  if (a.width !== b.width || a.height !== b.height) return 1;
+/** 変わった画素の数を返す。大きさが違えば全部。 */
+export function changedPixels(a, b, tolerance = DEFAULT_TOLERANCE) {
+  if (a.width !== b.width || a.height !== b.height) return Math.max(a.width * a.height, b.width * b.height);
   let changed = 0;
   for (let i = 0, p = 0; i < a.width * a.height; i += 1, p += a.channels) {
     // RGB だけを比べる。透明の値は撮影で変わらない
@@ -78,8 +80,11 @@ export function changedRatio(a, b, tolerance = DEFAULT_TOLERANCE) {
       }
     }
   }
-  return changed / (a.width * a.height);
+  return changed;
 }
+
+/** 2枚を比べ、変わった画素の割合（0〜1）を返す。大きさが違えば 1。 */
+export const changedRatio = (a, b, tolerance = DEFAULT_TOLERANCE) => Math.min(1, changedPixels(a, b, tolerance) / (a.width * a.height));
 
 const pngsIn = (dir, root = dir) =>
   readdirSync(dir).flatMap((name) => {
@@ -89,7 +94,7 @@ const pngsIn = (dir, root = dir) =>
   });
 
 /** フォルダどうしを比べる。名前はフォルダからの相対パス。 */
-export function compareFolders(current, baseline, { threshold = DEFAULT_THRESHOLD, tolerance = DEFAULT_TOLERANCE } = {}) {
+export function compareFolders(current, baseline, { threshold = DEFAULT_THRESHOLD, tolerance = DEFAULT_TOLERANCE, minPixels = DEFAULT_MIN_PIXELS } = {}) {
   const now = new Set(pngsIn(current));
   const before = new Set(pngsIn(baseline));
   const changed = [];
@@ -98,8 +103,10 @@ export function compareFolders(current, baseline, { threshold = DEFAULT_THRESHOL
     const left = readFileSync(join(current, name));
     const right = readFileSync(join(baseline, name));
     // 中身が同じなら、読まなくても同じ
-    const ratio = left.equals(right) ? 0 : changedRatio(decodePng(left), decodePng(right), tolerance);
-    if (ratio > threshold) changed.push({ name, ratio: Number(ratio.toFixed(5)) });
+    const [a, b] = left.equals(right) ? [] : [decodePng(left), decodePng(right)];
+    const pixels = a ? changedPixels(a, b, tolerance) : 0;
+    const ratio = a ? Math.min(1, pixels / (a.width * a.height)) : 0;
+    if (ratio > threshold || pixels >= minPixels) changed.push({ name, ratio: Number(ratio.toFixed(5)), pixels });
     else same += 1;
   }
   return {
@@ -118,7 +125,7 @@ export const hasDifference = ({ changed, added, removed }) => changed.length + a
 export function comparisonLines({ same, changed, added, removed }) {
   return [
     `前回との比較：同じ ${same} 枚、変わった ${changed.length} 枚、増えた ${added.length} 枚、なくなった ${removed.length} 枚`,
-    ...changed.map(({ name, ratio }) => `変わった：${name}（${(ratio * 100).toFixed(2)}%）`),
+    ...changed.map(({ name, ratio, pixels }) => `変わった：${name}（${(ratio * 100).toFixed(2)}%、${pixels} 画素）`),
     ...added.map((name) => `増えた：${name}`),
     ...removed.map((name) => `なくなった：${name}`),
   ];
