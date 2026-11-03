@@ -276,3 +276,27 @@ test('Windows 10 の分岐：何度組んでも増えず、Writer には渡さ�
   assert.ok(revision.previous_manual.symptom_pages.every((p) => !p.branches.some((id) => !revision.previous_manual.statements.some((s) => s.id === id))));
   assert.match(renderManual(withReplies(once)).replace(/<[^>]+>/g, ''), /該当する PC：OKJ-CAD-01。/);
 });
+
+test('業者に伝える文：機器を1つに絞れないときは、機器の場所の行を出さない', () => {
+  const manual = withoutReplies(fixture());
+  const page = manual.symptom_pages.find((p) => p.fallback);
+  const add = (id, text) => manual.statements.push({ id, text, evidence: ['INT-001'], library: null });
+  add('STM-901', 'NAS');
+  add('STM-902', '事務所のサーバーラックにあります。');
+  add('STM-903', '生産管理サーバー（社内サーバー1台）');
+  add('STM-904', '置き場所の記録がありません。');
+  add('STM-905', '無線 AP（工場）');
+  add('STM-906', '工場の入口に近い柱の上にあります。');
+  add('STM-907', '無線 AP（事務所）');
+  add('STM-908', '事務所の天井にあります。');
+  manual.devices = [['STM-901', 'STM-902'], ['STM-903', 'STM-904'], ['STM-905', 'STM-906'], ['STM-907', 'STM-908']].map(([name, location]) => ({ name, location }));
+  const placeLine = (title) => {
+    statementOf(manual, page.title).text = title;
+    return composeCallScript(page, manual).text.split('\n').find((line) => line.startsWith('機器の場所：')) ?? null;
+  };
+  assert.equal(placeLine('停電のあと NAS やサーバーが動かない'), null, 'NAS とサーバーの2台');
+  assert.equal(placeLine('NAS のディスクの交換が必要そう'), '機器の場所：事務所のサーバーラックにあります');
+  assert.equal(placeLine('サーバーが動かない'), null, '置き場所の記録がない');
+  assert.equal(placeLine('工場の AP が止まった'), '機器の場所：工場の入口に近い柱の上にあります');
+  assert.equal(placeLine('AP が止まった'), null, 'どちらの AP か分からない');
+});

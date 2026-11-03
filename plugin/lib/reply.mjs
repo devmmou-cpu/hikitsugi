@@ -54,26 +54,30 @@ export function composeReply(page, manual, library = loadLibrary()) {
   return { text: CHECKING, evidence: titleEvidence };
 }
 
-// 機器の名前の言葉。括弧の中は区別の情報で、「と」は複数の機器を並べている
+// 機器の名前の言葉。括弧の中は区別の情報で、「と」は複数の機器を並べている。「生産管理サーバー」は「サーバー」でも呼ばれる
 const deviceWords = (name) => {
   const base = name.replace(/[（(][^）)]*[）)]/g, ' ');
   const tokens = base.split(/[\s]*と[\s]*/).map((piece) => piece.replace(/\s+/g, '')).filter(Boolean);
   const ascii = base.match(/[A-Za-z][A-Za-z0-9-]+/g) ?? [];
-  return [...new Set([...tokens, ...ascii])].filter((word) => word.length >= 2);
+  const katakana = base.match(/[ァ-ヶー]{3,}/g) ?? [];
+  return [...new Set([...tokens, ...ascii, ...katakana])].filter((word) => word.length >= 2);
 };
 
-/** 題名か ① に出てくる機器を探す。括弧の中の区別（工場など）も文に出ている機器を優先する。 */
+/**
+ * 題名か ① に出てくる機器を1つに絞る。括弧の中の区別（工場など）も文に出ている機器を優先する。
+ * 絞れないときは null。別の機器の置き場所を、その機器のものとして伝えないため。
+ */
 function deviceFor(page, manual, byId) {
-  const text = [page.title, ...page.first_steps].map((id) => byId.get(id)?.text ?? '').join('\n');
-  const flat = text.replace(/\s+/g, '');
-  const scored = (manual.devices ?? []).map((device, order) => {
+  const flat = [page.title, ...page.first_steps].map((id) => byId.get(id)?.text ?? '').join('\n').replace(/\s+/g, '');
+  const scored = (manual.devices ?? []).map((device) => {
     const name = byId.get(device.name)?.text ?? '';
-    const words = deviceWords(name);
-    if (!words.some((word) => flat.includes(word.replace(/\s+/g, '')))) return null;
+    if (!deviceWords(name).some((word) => flat.includes(word))) return null;
     const notes = name.match(/[（(]([^）)]*)[）)]/)?.[1] ?? '';
-    return { device, order, score: notes && flat.includes(notes.split(/[、,の]/)[0].replace(/\s+/g, '')) ? 1 : 0 };
+    return { device, score: notes && flat.includes(notes.split(/[、,の]/)[0].replace(/\s+/g, '')) ? 1 : 0 };
   }).filter(Boolean);
-  return scored.sort((a, b) => b.score - a.score || a.order - b.order)[0]?.device ?? null;
+  const top = Math.max(0, ...scored.map((entry) => entry.score));
+  const best = scored.filter((entry) => entry.score === top);
+  return best.length === 1 ? best[0].device : null;
 }
 
 /** 機器の置き場所の文章。根拠があり、「記録がありません」でないときだけ使う。 */

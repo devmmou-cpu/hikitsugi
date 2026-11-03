@@ -2,6 +2,7 @@
 
 import { withoutReplies, withReplies } from '../plugin/lib/reply.mjs';
 import { locationWarnings } from '../plugin/lib/coverage-check.mjs';
+import { structureCounts } from '../eval/holdout-structure.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -1179,3 +1180,20 @@ test('Interviewer は、部屋の名前と目印で置き場所を聞き、部�
   assert.match(prompt, /部屋の名前＋部屋の中の目印/);
   assert.match(prompt, /部屋の名前だけを1回だけ聞き直します/);
 });
+
+test('保留の会社の構造の検査は、件数だけを返し、文章も点数も返さない', () =>
+  withTemp((dir) => {
+    const manual = withReplies(JSON.parse(readFileSync(join(ROOT, 'test/fixtures/manual-full.json'), 'utf8')));
+    const secretWord = '中身に入っている文';
+    manual.statements[0].text = `${manual.statements[0].text}${secretWord}`;
+    writeFileSync(join(dir, 'manual-final.json'), JSON.stringify(manual));
+    writeFileSync(join(dir, 'summary.json'), JSON.stringify({ status: 'passed', rounds: [{ counts: { correct: 9 } }], stages: { interview: { covered: 30 } } }));
+    writeFileSync(join(dir, 'manual.html'), '<!doctype html><p>本文</p>');
+    const report = structureCounts(dir);
+    assert.equal(report.status, 'passed');
+    assert.equal(report.checks.replies.problems, 0);
+    assert.equal(report.checks.search_index.error, false);
+    const text = JSON.stringify(report);
+    assert.ok(!text.includes(secretWord));
+    assert.ok(!text.includes('covered') && !text.includes('correct'));
+  }));
