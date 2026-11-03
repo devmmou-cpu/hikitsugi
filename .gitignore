@@ -10,3 +10,4 @@ eval/results/
 *.key
 # 夜間の自動実行のログ
 night-logs/
+review-input/
