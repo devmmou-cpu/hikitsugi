@@ -55,6 +55,9 @@ test('画面には4段の順で出て、困ったときはページへのリン�
   const labels = [...block.matchAll(/<dt>([^<]*)<\/dt>/g)].map((match) => match[1]);
   assert.deepEqual(labels, ['一言で', 'たとえ', 'この会社では', '困ったときは']);
   assert.ok(block.includes(`href="#symptom-${entry.help_page}"`));
+  // リンクは横並びの部品なので、語ごとに列に分かれないよう、中身を1つの要素にまとめる
+  assert.match(block, new RegExp(`href="#symptom-${entry.help_page}"><span>[\\s\\S]*?</span></a>`));
+  assert.ok(!block.includes('class="facts"'));
   const plain = block.replace(/<[^>]+>/g, '');
   assert.ok(plain.includes(entry.one_line) && plain.includes(entry.analogy));
   // リンク先がない語は3段

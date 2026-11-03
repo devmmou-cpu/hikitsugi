@@ -1383,6 +1383,24 @@ details.term > p {
   padding: 0 var(--s4) var(--s4);
 }
 
+/* plain-words.md の §7。段の見出しを本文の上に積む */
+.term-rows dt {
+  margin-top: var(--s3);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--ink-2);
+}
+
+.term-rows dt:first-child {
+  margin-top: 0;
+}
+
+.term-rows dd {
+  margin: 0;
+  font-size: 17px;
+}
+
 details.term > p {
   color: var(--ink-2);
 }

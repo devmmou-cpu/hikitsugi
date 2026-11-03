@@ -266,9 +266,9 @@ function termHtml(ctx, term, id) {
     ['一言で', statementHtml(term.one_line, ctx.words)],
     ['たとえ', statementHtml(term.analogy, ctx.words)],
     ['この会社では', ctx.text(term.company)],
-    ...(page ? [['困ったときは', `<a class="tap text-link" href="#symptom-${esc(page.id)}">${ctx.text(page.title)}</a>`]] : []),
+    ...(page ? [['困ったときは', `<a class="tap text-link" href="#symptom-${esc(page.id)}"><span>${ctx.text(page.title)}</span></a>`]] : []),
   ];
-  return `<details class="term" id="${esc(id)}" open><summary class="tap"><span>${esc(term.term)}とは？</span>${PLUS_MINUS}</summary><dl class="facts">${rows.map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join('')}</dl></details>`;
+  return `<details class="term" id="${esc(id)}" open><summary class="tap"><span>${esc(term.term)}とは？</span>${PLUS_MINUS}</summary><dl class="term-rows">${rows.map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join('')}</dl></details>`;
 }
 
 const emptyHtml = (text) => `<p class="empty">${esc(text)}</p>`;
