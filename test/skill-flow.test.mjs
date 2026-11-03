@@ -317,3 +317,13 @@ test('スキルの案内：形の指定、検査前の扱い、自由入力の�
   }
   assert.ok(skill.includes('「Other」とは書きません'));
 });
+
+test('プロンプト：R0 の直しと plain-words の決まりが入っている', () => {
+  const read = (name) => readFileSync(join(ROOT, `plugin/agents/${name}.md`), 'utf8');
+  const interviewer = read('interviewer');
+  for (const words of ['それでも直らないときに誰へ連絡するか', '連絡の手段', '知らされた担当者がそのあと何をするか']) assert.ok(interviewer.includes(words), words);
+  const writer = read('writer');
+  for (const words of ['社員から知らされたとき', '見分け方を1行', '確認の結果ごとに行き先', '動いているときにしてはいけないこと', '手段を書きます']) assert.ok(writer.includes(words), words);
+  const editor = read('plain-japanese-editor');
+  for (const words of ['**35字以内**', 'ほかの専門用語を1つも入れません']) assert.ok(editor.includes(words), words);
+});
