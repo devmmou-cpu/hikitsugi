@@ -42,7 +42,7 @@ export const STYLES = String.raw`
   --s5: 24px;
   --s6: 32px;
   --s7: 48px;
-  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Yu Gothic UI", monospace;
+  --mono: ui-monospace, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -110,7 +110,7 @@ export const STYLES = String.raw`
 }
 
 html {
-  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", "Noto Sans JP", system-ui, sans-serif;
+  font-family: system-ui, sans-serif;
   font-size: 17px;
   line-height: 1.7;
   color: var(--ink);

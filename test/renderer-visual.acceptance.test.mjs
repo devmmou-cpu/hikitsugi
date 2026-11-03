@@ -133,12 +133,14 @@ test('文字の大きさは 14px 以上。13px はタブのラベルと社外秘
   }
 });
 
-test('文字の設定：本文 17px、行間 1.7、指定のフォント', () => {
+test('文字の設定：本文 17px、行間 1.7、実在のフォント名を書かない', () => {
   const rule = blockAfter(css, /(^|\})\s*html\s*\{/m) ?? '';
   assert.match(rule, /font-size\s*:\s*17px/);
   assert.match(rule, /line-height\s*:\s*1\.7/);
-  for (const name of ['-apple-system', 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', 'Noto Sans JP', 'system-ui']) assert.ok(rule.includes(name), name);
-  assert.match(css, /ui-monospace/);
+  assert.match(rule, /font-family\s*:\s*system-ui,\s*sans-serif\s*;/);
+  assert.match(css, /--mono\s*:\s*ui-monospace,\s*monospace\s*;/);
+  // design.md の 11/2 の決定：指定できるのは総称の名前だけ
+  for (const [, value] of css.matchAll(/font-family\s*:\s*([^;}]+)/g)) assert.match(value.trim(), /^(?:system-ui, sans-serif|ui-monospace, monospace|inherit|var\(--mono\))$/, value);
   assert.match(css, /tabular-nums/);
 });
 

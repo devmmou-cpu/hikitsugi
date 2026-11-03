@@ -357,6 +357,8 @@ CSS 変数で定義。ダークは `@media (prefers-color-scheme: dark)` と `ht
 
 ### 6-2. 文字
 
+> 注記：実装では実在のフォント名を書きません。`system-ui, sans-serif` と `ui-monospace, monospace` だけを指定します（`docs/design.md` の 11/2 の決定）。下の例はこの仕様を書いた時点の案で、実装の指定ではありません。
+
 ```css
 html { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
                     "Yu Gothic UI", "Meiryo", "Noto Sans JP", system-ui, sans-serif;

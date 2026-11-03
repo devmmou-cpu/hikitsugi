@@ -2,11 +2,12 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildQueriesRequest, pickQueries, scoreSearch } from '../eval/search-eval.mjs';
+import { overlapsPhrase, splitOverlaps } from '../eval/staff-eval.mjs';
 import { pagesForPhrases, phraseProblems, withSearchIndex } from '../plugin/lib/search-index.mjs';
 import { buildSearch, charPairs, normalizeText, searchPages } from '../plugin/lib/search.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
@@ -174,4 +175,28 @@ test('入力欄は索引があるときだけ出し、js-only で、候補の下
   assert.ok(html.indexOf('id="search-box"') > html.indexOf('id="tab-help"'));
   const { search_index: _unused, ...withoutIndex } = manual;
   assert.ok(!renderManual(withoutIndex).includes('id="search-box"'));
+});
+
+// ---- 模擬の社員の問い合わせ ----
+test('問い合わせが索引の言い方と重なれば見つける。表記の違いでは逃れない', () => {
+  assert.ok(overlapsPhrase('フォルダが消えた', 'フォルダが消えた'));
+  assert.ok(overlapsPhrase('ふぉるだがきえた', 'フォルダが消えた'), 'ひらがな');
+  assert.ok(overlapsPhrase('朝からフォルダが消えたんですが、見てもらえますか', 'フォルダが消えた'), '文の中に含む');
+  assert.ok(overlapsPhrase('フォルダが消えました', 'フォルダが消えた'), 'とても近い');
+  assert.ok(!overlapsPhrase('朝から共有の棚が見当たらなくて困っています', 'フォルダが消えた'));
+  assert.ok(!overlapsPhrase('ネットが遅い', 'ネット'), '短すぎる語の含みは重なりにしない');
+});
+
+test('重なる問い合わせを除き、残りだけを採点に回す', () => {
+  const index = [{ page: 'T1', title: '題名', phrases: ['フォルダが消えた'] }];
+  const { kept, dropped } = splitOverlaps([{ page: 'T1', text: 'フォルダが消えた' }, { page: 'T1', text: '共有の棚が見当たらなくて困っています' }], index);
+  assert.deepEqual(dropped.map((q) => q.text), ['フォルダが消えた']);
+  assert.deepEqual(kept.map((q) => q.text), ['共有の棚が見当たらなくて困っています']);
+});
+
+test('模擬の社員の指示は、模擬の後任や索引の指示と別で、評価専用', () => {
+  const prompt = readFileSync(join(ROOT, 'eval/agents/mock-staff-queries.md'), 'utf8');
+  assert.match(prompt, /model: haiku/);
+  assert.match(prompt, /評価専用/);
+  assert.ok(!existsSync(join(ROOT, 'plugin/agents/mock-staff-queries.md')));
 });

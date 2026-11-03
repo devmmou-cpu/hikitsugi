@@ -30,7 +30,7 @@ const TOKENS = STYLES.slice(STYLES.indexOf(':root {'), STYLES.indexOf(':root[dat
 const PHONE_STYLES = compactCss(`${TOKENS}
 * { box-sizing: border-box; }
 html {
-  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", "Noto Sans JP", system-ui, sans-serif;
+  font-family: system-ui, sans-serif;
   font-size: 17px;
   line-height: 1.7;
   color: var(--ink);
@@ -62,7 +62,7 @@ h3 { margin-top: var(--s4); font-size: 17px; }
 .info-table th, .info-table td { padding: var(--s2); text-align: left; vertical-align: top; border: 1px solid var(--line); }
 .info-table th { white-space: nowrap; }
 .info-drive { white-space: nowrap; text-align: center; }
-code, kbd { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; }
+code, kbd { font-family: ui-monospace, monospace; font-size: .95em; }
 .contact { margin-top: var(--s3); padding: var(--s4); background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
 .contact-name { margin-top: 0; font-size: 19px; }
 .contact-role { display: block; font-size: 15px; font-weight: 400; color: var(--ink-2); }
