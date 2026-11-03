@@ -17,8 +17,8 @@
           "statement": { "type": "string", "pattern": "^(STM-\\d{3}|S-\\d{2})$" },
           "verdict": { "enum": ["correct", "contradiction", "unsupported", "dangerous"] },
           "reason": { "type": "string" },
-          "checked": { "type": "array", "items": { "type": "string", "pattern": "^(INV|INT|PUB|LIB)-\\d{3}$" } },
-          "conflicts_with": { "type": "array", "items": { "type": "string", "pattern": "^(INV|INT|PUB|LIB)-\\d{3}$" } }
+          "checked": { "type": "array", "items": { "type": "string", "pattern": "^(INV-\\d{3,5}|(INT|PUB|LIB)-\\d{3})$" } },
+          "conflicts_with": { "type": "array", "items": { "type": "string", "pattern": "^(INV-\\d{3,5}|(INT|PUB|LIB)-\\d{3})$" } }
         }
       }
     }

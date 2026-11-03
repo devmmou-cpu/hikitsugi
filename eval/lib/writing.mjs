@@ -33,7 +33,7 @@ const EDITOR_SCHEMA = {
         properties: {
           term: { type: 'string' },
           text: { type: 'string' },
-          evidence: { type: 'array', items: { type: 'string', pattern: '^(INV|INT)-\\d{3}$' } },
+          evidence: { type: 'array', items: { type: 'string', pattern: '^(INV-\\d{3,5}|INT-\\d{3})$' } },
         },
       },
     },

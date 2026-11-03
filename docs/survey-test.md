@@ -45,6 +45,7 @@
 | `net.ip_mode` | `DHCP` か `固定` |
 | `net.gateway`、`net.dns` | ネットワークの設定画面の値と同じ。使っている接続の値になっている（VPN があるときは特に） |
 | `net.wifi_ssid` | Wi-Fi のときは接続中の名前で、日本語の名前も崩れない。有線だけなら `null` で `unavailable`。Wi-Fi なのに `unavailable` なら、位置情報の設定が原因かもしれないので教えてください |
+| `share.drive_count` | ネットワーク ドライブの数の整数。ないときは `0`。読めなければ `null` で `denied` か `unavailable` |
 | `share.drive.<文字>` | ネットワーク ドライブが全部ある。接続先が `\\` で始まる |
 | `printer.<番号>` | ふだん使うプリンターがある。PDF への保存のような仮想のものが入っていない。接続先が分かる形か（番号ではなく長い記号の列になっていないか） |
 | `software.<番号>` | 主なソフトがある。更新プログラムが大量に混ざっていない |
@@ -52,7 +53,7 @@
 | `security.feature_update` | 大型更新の保留の設定と合っている |
 | `security.antivirus` | 動いているウイルス対策と合っている |
 | `security.bitlocker` | 管理者でないアカウントなら `null` で `denied` になるはず。別の結果なら、その内容を教えてください |
-| `account.join_type` | `ドメイン` か `ワークグループ` |
+| `account.join_type` | `ドメイン`、`ワークグループ`、`クラウド参加`、`ドメインとクラウド参加` のどれかで、PC の状態と合っている。設定の「職場または学校にアクセスする」で確かめられます |
 | `account.m365_signed_in` | サインインの状態と合っている。引用符のない `true` か `false`。読めなければ `null` で `unavailable` |
 
 次も確かめます。

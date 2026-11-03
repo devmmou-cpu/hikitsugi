@@ -29,7 +29,7 @@ const rawOf = (name) => JSON.parse(readFileSync(join(ROOT, 'test/fixtures/survey
 const KEY_PATTERNS = [
   /^os\.caption$/, /^os\.version$/, /^hw\.maker$/, /^hw\.model$/, /^hw\.memory_gb$/, /^disk\.c_free_gb$/,
   /^net\.ip_mode$/, /^net\.gateway$/, /^net\.dns$/, /^net\.wifi_ssid$/,
-  /^share\.drive\.[A-Z]$/, /^printer\.\d+$/, /^software\.\d+$/,
+  /^share\.drive\.[A-Z]$/, /^share\.drive_count$/, /^printer\.\d+$/, /^software\.\d+$/,
   /^security\.last_update$/, /^security\.feature_update$/, /^security\.antivirus$/, /^security\.bitlocker$/,
   /^account\.join_type$/, /^account\.m365_signed_in$/,
 ];
@@ -95,10 +95,28 @@ test('変更、送信、走査、認証情報の取得につながるものを�
   for (const [pattern, reason] of FORBIDDEN) assert.doesNotMatch(code, pattern, reason);
 });
 
-test('外部のコマンドは、Wi-Fi 名を読む netsh wlan show interfaces だけ', () => {
+test('外部のコマンドは、読むだけの netsh wlan show interfaces と dsregcmd /status だけ', () => {
   const natives = [...code.matchAll(/\b([a-z]+)\.exe\b|\b(netsh|ipconfig|systeminfo|whoami|hostname|dsregcmd|manage-bde)\b/gi)].map((m) => (m[1] ?? m[2]).toLowerCase());
-  for (const name of natives) assert.equal(name, 'netsh', `使えない外部コマンド：${name}`);
+  for (const name of natives) assert.ok(['netsh', 'dsregcmd'].includes(name), `使えない外部コマンド：${name}`);
   for (const [line] of code.matchAll(/^.*\bnetsh\b.*$/gim)) assert.match(line, /netsh(\.exe)?\s+wlan\s+show\s+interfaces/i, line);
+  const dsregLines = [...code.matchAll(/^.*\bdsregcmd\b.*$/gim)].map((m) => m[0]);
+  assert.ok(dsregLines.length > 0, 'dsregcmd /status でクラウド参加を判定します');
+  for (const line of dsregLines) {
+    assert.match(line, /dsregcmd(\.exe)?\s+\/status\b/i, line);
+    assert.doesNotMatch(line, /\/(join|leave|debug|forcerecovery|refreshprt)/i, line);
+  }
+});
+
+test('クラウド参加を、ワークグループと区別して記録する', () => {
+  assert.match(code, /AzureAdJoined/);
+  for (const value of ['クラウド参加', 'ドメイン', 'ワークグループ']) assert.ok(code.includes(value), value);
+  // 許可された製品名だけを使う。判定に要る項目名の AzureAdJoined は、Windows の出力の語なので例外
+  assert.doesNotMatch(source, /Entra/);
+});
+
+test('共有フォルダの一覧を読めないことは、目印のドライブ文字ではなく状態の項目で記録する', () => {
+  assert.doesNotMatch(code, /share\.drive\.A\b/);
+  assert.match(code, /share\.drive_count/);
 });
 
 test('ファイルへの書き込みは結果の1か所だけで、今いるフォルダに保存する', () => {
@@ -245,12 +263,70 @@ test('認証情報らしい値があれば止め、値そのものはエラー�
   }
 });
 
-test('999 件を超えると ID を振れないので止める', async () => {
+test('PC 50台、1台あたりソフト500件でも ID が足り、形式に合う', async () => {
+  const mergeSurveys = await merge();
+  const raws = Array.from({ length: 50 }, (_, pc) => ({
+    schema_version: 1,
+    host: `PC-${String(pc).padStart(2, '0')}`,
+    collected_at: '2026-11-05T09:00:00+09:00',
+    items: [
+      ...rawOf('pc-b').items,
+      ...Array.from({ length: 500 }, (_, i) => ({ category: 'software', key: `software.${i + 1000}`, value: `ソフト${i}`, status: 'ok' })),
+    ],
+  }));
+  const survey = mergeSurveys(raws, { company: 'okojo' });
+  assert.ok(survey.items.length >= 25000, String(survey.items.length));
+  assert.deepEqual(validate(schema, survey), []);
+  assert.equal(new Set(survey.items.map((item) => item.id)).size, survey.items.length);
+  assert.equal(survey.items[0].id, 'INV-001');
+  assert.equal(survey.items[999].id, 'INV-1000');
+  assert.equal(survey.items.at(-1).id, `INV-${survey.items.length}`);
+});
+
+test('5桁を超えると ID を振れないので止める', async () => {
   const mergeSurveys = await merge();
   const raw = broken((r) => {
-    r.items = Array.from({ length: 1000 }, (_, i) => ({ category: 'software', key: `software.${i}`, value: `ソフト${i}`, status: 'ok' }));
+    r.items = Array.from({ length: 100000 }, (_, i) => ({ category: 'software', key: `software.${i}`, value: 'x', status: 'ok' }));
   });
-  assert.throws(() => mergeSurveys([raw], { company: 'okojo' }), /999|件/);
+  assert.throws(() => mergeSurveys([raw], { company: 'okojo' }), /99999|件/);
+});
+
+test('4桁以上の調査データの ID を、取扱説明書、空白の一覧、検証結果の根拠に使える', () => {
+  const schemaOf = (name) => JSON.parse(readFileSync(join(ROOT, 'plugin/schemas', `${name}.schema.json`), 'utf8'));
+  const evidence = new RegExp(schemaOf('manual').properties.statements.items.properties.evidence.items.pattern);
+  const gaps = new RegExp(schemaOf('gaps').properties.coverage.items.properties.evidence.items.pattern);
+  const verification = schemaOf('verification').properties.results.items.properties;
+  for (const id of ['INV-001', 'INV-26500']) {
+    assert.match(id, evidence);
+    assert.match(id, gaps);
+    assert.match(id, new RegExp(verification.checked.items.pattern));
+    assert.match(id, new RegExp(verification.conflicts_with.items.pattern));
+  }
+  assert.doesNotMatch('INT-26500', evidence);
+  assert.doesNotMatch('INV-100000', evidence);
+});
+
+test('共有フォルダの数は整数で、読めないときは値なしの状態で記録する', async () => {
+  const mergeSurveys = await merge();
+  const withCount = (value, status) => broken((r) => { r.items.push({ category: 'share', key: 'share.drive_count', value, status }); });
+  assert.equal(mergeSurveys([withCount(0, 'ok')], { company: 'okojo' }).items.find((i) => i.key === 'share.drive_count').value, 0);
+  assert.equal(mergeSurveys([withCount(null, 'denied')], { company: 'okojo' }).items.find((i) => i.key === 'share.drive_count').status, 'denied');
+  assert.throws(() => mergeSurveys([withCount('2', 'ok')], { company: 'okojo' }), /整数/);
+});
+
+test('参加の種類は、決まった4つの値だけを受け付ける', async () => {
+  const mergeSurveys = await merge();
+  const withJoin = (value) => broken((r) => { r.items.push({ category: 'account', key: 'account.join_type', value, status: 'ok' }); });
+  for (const value of ['ドメイン', 'ワークグループ', 'クラウド参加', 'ドメインとクラウド参加']) {
+    assert.equal(mergeSurveys([withJoin(value)], { company: 'okojo' }).items.find((i) => i.key === 'account.join_type').value, value);
+  }
+  assert.throws(() => mergeSurveys([withJoin('なにか')], { company: 'okojo' }), /join_type|値/);
+});
+
+test('作業報告は、引き継いで仕上げたことを冒頭に書く', () => {
+  const report = readFileSync(join(ROOT, 'docs/night/survey-report.md'), 'utf8');
+  assert.match(report.split('\n').slice(0, 6).join('\n'), /完了（相談役のセッションが引き継いで仕上げ）/);
+  assert.doesNotMatch(report, /share\.drive\.A/);
 });
 
 const runCli = (args) => spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8' });

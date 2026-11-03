@@ -54,7 +54,7 @@
             "minItems": 1,
             "items": {
               "type": "string",
-              "pattern": "^(INV|INT|PUB|LIB)-\\d{3}$"
+              "pattern": "^(INV-\\d{3,5}|(INT|PUB|LIB)-\\d{3})$"
             }
           },
           "library": {

@@ -26,7 +26,7 @@ Write-Host '  ・共有フォルダ（ネットワーク ドライブ）の接�
 Write-Host '  ・プリンターの名前と接続先'
 Write-Host '  ・インストールされているソフトの名前とバージョン'
 Write-Host '  ・セキュリティの状態（最後の更新日、大型更新の保留、ウイルス対策、BitLocker）'
-Write-Host '  ・アカウントの種類（ドメインかワークグループか）と、Microsoft 365 にサインイン済みかどうか'
+Write-Host '  ・アカウントの種類（ドメイン、クラウド参加、ワークグループのどれか）と、Microsoft 365 にサインイン済みかどうか'
 Write-Host ''
 Write-Host '【集めない内容】'
 Write-Host '  ・パスワード、Wi-Fi のパスワード、保存済みの認証情報'
@@ -155,6 +155,23 @@ function ReadAntivirus {
     return 'Windows 標準のウイルス対策（無効）'
 }
 
+# ドメインとクラウドの参加を分けて判定する。クラウドの判定が読めなくても、ドメインの判定は残す
+function ReadJoinType {
+    $inDomain = (ReadCim 'Win32_ComputerSystem').PartOfDomain
+    $inCloud = $false
+    try {
+        foreach ($line in @(dsregcmd /status)) {
+            if ($line -match '^\s*AzureAdJoined\s*:\s*YES\s*$') { $inCloud = $true }
+        }
+    } catch {
+        $null = $_
+    }
+    if ($inDomain -and $inCloud) { 'ドメインとクラウド参加' }
+    elseif ($inCloud) { 'クラウド参加' }
+    elseif ($inDomain) { 'ドメイン' }
+    else { 'ワークグループ' }
+}
+
 # サインイン済みかどうかだけを判定する。メールアドレスなどの値そのものは記録しない
 function ReadM365SignedIn {
     $identity = ReadRegistry 'HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Identity'
@@ -238,10 +255,11 @@ try {
 foreach ($letter in @($drives.Keys | Sort-Object)) {
     AddResult 'share' "share.drive.$letter" $drives[$letter] 'ok'
 }
+# 「共有フォルダがない」（0 件）と「読めなかった」を、この項目で区別する
 if ($drives.Count -eq 0 -and $shareFailure) {
-    # 一覧を読めなかったことを「共有フォルダがない」と混ぜないために記録する。
-    # 項目名にドライブの文字が必要なので、ネットワーク ドライブにはまず使わない A を当てる。値は null
-    AddResult 'share' 'share.drive.A' $null $shareFailure
+    AddResult 'share' 'share.drive_count' $null $shareFailure
+} else {
+    AddResult 'share' 'share.drive_count' ([int]$drives.Count) 'ok'
 }
 
 # ---- プリンター ----
@@ -329,9 +347,7 @@ CollectOne 'security' 'security.bitlocker' {
 }
 
 # ---- アカウント ----
-CollectOne 'account' 'account.join_type' {
-    if ((ReadCim 'Win32_ComputerSystem').PartOfDomain) { 'ドメイン' } else { 'ワークグループ' }
-}
+CollectOne 'account' 'account.join_type' { ReadJoinType }
 CollectOne 'account' 'account.m365_signed_in' { ReadM365SignedIn }
 
 # ---- 保存 ----

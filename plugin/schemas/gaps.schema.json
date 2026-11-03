@@ -15,7 +15,7 @@
         "properties": {
           "item": { "type": "string", "pattern": "^CHK-\\d{2}$" },
           "state": { "enum": ["filled", "partial", "gap"] },
-          "evidence": { "type": "array", "items": { "type": "string", "pattern": "^INV-\\d{3}$" } }
+          "evidence": { "type": "array", "items": { "type": "string", "pattern": "^INV-\\d{3,5}$" } }
         }
       }
     },

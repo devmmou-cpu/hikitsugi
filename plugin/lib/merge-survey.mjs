@@ -9,7 +9,8 @@ import { validate } from './validate.mjs';
 
 const schema = JSON.parse(readFileSync(fileURLToPath(new URL('../schemas/survey.schema.json', import.meta.url)), 'utf8'));
 
-const MAX_ITEMS = 999;
+// PC 50台、1台あたりソフト 500件でも足りるよう、ID は5桁までにする
+const MAX_ITEMS = 99999;
 const RAW_FIELDS = new Set(['schema_version', 'host', 'collected_at', 'items']);
 const ITEM_FIELDS = new Set(['category', 'key', 'value', 'status']);
 const CATEGORIES = new Set(schema.properties.items.items.properties.category.enum);
@@ -20,7 +21,7 @@ const KEYS = [
   [/^os\.(caption|version)$/, 'os'],
   [/^(hw\.(maker|model|memory_gb)|disk\.c_free_gb)$/, 'hardware'],
   [/^net\.(ip_mode|gateway|dns|wifi_ssid)$/, 'network'],
-  [/^share\.drive\.[A-Z]$/, 'share'],
+  [/^share\.(drive\.[A-Z]|drive_count)$/, 'share'],
   [/^printer\.\d+$/, 'printer'],
   [/^software\.\d+$/, 'software'],
   [/^security\.(last_update|feature_update|antivirus|bitlocker)$/, 'security'],
@@ -28,7 +29,8 @@ const KEYS = [
 ];
 
 // 文字列以外の値を持つ項目。PowerShell の型の違いをここで止める
-const INTEGER_KEYS = new Set(['hw.memory_gb', 'disk.c_free_gb']);
+const INTEGER_KEYS = new Set(['hw.memory_gb', 'disk.c_free_gb', 'share.drive_count']);
+const JOIN_TYPES = new Set(['ドメイン', 'ワークグループ', 'クラウド参加', 'ドメインとクラウド参加']);
 const BOOLEAN_KEYS = new Set(['account.m365_signed_in']);
 
 const COLLECTED_AT = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(Z|[+-]\d{2}:\d{2})$/;
@@ -54,6 +56,7 @@ function checkOkValue(where, key, value) {
   }
   if (typeof value !== 'string') throw new Error(`${where}：値（value）は文字列にしてください`);
   if (key === 'net.ip_mode' && value !== 'DHCP' && value !== '固定') throw new Error(`${where}：値（value）は DHCP か 固定 にしてください`);
+  if (key === 'account.join_type' && !JOIN_TYPES.has(value)) throw new Error(`${where}：値（value）は ${[...JOIN_TYPES].join('、')} のどれかにしてください`);
   if (key === 'security.last_update') {
     const day = DAY.exec(value);
     if (!day || !isRealDay(day[1], day[2], day[3])) throw new Error(`${where}：値（value）は yyyy-MM-dd の日付にしてください`);
