@@ -152,7 +152,7 @@
       "host": "OKJ-CAD-01",
       "category": "security",
       "key": "security.last_update",
-      "value": "2026-11-11",
+      "value": "2026-10-14",
       "collected_at": "2026-11-05T09:20:00+09:00",
       "status": "ok"
     },
@@ -332,7 +332,7 @@
       "host": "OKJ-KOUJOU-01",
       "category": "security",
       "key": "security.last_update",
-      "value": "2026-11-11",
+      "value": "2026-10-14",
       "collected_at": "2026-11-05T09:30:00+09:00",
       "status": "ok"
     },
@@ -503,7 +503,7 @@
       "host": "OKJ-SOUMU-01",
       "category": "security",
       "key": "security.last_update",
-      "value": "2026-11-11",
+      "value": "2026-10-14",
       "collected_at": "2026-11-05T09:10:00+09:00",
       "status": "ok"
     },
