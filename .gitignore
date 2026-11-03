@@ -11,3 +11,5 @@ eval/results/
 # 夜間の自動実行のログ
 night-logs/
 review-input/
+# 実機の調査結果。会社の情報なのでコミットしない
+hikitsugi-survey-*
