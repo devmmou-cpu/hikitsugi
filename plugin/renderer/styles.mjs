@@ -1619,13 +1619,21 @@ details[open] .plus-v {
   text-decoration: none;
 }
 
-/* JavaScript なしで開いた症状の目印 */
+/* JavaScript なしで開いた症状の目印。:target は強調にだけ使い、何も隠さない */
 .no-js .symptom {
   border-top: 1px solid var(--line);
 }
 
 .no-js .symptom:target {
   box-shadow: inset 4px 0 0 var(--accent);
+}
+
+.no-js .symptom:target .symptom-title {
+  color: var(--accent);
+}
+
+.about-link {
+  align-items: center;
 }
 
 /* ---- 2列（768px 以上）。上部バーとナビを出し、下部タブを消す ---- */
@@ -2184,6 +2192,16 @@ details[open] .plus-v {
 
   .tabs, .topnav, .topbar, .rail, button, .btn-copy, .back, .jump, .toc, .theme-switch, .js-only, .progress, .steps-note, .tab-link, .intro-more, .btn-primary {
     display: none !important;
+  }
+
+  /* はじめには文書の最後に置くが、紙では表紙なので先頭に戻す */
+  main {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #intro {
+    order: -1;
   }
 
   .panel, .js .panel:not(.is-active), .workspace, .js:not([data-view="help"]):not([data-view="symptom"]) .workspace, .col-main {

@@ -7,7 +7,7 @@
 // 終了コード：0＝成功、1＝画面の検査で問題あり（理由を表示）、2＝引数の誤りや Chrome の起動失敗
 //
 // 撮るもの：<出力フォルダ>/<phone|tablet|pc>/<light|dark>-<画面>.png。はじめに、各タブ、各手順ページ。
-// ほかに nojs-all.png（JavaScript なしの全文）、print.pdf（印刷の見え方）。
+// ほかに nojs-all.png（JavaScript なしの全文）、nojs-target.png（症状を開いたときの強調）、print.pdf（印刷の見え方）。
 // あわせて実際の画面で、横のはみ出し、文字の大きさ、コントラスト、押す部品の高さ、手順の配置、列の幅、
 // 仕様（docs/design/visual-spec.md）の値を測る。一覧は scripts/visual-spec-checks.mjs にある。
 
@@ -278,6 +278,9 @@ async function main([inputArg, outputArg]) {
 
     await setSize();
     await go('');
+    // ハッシュなしで開いたら、困ったときの一覧を出す
+    const opened = JSON.parse(await evaluate(`JSON.stringify({ view: document.documentElement.getAttribute('data-view'), help: getComputedStyle(document.getElementById('tab-help')).display !== 'none', intro: getComputedStyle(document.getElementById('intro')).display !== 'none' })`));
+    if (opened.view !== 'help' || !opened.help || opened.intro) problems.push(`ハッシュなしで開くと、困ったときの一覧が出ません（${JSON.stringify(opened)}）`);
     const targets = JSON.parse(await evaluate(`JSON.stringify({
       tabs: [...document.querySelectorAll('nav.tabs a[href^="#"]')].map((a) => a.getAttribute('href').slice(1)),
       pages: [...document.querySelectorAll('a[href^="#symptom-"]')].map((a) => a.getAttribute('href').slice(1)),
@@ -376,6 +379,39 @@ async function main([inputArg, outputArg]) {
     await page('Emulation.setScriptExecutionDisabled', { value: true });
     await go('');
     await slices('nojs-all', (file) => join(output, `${file}.png`));
+    // ハッシュなしでも、全文が順に読める。:target は強調にだけ使う
+    const readAll = `JSON.stringify((() => {
+      const shown = (el) => { const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return s.display !== 'none' && s.visibility !== 'hidden' && r.height > 0; };
+      const parts = [...document.querySelectorAll('.panel, article[id^="symptom-"]')];
+      const top = (id) => document.getElementById(id).getBoundingClientRect().top + scrollY;
+      const emphasis = (el) => ({ id: el.id, band: getComputedStyle(el).boxShadow !== 'none', color: getComputedStyle(el.querySelector('.symptom-title')).color });
+      return {
+        noJs: document.documentElement.classList.contains('no-js'),
+        hidden: parts.filter((el) => !shown(el)).map((el) => el.id),
+        count: parts.length,
+        firstIsHelp: parts.every((el) => el.id === 'tab-help' || top('tab-help') <= top(el.id)),
+        introLast: parts.every((el) => el.id === 'intro' || top(el.id) < top('intro')),
+        emphasized: [...document.querySelectorAll('article[id^="symptom-"]')].map(emphasis).filter((e) => e.band),
+        plainTitle: emphasis(document.querySelector('article[id^="symptom-"]:not(:target)')).color,
+        accent: (() => { const d = document.createElement('div'); d.style.color = 'var(--accent)'; document.body.append(d); const c = getComputedStyle(d).color; d.remove(); return c; })(),
+      };
+    })())`;
+    const whole = JSON.parse(await evaluate(readAll));
+    if (!whole.noJs) problems.push('JavaScript なしの確認：no-js のままではありません');
+    if (whole.hidden.length) problems.push(`JavaScript なし、ハッシュなし：見えない画面があります ${whole.hidden.join('、')}`);
+    if (!whole.firstIsHelp) problems.push('JavaScript なし：困ったときの一覧が最初にありません');
+    if (!whole.introLast) problems.push('JavaScript なし：はじめにが最後にありません');
+    if (whole.emphasized.length) problems.push('JavaScript なし、ハッシュなし：強調された症状があります');
+    await go(`#${screenOf.symptom}`);
+    const aimed = JSON.parse(await evaluate(readAll));
+    if (aimed.hidden.length) problems.push(`JavaScript なしで症状を開くと、見えなくなる画面があります ${aimed.hidden.join('、')}`);
+    if (aimed.count !== whole.count) problems.push('JavaScript なしで症状を開くと、画面の数が変わります');
+    if (aimed.emphasized.length !== 1 || aimed.emphasized[0].id !== screenOf.symptom) problems.push(`JavaScript なし：開いた症状の左の帯がありません（${JSON.stringify(aimed.emphasized)}）`);
+    else if (aimed.emphasized[0].color !== aimed.accent || aimed.plainTitle === aimed.accent) problems.push('JavaScript なし：開いた症状の見出しの色が変わっていません');
+    await evaluate(`document.getElementById(${JSON.stringify(screenOf.symptom)}).scrollIntoView()`);
+    await settle();
+    writeFileSync(join(output, 'nojs-target.png'), Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    shots.push('nojs-target');
     await page('Emulation.setScriptExecutionDisabled', { value: false });
 
     // 印刷の見え方

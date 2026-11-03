@@ -274,10 +274,10 @@ test('4種のバッジは形が同じで、アイコンを持つ', () => {
 });
 
 // ---- はじめに（第8章） ----
-test('はじめに：タブより前にあり、確認の文と凡例と主ボタンを持つ', () => {
+test('はじめに：文書の最後にあり、確認の文と凡例と主ボタンを持つ', () => {
   const start = html.search(/<section\b[^>]*\bid="intro"/);
   assert.ok(start >= 0, 'はじめにの画面がありません');
-  assert.ok(start < html.search(/<section\b[^>]*\bid="tab-help"/));
+  for (const id of ['tab-help', 'tab-contacts', 'tab-routines', 'tab-company']) assert.ok(start > html.search(new RegExp(`<section\\b[^>]*\\bid="${id}"`)), id);
   const intro = html.slice(start, html.indexOf('</section>', start));
   const text = strip(intro);
   assert.ok(text.includes(manual.company_name));
@@ -289,8 +289,27 @@ test('はじめに：タブより前にあり、確認の文と凡例と主ボ�
   for (const label of ['自分で直せる', '確認してから', '業者へ連絡', '社内で相談']) assert.ok(text.includes(label), label);
 });
 
+test('開いたとき：困ったときの一覧が文書の最初の画面で、はじめには下からリンクで開ける', () => {
+  const main = html.slice(html.indexOf('<main>'));
+  assert.match(main.slice(0, 200), /<main>\s*<div class="workspace">\s*<section\b[^>]*\bid="tab-help"/);
+  assert.match(html, /<span class="js-only about-link"><a\b[^>]*href="#intro"/);
+});
+
+test(':target は強調にだけ使い、JavaScript なしでは何も隠さない', () => {
+  const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+  const rules = [...css.matchAll(/([^{}]*:target[^{}]*)\{([^}]*)\}/g)];
+  assert.ok(rules.length >= 2);
+  for (const [, selector, body] of rules) assert.doesNotMatch(body, /display|visibility|opacity|height|clip|position/, selector);
+  assert.match(css, /\.no-js \.symptom:target \.symptom-title\s*\{\s*color:\s*var\(--accent\)/);
+  assert.match(css, /\.no-js \.symptom:target\s*\{\s*box-shadow:\s*inset 4px/);
+  // 隠す指定は .js で始める
+  assert.doesNotMatch(css, /\.no-js[^{}]*\{[^}]*display:\s*none/);
+});
+
 test('確認の印：確認が済むと、確認した人と日付を SVG の角印で出す', () => {
-  const seal = html.match(/<svg\b[^>]*class="[^"]*\bseal\b[\s\S]*?<\/svg>/)?.[0];
+  // 図形の定義は先頭の symbol にまとめ、文字はこの中に持つ。はじめにが印の本体を出す
+  const intro = html.slice(html.search(/<section\b[^>]*\bid="intro"/));
+  const seal = intro.match(/<svg\b[^>]*class="[^"]*\bseal\b[\s\S]*?<\/svg>/)?.[0];
   assert.ok(seal, '角印がありません');
   const words = [...seal.matchAll(/<text\b[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]).join(' ');
   assert.ok(words.includes(manual.review.reviewer), words);

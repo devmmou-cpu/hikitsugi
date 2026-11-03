@@ -711,6 +711,8 @@ function footerHtml() {
   return [
     '<footer class="site-footer">',
     `<p>${OKOJO}<span>このファイルは Okojyo-Soft のヒキツギで作られました。</span></p>`,
+    // はじめには文書の最後に置く。JavaScript なしでは続けて読めるので、リンクは JavaScript があるときだけ出す
+    '<span class="js-only about-link"><a class="tap text-link" href="#intro">この説明書について</a></span>',
     `<span class="js-only theme-switch">表示：${themes.map(([value, label]) => `<button type="button" class="tap" data-theme-set="${value}">${label}</button>`).join('')}</span>`,
     '</footer>',
   ].join('\n');
@@ -762,7 +764,6 @@ ${compactCss(STYLES)}
 ${iconDefs(manual.review)}
 ${draftBand(manual)}${topbarHtml(ctx)}
 <main>
-${introPanel(ctx)}
 <div class="workspace">
 ${helpPanel(ctx)}
 <div class="col-main">
@@ -773,6 +774,7 @@ ${manual.symptom_pages.map((page) => symptomPanel(ctx, page)).join('\n')}
 ${contactsPanel(ctx)}
 ${routinesPanel(ctx)}
 ${companyPanel(ctx)}
+${introPanel(ctx)}
 </main>
 ${footerHtml()}
 ${tabsHtml()}
