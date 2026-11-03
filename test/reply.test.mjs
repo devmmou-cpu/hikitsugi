@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { pageSchema } from '../plugin/lib/assemble.mjs';
 import { plainProblems } from '../plugin/lib/plain-check.mjs';
 import { loadLibrary } from '../plugin/lib/procedures.mjs';
-import { composeReply, REPLY_LINES_MAX, replyProblems, withoutReplies, withReplies } from '../plugin/lib/reply.mjs';
+import { callScriptProblems, composeCallScript, composeReply, REPLY_LINES_MAX, replyProblems, withoutReplies, withReplies } from '../plugin/lib/reply.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { summarizeReplies } from '../eval/reply-verify.mjs';
 
@@ -24,69 +24,140 @@ test('見本の全ページで、決まりに合っている', () => {
   assert.deepEqual(replyProblems(JSON.parse(readFileSync(join(ROOT, 'test/fixtures/manual-t1.json'), 'utf8'))), []);
 });
 
-test('① がすべて社員に渡せる部品のページは、その文面を順番どおりに写す', () => {
+const selfPage = (manual) => manual.symptom_pages.find((p) => p.badge.value === 'self' && p.first_steps.length && p.first_steps.every((id) => statementOf(manual, id).library && !parts.get(statementOf(manual, id).library).needs_table));
+const firstActionPage = selfPage;
+
+test('自分で直せる：定型、① の部品、① のゴールの順', () => {
   const manual = fixture();
-  const page = manual.symptom_pages.find((p) => p.first_steps.length && ['self', 'check_first'].includes(p.badge.value) && p.first_steps.every((id) => statementOf(manual, id).library && !parts.get(statementOf(manual, id).library).needs_table));
+  const page = selfPage(manual);
   assert.ok(page, '見本に該当のページがありません');
   const reply = replyOf(manual, page);
-  assert.deepEqual(reply.text.split('\n'), page.first_steps.map((id) => statementOf(manual, id).text));
-  assert.deepEqual(reply.evidence, page.first_steps.map((id) => statementOf(manual, id).library));
+  assert.deepEqual(reply.text.split('\n'), ['次を試してみてください。', ...page.first_steps.map((id) => statementOf(manual, id).text), statementOf(manual, page.first_goal).text]);
   assert.equal(reply.usage, 'reply_to_staff');
   assert.ok(reply.text.split('\n').length <= REPLY_LINES_MAX);
 });
 
-test('業者へ連絡、社内で相談のページは、操作を含まない定型文の1〜2行', () => {
+test('自分で直せる：5行を超えるときは、ゴール文を省く', () => {
+  const manual = fixture();
+  const page = selfPage(manual);
+  const first = page.first_steps[0];
+  const longer = { ...page, first_steps: [first, first, first, first] };
+  const lines = composeReply(longer, manual, library).text.split('\n');
+  assert.equal(lines.length, 5);
+  assert.ok(!lines.includes(statementOf(manual, page.first_goal).text));
+});
+
+test('確認してから：部品があっても「いま確認しています。」の1行だけ', () => {
+  const manual = fixture();
+  const page = selfPage(manual);
+  const asked = { ...page, badge: { ...page.badge, value: 'check_first' } };
+  assert.equal(composeReply(asked, manual, library).text, 'いま確認しています。');
+  for (const each of manual.symptom_pages.filter((p) => p.badge.value === 'check_first')) assert.equal(replyOf(manual, each).text, 'いま確認しています。', each.id);
+});
+
+test('業者へ連絡と社内で相談：過去形にせず、これからすることを書く', () => {
   const manual = fixture();
   for (const page of manual.symptom_pages.filter((p) => ['vendor', 'internal'].includes(p.badge.value))) {
-    const lines = replyOf(manual, page).text.split('\n');
-    assert.equal(lines[0], 'いま確認しています。', page.id);
     const contact = manual.contacts.find((c) => c.id === page.fallback?.contact);
-    if (contact) assert.equal(lines[1], `${contact.name}に連絡しました。`, page.id);
-    assert.ok(lines.length <= 2, page.id);
+    const verb = page.badge.value === 'vendor' ? '連絡' : '相談';
+    assert.equal(replyOf(manual, page).text, `いま確認しています。\n${contact.name}に${verb}します。`, page.id);
+    assert.doesNotMatch(replyOf(manual, page).text, /しました/, page.id);
   }
 });
 
-const firstActionPage = (manual) => manual.symptom_pages.find((p) => replyOf(manual, p).text.includes('ください'));
-
-test('① に部品でない操作があれば、途中が抜けた手順にせず定型文にする', () => {
+test('自分で直せるでも ① に部品でない操作があれば、途中が抜けた手順にせず定型文にする', () => {
   const manual = fixture();
-  const page = firstActionPage(manual);
-  const mixed = { ...page, first_steps: [...page.first_steps.slice(0, 1), page.steps[0] ?? page.first_steps[1]] };
-  statementOf(manual, mixed.first_steps[1]).library = null;
-  statementOf(manual, mixed.first_steps[1]).text = '機器の電源を入れ直してください。';
-  assert.match(composeReply(mixed, manual, library).text, /^いま確認しています。/);
+  const page = selfPage(manual);
+  const statement = statementOf(manual, page.first_steps[1]);
+  statement.library = null;
+  statement.text = '機器の電源を入れ直してください。';
+  assert.equal(composeReply(page, manual, library).text, 'いま確認しています。');
 });
 
 test('会社の情報の表を指す部品は、社員に渡さない', () => {
   const manual = fixture();
-  const page = firstActionPage(manual);
-  const tableParts = library.procedures.find((part) => part.needs_table && part.kinds.includes('first_steps'));
+  const page = selfPage(manual);
+  const part = library.procedures.find((each) => each.needs_table && each.kinds.includes('first_steps'));
   const first = statementOf(manual, page.first_steps[0]);
-  first.library = tableParts.id;
-  first.text = tableParts.text;
-  assert.match(composeReply(page, manual, library).text, /^いま確認しています。/);
+  first.library = part.id;
+  first.text = part.text;
+  assert.equal(composeReply(page, manual, library).text, 'いま確認しています。');
 });
 
 test('検査：部品にない操作、言い換え、順番の違い、6行以上、定型の崩れ、消えた文を見つける', () => {
   const broken = (change) => {
     const manual = fixture();
-    change(manual, firstActionPage(manual));
+    change(manual, selfPage(manual));
     return replyProblems(manual).join('\n');
   };
-  assert.match(broken((m, p) => { replyOf(m, p).text = '電源を入れ直してください。'; }), /手順部品の文面/);
+  assert.match(broken((m, p) => { replyOf(m, p).text = '電源を入れ直してください。'; }), /で始めます/);
   assert.match(broken((m, p) => { replyOf(m, p).text = `${replyOf(m, p).text}\n再起動してください。`; }), /手順部品の文面/);
-  assert.match(broken((m, p) => { replyOf(m, p).text = replyOf(m, p).text.split('\n').reverse().join('\n'); }), /手順部品の文面/);
-  assert.match(broken((m, p) => { replyOf(m, p).text = Array(6).fill('確認してください。').join('\n'); }), /5 行以内/);
-  assert.match(broken((m, p) => { replyOf(m, p).text = 'いま確認しています。'; }), /① の部品を返せる/);
-  const vendor = (change) => {
+  assert.match(broken((m, p) => { const [head, ...rest] = replyOf(m, p).text.split('\n'); replyOf(m, p).text = [head, ...rest.reverse()].join('\n'); }), /手順部品の文面/);
+  assert.match(broken((m, p) => { replyOf(m, p).text = Array(6).fill('次を試してみてください。').join('\n'); }), /5 行以内/);
+  const pageOf = (badge) => (change) => {
     const manual = fixture();
-    change(manual, manual.symptom_pages.find((p) => p.badge.value === 'vendor'));
+    change(manual, manual.symptom_pages.find((p) => p.badge.value === badge));
     return replyProblems(manual).join('\n');
   };
-  assert.match(vendor((m, p) => { replyOf(m, p).text = 'いま確認しています。\n再起動してください。'; }), /定型文だけ/);
-  assert.match(vendor((m, p) => { replyOf(m, p).text = 'いま確認しています。\nほかの業者に連絡しました。'; }), /定型文だけ/);
-  assert.match(vendor((m, p) => { replyOf(m, p).text = 'いま確認しています。\n03-0000-0101 に電話しました。'; }), /定型文だけ/);
-  assert.match(vendor((_m, p) => { delete p.reply_to_staff; }), /社員に返す文がありません/);
+  assert.match(pageOf('vendor')((m, p) => { replyOf(m, p).text = 'いま確認しています。\n再起動してください。'; }), /定型文だけ/);
+  assert.match(pageOf('vendor')((m, p) => { const c = m.contacts.find((x) => x.id === p.fallback.contact); replyOf(m, p).text = `いま確認しています。\n${c.name}に連絡しました。`; }), /定型文だけ/);
+  assert.match(pageOf('internal')((m, p) => { const c = m.contacts.find((x) => x.id === p.fallback.contact); replyOf(m, p).text = `いま確認しています。\n${c.name}に連絡します。`; }), /定型文だけ/);
+  assert.match(pageOf('check_first')((m, p) => { replyOf(m, p).text = 'いま確認しています。\n少しお待ちください。'; }), /だけです/);
+  assert.match(pageOf('vendor')((_m, p) => { delete p.reply_to_staff; }), /社員に返す文がありません/);
+});
+
+// ---- 業者に伝える文 ----
+const callOf = (manual, page) => statementOf(manual, page.fallback.message);
+
+test('業者に伝える文：決まった型に、題名、① の文、機器の置き場所を差し込む', () => {
+  const manual = fixture();
+  const page = manual.symptom_pages.find((p) => p.fallback && p.first_steps.length);
+  const steps = page.first_steps.map((id) => `「${statementOf(manual, id).text.replace(/。$/, '')}」`).join('、');
+  const lines = callOf(manual, page).text.split('\n');
+  assert.equal(lines[0], `${manual.company_name}です。`);
+  assert.equal(lines[1], `「${statementOf(manual, page.title).text}」件で連絡しました。`);
+  assert.equal(lines[2], `説明書の手順${steps}は試しました。直りません。`);
+  assert.equal(lines.at(-1), '確認をお願いします。');
+  assert.equal(callOf(manual, page).usage, 'call_script');
+});
+
+test('業者に伝える文：① がなければ3行目を出さず、置き場所の記録がなければ機器の行を出さない', () => {
+  const manual = fixture();
+  const page = manual.symptom_pages.find((p) => p.fallback && !p.first_steps.length);
+  const none = { ...page, title: page.title };
+  const device = manual.devices[0];
+  statementOf(manual, device.location).text = '置き場所の記録がありません。社内で相談してください。';
+  statementOf(manual, none.title).text = `${statementOf(manual, device.name).text}が止まった`;
+  const lines = composeCallScript(none, withoutReplies(manual)).text.split('\n');
+  assert.ok(!lines.some((line) => line.startsWith('説明書の手順')));
+  assert.ok(!lines.some((line) => line.startsWith('機器の場所')));
+});
+
+test('業者に伝える文：題名か ① に機器があり、根拠のある置き場所があれば、機器の場所の行を出す', () => {
+  const manual = withoutReplies(fixture());
+  const page = manual.symptom_pages.find((p) => p.fallback);
+  const device = manual.devices.find((d) => statementOf(manual, d.location).evidence.length && !/記録がありません/.test(statementOf(manual, d.location).text));
+  const name = statementOf(manual, device.name).text.replace(/[（(].*$/, '').trim();
+  statementOf(manual, page.title).text = `${name}が止まった`;
+  const line = composeCallScript(page, manual).text.split('\n').find((each) => each.startsWith('機器の場所：'));
+  assert.ok(line, '機器の場所の行がありません');
+  assert.ok(manual.devices.some((d) => line === `機器の場所：${statementOf(manual, d.location).text.replace(/。$/, '')}`), line);
+});
+
+test('検査：業者に伝える文の型の崩れと、根拠のない値を見つける', () => {
+  const broken = (change) => {
+    const manual = fixture();
+    change(manual, manual.symptom_pages.find((p) => p.fallback && p.first_steps.length));
+    return callScriptProblems(manual).join('\n');
+  };
+  assert.equal(callScriptProblems(fixture()).length, 0);
+  assert.match(broken((m, p) => { callOf(m, p).text = callOf(m, p).text.replace(m.company_name, '別の会社'); }), /1行目/);
+  assert.match(broken((m, p) => { callOf(m, p).text = callOf(m, p).text.replace('件で連絡しました', 'の件です'); }), /2行目/);
+  assert.match(broken((m, p) => { callOf(m, p).text = callOf(m, p).text.replace('説明書の手順', '説明書の手順「再起動してください」、'); }), /3行目/);
+  assert.match(broken((m, p) => { callOf(m, p).text = callOf(m, p).text.replace('確認をお願いします。', '機器の場所：どこか\n確認をお願いします。'); }), /機器の場所/);
+  assert.match(broken((m, p) => { callOf(m, p).text = callOf(m, p).text.replace('確認をお願いします。', '急いでください。'); }), /最後の行/);
+  assert.match(broken((m, p) => { statementOf(m, p.title).evidence = []; }), /根拠がありません/);
+  assert.match(broken((_m, p) => { delete p.fallback.message; }), /業者に伝える文がありません/);
 });
 
 test('何度組んでも同じ結果で、外すと元の形に戻る。文章を増やし続けない', () => {
@@ -110,13 +181,13 @@ test('Writer の出力の形に入らない。Editor への直しの依頼にも
 
 test('補足つきの部品も文面のまま写す', () => {
   const manual = fixture();
-  const page = firstActionPage(manual);
+  const page = selfPage(manual);
   const part = parts.get('LIB-028');
   const first = statementOf(manual, page.first_steps[0]);
   first.library = part.id;
   first.text = part.text;
   assert.deepEqual(replyProblems(withReplies(manual)), []);
-  assert.ok(replyOf(withReplies(manual), withReplies(manual).symptom_pages.find((p) => p.id === page.id)).text.startsWith(part.text));
+  assert.ok(replyOf(withReplies(manual), withReplies(manual).symptom_pages.find((p) => p.id === page.id)).text.includes(part.text));
 });
 
 test('社員に返す文の判定を数える。回答がない文章を「正しい」に数えない', () => {
@@ -126,11 +197,16 @@ test('社員に返す文の判定を数える。回答がない文章を「正�
 
 test('Verifier には usage を付けて渡す。プロンプトに定型文の扱いがある', () => {
   const manual = fixture();
-  const replies = manual.statements.filter((statement) => statement.usage === 'reply_to_staff');
-  assert.equal(replies.length, manual.symptom_pages.length);
+  assert.equal(manual.statements.filter((statement) => statement.usage === 'reply_to_staff').length, manual.symptom_pages.length);
+  assert.equal(manual.statements.filter((statement) => statement.usage === 'call_script').length, manual.symptom_pages.filter((page) => page.fallback).length);
   const prompt = readFileSync(join(ROOT, 'plugin/agents/verifier.md'), 'utf8');
   assert.match(prompt, /`usage` が `reply_to_staff`/);
   assert.match(prompt, /事実の主張として扱わず/);
+  assert.match(prompt, /`usage` が `call_script`/);
+  assert.match(prompt, /実際に試したかどうかは主張として扱いません/);
+  const writer = readFileSync(join(ROOT, 'plugin/agents/writer.md'), 'utf8');
+  assert.match(writer, /相手に伝える文面はプログラムが組む/);
+  assert.ok(!('message' in pageSchema().properties.page.properties.fallback.properties));
 });
 
 test('PC 用：① の直下に枠とコピーのボタンがあり、ボタンは JavaScript があるときだけ', () => {

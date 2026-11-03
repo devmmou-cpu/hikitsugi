@@ -22,7 +22,7 @@ export const pageStatementIds = (page) => [
   page.badge.statement,
   page.reassurance,
   ...Object.values(bodyFields(page)).flat(),
-  ...(page.fallback ? [page.fallback.message] : []),
+  ...(page.fallback?.message ? [page.fallback.message] : []),
   ...(page.reply_to_staff ? [page.reply_to_staff] : []),
 ];
 

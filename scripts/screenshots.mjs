@@ -440,6 +440,19 @@ async function main([inputArg, outputArg]) {
       await page('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
       await go('');
       await go('');
+      // 開いた直後の画面。2列以上では、中央に判定の凡例と症状の大きなカードを出す
+      if (viewport.name !== 'phone') {
+        const home = JSON.parse(await evaluate(`JSON.stringify((() => {
+          const box = document.getElementById('pick-home');
+          const shown = (el) => el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
+          const main = document.querySelector('.col-main').getBoundingClientRect();
+          const cards = box ? [...box.querySelectorAll('a.sym')].filter(shown) : [];
+          return { shown: shown(box), legend: box ? [...box.querySelectorAll('.legend .badge')].filter(shown).length : 0, cards: cards.length, inMain: cards.every((el) => el.getBoundingClientRect().left >= main.left - 1), meta: cards.every((el) => shown(el.querySelector('.badge-text'))), pages: document.querySelectorAll('article[id^="symptom-"]').length };
+        })())`));
+        if (!home.shown || home.legend !== 4) problems.push(`${viewport.name} 開いた直後：判定4種の凡例が中央にありません（${JSON.stringify(home)}）`);
+        if (home.cards !== home.pages || !home.inMain || !home.meta) problems.push(`${viewport.name} 開いた直後：症状の大きなカードが中央にそろっていません（${JSON.stringify(home)}）`);
+        await capture(`opened-${viewport.name}`, `${viewport.name} 開いた直後`);
+      }
       await trySearch(`search-${viewport.name}`);
 
       // 仕様の値

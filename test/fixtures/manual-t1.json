@@ -80,13 +80,6 @@
       ]
     },
     {
-      "id": "STM-011",
-      "text": "オコジョ精工の佐藤です。共有フォルダが見えません。ネットワークドライブを再接続しましたが、直りません。確認をお願いします。",
-      "evidence": [
-        "INT-018"
-      ]
-    },
-    {
       "id": "STM-012",
       "text": "PC の保守の会社",
       "evidence": [
@@ -133,12 +126,21 @@
     },
     {
       "id": "STM-018",
-      "text": "いま確認しています。\nカワウソシステムサービスに連絡しました。",
+      "text": "いま確認しています。",
       "evidence": [
         "INT-018"
       ],
       "library": null,
       "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-019",
+      "text": "オコジョ精工です。\n「共有フォルダが見えない」件で連絡しました。\n確認をお願いします。",
+      "evidence": [
+        "INT-018"
+      ],
+      "library": null,
+      "usage": "call_script"
     }
   ],
   "symptom_pages": [
@@ -154,7 +156,7 @@
       "reassurance": "STM-003",
       "fallback": {
         "contact": "VEN-02",
-        "message": "STM-011"
+        "message": "STM-019"
       },
       "notes": [],
       "first_steps": [],

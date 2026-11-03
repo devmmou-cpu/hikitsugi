@@ -45,3 +45,15 @@ export function coverageLeaks(manual, { survey, transcript }) {
   }
   return leaks;
 }
+
+// 部屋らしい語。ない置き場所は、後任が探せないかもしれないので警告する。止めない
+const ROOM_WORD = /室|事務所|工場|倉庫|階|棟|部屋|詰所/;
+const NO_PLACE_RECORD = /記録がありません/;
+
+/** 置き場所に部屋らしい語がない機器の一覧を返す。記録がないと書いた機器は、別に検査しているので除く。 */
+export function locationWarnings(manual) {
+  const text = new Map(manual.statements.map((statement) => [statement.id, statement.text]));
+  return (manual.devices ?? [])
+    .map((device) => ({ device: text.get(device.name) ?? '', place: text.get(device.location) ?? '' }))
+    .filter(({ place }) => place && !NO_PLACE_RECORD.test(place) && !ROOM_WORD.test(place));
+}

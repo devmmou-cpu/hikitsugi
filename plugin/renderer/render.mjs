@@ -13,7 +13,7 @@ import { validate } from '../lib/validate.mjs';
 import { CLIENT_HEAD_SCRIPT, CLIENT_SCRIPT } from './client.mjs';
 import { STYLES } from './styles.mjs';
 import { oversizeMessage, PC_FILE_LIMIT, writeWithinLimit } from '../lib/limits.mjs';
-import { replyProblems } from '../lib/reply.mjs';
+import { callScriptProblems, replyProblems } from '../lib/reply.mjs';
 
 const SCHEMA = JSON.parse(readFileSync(new URL('../schemas/manual.schema.json', import.meta.url), 'utf8'));
 
@@ -48,7 +48,7 @@ const FREQUENCY_LABELS = [
 const SCREEN_TITLE_HELP = '困ったとき';
 
 // ---- 印。線だけのインライン SVG で、色は文字の色に従う ----
-const ICONS = {
+export const ICONS = {
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/>',
   phone:
@@ -77,7 +77,7 @@ export const compactCss = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '').replace(
 /** 開閉の印。縦の線を CSS で消して「＋」と「−」を切り替える。 */
 const PLUS_MINUS = '<svg class="icon plus" role="presentation"><use href="#i-minus"/><use class="plus-v" href="#i-plus-v"/></svg>';
 
-const BADGE_ICONS = { self: 'check', check_first: 'alert', vendor: 'phone', internal: 'people' };
+export const BADGE_ICONS = { self: 'check', check_first: 'alert', vendor: 'phone', internal: 'people' };
 
 // 文字を大きくしたときは、<wbr> の位置（語の切れ目）でだけ折り返す
 const TABS = [
@@ -233,10 +233,10 @@ export function checkInput(manual) {
   const unused = [...known].filter((id) => !refs.has(id));
   if (unused.length) throw new Error(`どの画面からも使われていない記述があります: ${unused.join(', ')}`);
 
-  const replies = replyProblems(manual);
-  if (replies.length) throw new Error(`社員に返す文に問題があります:\n${replies.map((p) => `- ${p}`).join('\n')}`);
-
   assertNoCredentials(manual);
+
+  const replies = [...replyProblems(manual), ...callScriptProblems(manual)];
+  if (replies.length) throw new Error(`社員に返す文か業者に伝える文に問題があります:\n${replies.map((p) => `- ${p}`).join('\n')}`);
 }
 
 // ---- 部品 ----
@@ -352,11 +352,13 @@ function topbarHtml(ctx) {
   ].join('\n');
 }
 
+/** 判定の凡例。はじめにと、PC の開いた直後の画面で同じものを出す。 */
+const legendHtml = () => `<ul class="legend" role="list">${Object.keys(BADGE_LABELS).map((value) => `<li>${badgeHtml(value)}<span class="legend-text">${esc(BADGE_MEANINGS[value])}</span></li>`).join('')}</ul>`;
+
 // ---- はじめに ----
 function introPanel(ctx) {
   const { manual } = ctx;
   const { review } = manual;
-  const legend = Object.keys(BADGE_LABELS).map((value) => `<li>${badgeHtml(value)}<span class="legend-text">${esc(BADGE_MEANINGS[value])}</span></li>`);
   const cans = [
     ['check', '症状を選ぶと、やることが順に出ます。'],
     ['phone', '直せないときは、電話と、送る文面があります。'],
@@ -367,6 +369,7 @@ function introPanel(ctx) {
     `<div class="intro-top"><span class="chip-secret">社外秘</span>${review ? sealHtml(review) : ''}</div>`,
     `<p class="intro-company">${esc(manual.company_name)}</p>`,
     '<h1 class="intro-title">ITの取扱説明書</h1>',
+    '<p class="intro-role">この説明書は、社員から最初に相談を受ける人（一次受け）のためのものです。</p>',
     `<p class="intro-date">${esc(formatDate(manual.as_of))}時点の内容です。</p>`,
     '<p class="intro-text">前任の担当者が使っていた設定と手順を、調査と聞き取りをもとにまとめました。</p>',
     `<a class="btn btn-primary tap" href="#tab-help">困ったときは</a>`,
@@ -374,7 +377,7 @@ function introPanel(ctx) {
     '<p class="label intro-label">この説明書でできること</p>',
     `<ul class="can-list" role="list">${cans.map(([name, text]) => `<li>${icon(name)}<span>${text}</span></li>`).join('')}</ul>`,
     '<p class="label intro-label">判定の見かた</p>',
-    `<ul class="legend" role="list">${legend.join('')}</ul>`,
+    legendHtml(),
     '</section>',
   ].join('\n');
 }
@@ -418,8 +421,18 @@ function helpPanel(ctx) {
 }
 
 /** 2列以上で、まだ症状を選んでいないときに中央の列に出す案内。 */
-const pickPromptHtml = () =>
-  '<span class="js-only pick-prompt"><span class="pick-lead">いま困っていることを押してください。</span><span class="pick-note">開いて読むだけなら、PC や機器には何も起きません。</span></span>';
+function pickPromptHtml(ctx) {
+  const groups = CATEGORY_LABELS.map(([category, label]) => [label, ctx.manual.symptom_pages.filter((p) => p.category === category)]).filter(([, pages]) => pages.length);
+  return [
+    '<div class="js-only pick-prompt" id="pick-home">',
+    '<p class="pick-lead">いま困っていることを押してください。</p>',
+    '<p class="pick-note">開いて読むだけなら、PC や機器には何も起きません。</p>',
+    '<p class="label pick-label">判定の見かた</p>',
+    legendHtml(),
+    ...groups.flatMap(([label, pages]) => [`<h3 class="group-title">${esc(label)}</h3>`, `<ul class="sym-group" role="list">\n${pages.map((page) => symHtml(ctx, page)).join('\n')}\n</ul>`]),
+    '</div>',
+  ].join('\n');
+}
 
 // ---- 手順ページ ----
 /**
@@ -820,7 +833,7 @@ ${draftBand(manual)}${topbarHtml(ctx)}
 <div class="workspace">
 ${helpPanel(ctx)}
 <div class="col-main">
-${pickPromptHtml()}
+${pickPromptHtml(ctx)}
 ${manual.symptom_pages.map((page) => symptomPanel(ctx, page)).join('\n')}
 </div>
 </div>

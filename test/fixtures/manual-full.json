@@ -448,14 +448,6 @@
       ]
     },
     {
-      "id": "STM-062",
-      "text": "全社でネットがつながりません。回線の障害かどうか、確認をお願いします。",
-      "evidence": [
-        "INT-005",
-        "INT-006"
-      ]
-    },
-    {
       "id": "STM-071",
       "text": "共有フォルダが見えない",
       "evidence": [
@@ -620,14 +612,6 @@
       ]
     },
     {
-      "id": "STM-092",
-      "text": "共有フォルダが見えません。ネットワークドライブをつなぎ直しても直らないので、社内ネットワークの不調かどうか相談したいです。",
-      "evidence": [
-        "INT-010",
-        "INT-016"
-      ]
-    },
-    {
       "id": "STM-093",
       "text": "複合機のスキャンが届かない",
       "evidence": [
@@ -721,14 +705,6 @@
       ]
     },
     {
-      "id": "STM-105",
-      "text": "複合機のスキャンが NAS の「スキャン」フォルダに届きません。NAS の空き容量には空きがあります。",
-      "evidence": [
-        "INT-008",
-        "INT-012"
-      ]
-    },
-    {
       "id": "STM-106",
       "text": "複合機が故障した",
       "evidence": [
@@ -754,14 +730,6 @@
       "text": "イタチ事務機の受付は平日9時から17時です。",
       "evidence": [
         "INT-012"
-      ]
-    },
-    {
-      "id": "STM-110",
-      "text": "総務室の複合機が故障しました。状況をお伝えしますので、対応をお願いします。",
-      "evidence": [
-        "INT-012",
-        "INV-013"
       ]
     },
     {
@@ -837,13 +805,6 @@
     {
       "id": "STM-121",
       "text": "本文に容量不足とあれば、USB が満杯です。古いバックアップは自分で削除せず、カワウソシステムサービスに連絡してください。",
-      "evidence": [
-        "INT-001"
-      ]
-    },
-    {
-      "id": "STM-122",
-      "text": "バックアップの結果メールが「失敗」で、本文に容量不足とあります。USB が満杯のようなので、古いバックアップの削除をスポット（有償）で依頼したいです。",
       "evidence": [
         "INT-001"
       ]
@@ -947,13 +908,6 @@
       ]
     },
     {
-      "id": "STM-137",
-      "text": "ウイルス感染や情報漏えいが疑われます。LAN ケーブルを抜きました。",
-      "evidence": [
-        "INT-003"
-      ]
-    },
-    {
       "id": "STM-138",
       "text": "不審なメールが届いた",
       "evidence": [
@@ -991,13 +945,6 @@
     {
       "id": "STM-143",
       "text": "メールを開いてしまい、感染や情報漏えいが疑われるときは、LAN ケーブルを抜いてください。そのあと、すぐ総務課と社長に連絡してください。",
-      "evidence": [
-        "INT-003"
-      ]
-    },
-    {
-      "id": "STM-144",
-      "text": "不審なメールが届いたので、知らせます。",
       "evidence": [
         "INT-003"
       ]
@@ -1046,13 +993,6 @@
       "evidence": [
         "INT-010",
         "INT-013"
-      ]
-    },
-    {
-      "id": "STM-151",
-      "text": "生産管理システムの調子が悪いので、相談したいです。",
-      "evidence": [
-        "INT-010"
       ]
     },
     {
@@ -1112,13 +1052,6 @@
       ]
     },
     {
-      "id": "STM-160",
-      "text": "Microsoft 365 のパスワードを忘れた社員がいます。再設定の案内を出してもらえるよう、相談させてください。",
-      "evidence": [
-        "INT-004"
-      ]
-    },
-    {
       "id": "STM-161",
       "text": "メールと会社のサイトが止まった",
       "evidence": [
@@ -1149,13 +1082,6 @@
     {
       "id": "STM-165",
       "text": "ドメインを更新しないと、メールとサイトが止まります。",
-      "evidence": [
-        "INT-011"
-      ]
-    },
-    {
-      "id": "STM-166",
-      "text": "メールと会社のサイトが止まっています。独自ドメイン okojo-seiko.example の更新は済んでいますか。",
       "evidence": [
         "INT-011"
       ]
@@ -1194,14 +1120,6 @@
     {
       "id": "STM-171",
       "text": "ディスク交換は自分でしないでください。",
-      "evidence": [
-        "INT-007",
-        "INT-017"
-      ]
-    },
-    {
-      "id": "STM-172",
-      "text": "NAS のディスク交換が必要になりました。相談させてください。",
       "evidence": [
         "INT-007",
         "INT-017"
@@ -1445,7 +1363,7 @@
     },
     {
       "id": "STM-198",
-      "text": "いま確認しています。\nクロテン通信に連絡しました。",
+      "text": "いま確認しています。\nクロテン通信に連絡します。",
       "evidence": [
         "INT-005",
         "INT-006"
@@ -1455,6 +1373,16 @@
     },
     {
       "id": "STM-199",
+      "text": "オコジョ精工株式会社です。\n「全社でネットがつながらない」件で連絡しました。\n確認をお願いします。",
+      "evidence": [
+        "INT-005",
+        "INT-006"
+      ],
+      "library": null,
+      "usage": "call_script"
+    },
+    {
+      "id": "STM-200",
       "text": "いま確認しています。",
       "evidence": [
         "INT-006",
@@ -1464,39 +1392,71 @@
       "usage": "reply_to_staff"
     },
     {
-      "id": "STM-200",
-      "text": "キーボードの Windows キーを押しながら、E のキーを押してください。\n開いた画面の左の一覧で、「PC」を選んでください。\n「PC」の中に、赤い×のついたドライブがあれば、ダブルクリックしてください。",
+      "id": "STM-201",
+      "text": "次を試してみてください。\nキーボードの Windows キーを押しながら、E のキーを押してください。\n開いた画面の左の一覧で、「PC」を選んでください。\n「PC」の中に、赤い×のついたドライブがあれば、ダブルクリックしてください。\n開けば、直っています。",
       "evidence": [
         "LIB-001",
         "LIB-002",
-        "LIB-013"
-      ],
-      "library": null,
-      "usage": "reply_to_staff"
-    },
-    {
-      "id": "STM-201",
-      "text": "いま確認しています。\nイタチ事務機に連絡しました。",
-      "evidence": [
-        "INT-008",
-        "INT-012"
+        "LIB-013",
+        "LIB-023"
       ],
       "library": null,
       "usage": "reply_to_staff"
     },
     {
       "id": "STM-202",
-      "text": "いま確認しています。\nイタチ事務機に連絡しました。",
+      "text": "オコジョ精工株式会社です。\n「共有フォルダが見えない」件で連絡しました。\n説明書の手順「キーボードの Windows キーを押しながら、E のキーを押してください」、「開いた画面の左の一覧で、「PC」を選んでください」、「「PC」の中に、赤い×のついたドライブがあれば、ダブルクリックしてください」は試しました。直りません。\n確認をお願いします。",
       "evidence": [
-        "INT-012",
-        "INV-013"
+        "INT-010",
+        "LIB-001",
+        "LIB-002",
+        "LIB-013"
+      ],
+      "library": null,
+      "usage": "call_script"
+    },
+    {
+      "id": "STM-203",
+      "text": "いま確認しています。",
+      "evidence": [
+        "INT-008"
       ],
       "library": null,
       "usage": "reply_to_staff"
     },
     {
-      "id": "STM-203",
-      "text": "いま確認しています。\nカワウソシステムサービスに連絡しました。",
+      "id": "STM-204",
+      "text": "オコジョ精工株式会社です。\n「複合機のスキャンが届かない」件で連絡しました。\n機器の場所：総務室\n確認をお願いします。",
+      "evidence": [
+        "INT-008",
+        "INV-013",
+        "INT-012"
+      ],
+      "library": null,
+      "usage": "call_script"
+    },
+    {
+      "id": "STM-205",
+      "text": "いま確認しています。\nイタチ事務機に連絡します。",
+      "evidence": [
+        "INT-012"
+      ],
+      "library": null,
+      "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-206",
+      "text": "オコジョ精工株式会社です。\n「複合機が故障した」件で連絡しました。\n機器の場所：総務室\n確認をお願いします。",
+      "evidence": [
+        "INT-012",
+        "INV-013"
+      ],
+      "library": null,
+      "usage": "call_script"
+    },
+    {
+      "id": "STM-207",
+      "text": "いま確認しています。",
       "evidence": [
         "INT-001"
       ],
@@ -1504,7 +1464,16 @@
       "usage": "reply_to_staff"
     },
     {
-      "id": "STM-204",
+      "id": "STM-208",
+      "text": "オコジョ精工株式会社です。\n「バックアップの結果メールの件名が「失敗」になっている」件で連絡しました。\n確認をお願いします。",
+      "evidence": [
+        "INT-001"
+      ],
+      "library": null,
+      "usage": "call_script"
+    },
+    {
+      "id": "STM-209",
       "text": "いま確認しています。",
       "evidence": [
         "INT-007"
@@ -1513,8 +1482,8 @@
       "usage": "reply_to_staff"
     },
     {
-      "id": "STM-205",
-      "text": "いま確認しています。\n総務課に連絡しました。",
+      "id": "STM-210",
+      "text": "いま確認しています。\n総務課に相談します。",
       "evidence": [
         "INT-003"
       ],
@@ -1522,8 +1491,17 @@
       "usage": "reply_to_staff"
     },
     {
-      "id": "STM-206",
-      "text": "いま確認しています。\n総務課に連絡しました。",
+      "id": "STM-211",
+      "text": "オコジョ精工株式会社です。\n「ウイルス感染や情報漏えいが疑われる」件で連絡しました。\n説明書の手順「LAN ケーブルを抜いてください」は試しました。直りません。\n確認をお願いします。",
+      "evidence": [
+        "INT-003"
+      ],
+      "library": null,
+      "usage": "call_script"
+    },
+    {
+      "id": "STM-212",
+      "text": "いま確認しています。\n総務課に相談します。",
       "evidence": [
         "INT-003"
       ],
@@ -1531,8 +1509,17 @@
       "usage": "reply_to_staff"
     },
     {
-      "id": "STM-207",
-      "text": "いま確認しています。\nイイズナソフトに連絡しました。",
+      "id": "STM-213",
+      "text": "オコジョ精工株式会社です。\n「不審なメールが届いた」件で連絡しました。\n確認をお願いします。",
+      "evidence": [
+        "INT-003"
+      ],
+      "library": null,
+      "usage": "call_script"
+    },
+    {
+      "id": "STM-214",
+      "text": "いま確認しています。\nイイズナソフトに連絡します。",
       "evidence": [
         "INT-010"
       ],
@@ -1540,8 +1527,17 @@
       "usage": "reply_to_staff"
     },
     {
-      "id": "STM-208",
-      "text": "いま確認しています。\n社長に連絡しました。",
+      "id": "STM-215",
+      "text": "オコジョ精工株式会社です。\n「生産管理システムの調子が悪い」件で連絡しました。\n確認をお願いします。",
+      "evidence": [
+        "INT-010"
+      ],
+      "library": null,
+      "usage": "call_script"
+    },
+    {
+      "id": "STM-216",
+      "text": "いま確認しています。\n社長に相談します。",
       "evidence": [
         "INT-004"
       ],
@@ -1549,8 +1545,17 @@
       "usage": "reply_to_staff"
     },
     {
-      "id": "STM-209",
-      "text": "いま確認しています。\nフェレット企画に連絡しました。",
+      "id": "STM-217",
+      "text": "オコジョ精工株式会社です。\n「社員が Microsoft 365 のパスワードを忘れた」件で連絡しました。\n確認をお願いします。",
+      "evidence": [
+        "INT-004"
+      ],
+      "library": null,
+      "usage": "call_script"
+    },
+    {
+      "id": "STM-218",
+      "text": "いま確認しています。\nフェレット企画に連絡します。",
       "evidence": [
         "INT-011"
       ],
@@ -1558,14 +1563,31 @@
       "usage": "reply_to_staff"
     },
     {
-      "id": "STM-210",
-      "text": "いま確認しています。\n社長に連絡しました。",
+      "id": "STM-219",
+      "text": "オコジョ精工株式会社です。\n「メールと会社のサイトが止まった」件で連絡しました。\n確認をお願いします。",
       "evidence": [
-        "INT-007",
-        "INT-017"
+        "INT-011"
+      ],
+      "library": null,
+      "usage": "call_script"
+    },
+    {
+      "id": "STM-220",
+      "text": "いま確認しています。\n社長に相談します。",
+      "evidence": [
+        "INT-007"
       ],
       "library": null,
       "usage": "reply_to_staff"
+    },
+    {
+      "id": "STM-221",
+      "text": "オコジョ精工株式会社です。\n「NAS のディスク交換が必要になった」件で連絡しました。\n機器の場所：事務所のサーバーラック\n確認をお願いします。",
+      "evidence": [
+        "INT-007"
+      ],
+      "library": null,
+      "usage": "call_script"
     }
   ],
   "symptom_pages": [
@@ -1591,7 +1613,7 @@
       "info_rows": [],
       "fallback": {
         "contact": "VEN-01",
-        "message": "STM-062"
+        "message": "STM-199"
       },
       "reply_to_staff": "STM-198"
     },
@@ -1620,7 +1642,7 @@
       "exceptions": [],
       "info_rows": [],
       "fallback": null,
-      "reply_to_staff": "STM-199"
+      "reply_to_staff": "STM-200"
     },
     {
       "id": "T3",
@@ -1664,9 +1686,9 @@
       ],
       "fallback": {
         "contact": "VEN-02",
-        "message": "STM-092"
+        "message": "STM-202"
       },
-      "reply_to_staff": "STM-200"
+      "reply_to_staff": "STM-201"
     },
     {
       "id": "T4",
@@ -1702,9 +1724,9 @@
       ],
       "fallback": {
         "contact": "VEN-03",
-        "message": "STM-105"
+        "message": "STM-204"
       },
-      "reply_to_staff": "STM-201"
+      "reply_to_staff": "STM-203"
     },
     {
       "id": "T5",
@@ -1728,9 +1750,9 @@
       "info_rows": [],
       "fallback": {
         "contact": "VEN-03",
-        "message": "STM-110"
+        "message": "STM-206"
       },
-      "reply_to_staff": "STM-202"
+      "reply_to_staff": "STM-205"
     },
     {
       "id": "T6",
@@ -1763,9 +1785,9 @@
       "info_rows": [],
       "fallback": {
         "contact": "VEN-02",
-        "message": "STM-122"
+        "message": "STM-208"
       },
-      "reply_to_staff": "STM-203"
+      "reply_to_staff": "STM-207"
     },
     {
       "id": "T7",
@@ -1793,7 +1815,7 @@
       "exceptions": [],
       "info_rows": [],
       "fallback": null,
-      "reply_to_staff": "STM-204"
+      "reply_to_staff": "STM-209"
     },
     {
       "id": "T8",
@@ -1821,9 +1843,9 @@
       "info_rows": [],
       "fallback": {
         "contact": "INH-01",
-        "message": "STM-137"
+        "message": "STM-211"
       },
-      "reply_to_staff": "STM-205"
+      "reply_to_staff": "STM-210"
     },
     {
       "id": "T9",
@@ -1851,9 +1873,9 @@
       "info_rows": [],
       "fallback": {
         "contact": "INH-01",
-        "message": "STM-144"
+        "message": "STM-213"
       },
-      "reply_to_staff": "STM-206"
+      "reply_to_staff": "STM-212"
     },
     {
       "id": "T10",
@@ -1879,9 +1901,9 @@
       "info_rows": [],
       "fallback": {
         "contact": "VEN-04",
-        "message": "STM-151"
+        "message": "STM-215"
       },
-      "reply_to_staff": "STM-207"
+      "reply_to_staff": "STM-214"
     },
     {
       "id": "T11",
@@ -1910,9 +1932,9 @@
       "info_rows": [],
       "fallback": {
         "contact": "INH-02",
-        "message": "STM-160"
+        "message": "STM-217"
       },
-      "reply_to_staff": "STM-208"
+      "reply_to_staff": "STM-216"
     },
     {
       "id": "T12",
@@ -1937,9 +1959,9 @@
       "info_rows": [],
       "fallback": {
         "contact": "VEN-05",
-        "message": "STM-166"
+        "message": "STM-219"
       },
-      "reply_to_staff": "STM-209"
+      "reply_to_staff": "STM-218"
     },
     {
       "id": "T13",
@@ -1964,9 +1986,9 @@
       "info_rows": [],
       "fallback": {
         "contact": "INH-02",
-        "message": "STM-172"
+        "message": "STM-221"
       },
-      "reply_to_staff": "STM-210"
+      "reply_to_staff": "STM-220"
     }
   ],
   "contacts": [

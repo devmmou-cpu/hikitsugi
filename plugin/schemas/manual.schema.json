@@ -60,7 +60,8 @@
           "usage": {
             "$comment": "プログラムが組む文章の用途。社員に返す文に付け、Verifier が定型文を見分ける",
             "enum": [
-              "reply_to_staff"
+              "reply_to_staff",
+              "call_script"
             ]
           },
           "library": {
@@ -221,8 +222,7 @@
             ],
             "additionalProperties": false,
             "required": [
-              "contact",
-              "message"
+              "contact"
             ],
             "properties": {
               "contact": {
@@ -230,6 +230,7 @@
                 "pattern": "^(VEN|INH)-\\d{2}$"
               },
               "message": {
+                "$comment": "業者に伝える文。プログラムが組む（plugin/lib/reply.mjs）。Writer は書かない",
                 "type": "string",
                 "pattern": "^STM-\\d{3}$"
               }

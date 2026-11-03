@@ -29,7 +29,14 @@ const textOf = (manual, id) => manual.statements.find((s) => s.id === id).text;
 const render = (mutate) => {
   const manual = fixture();
   mutate?.(manual);
-  return renderManual(manual);
+  // 文章を変えたら、プログラムが組む文も組み直す。壊れた入力は、そのまま表示プログラムに止めさせる
+  let rebuilt = manual;
+  try {
+    rebuilt = withReplies(manual);
+  } catch {
+    rebuilt = manual;
+  }
+  return renderManual(rebuilt);
 };
 const html = render();
 
@@ -141,8 +148,8 @@ test('JavaScript なしの状態で、内容を隠していない', () => {
     assert.ok(classesOf(tag).includes('js-only'), `hidden は js-only の部品だけです: ${tag}`);
   }
   for (const [tag] of markup.matchAll(/<[a-z][a-z0-9]*\b[^>]*\bclass="[^"]*\bjs-only\b[^"]*"[^>]*>/gi)) {
-    // 探す入力欄は JavaScript があるときだけの部品で、本文を持たない
-    if (/\bid="search-box"/.test(tag)) continue;
+    // 探す入力欄と PC の中央の一覧は JavaScript があるときだけの部品で、同じ内容が本文にある
+    if (/\bid="(?:search-box|pick-home)"/.test(tag)) continue;
     assert.match(tag, /^<(button|span)\b/i, `js-only は button か span だけです: ${tag}`);
   }
   assert.doesNotMatch(markup, /<[a-z][^>]*\bstyle="[^"]*(?:display\s*:\s*none|visibility\s*:\s*hidden)/i);
@@ -394,7 +401,7 @@ test('業者名や電話番号も属性の中で壊れない', () => {
 
 test('コピーする文面が script の中にあっても、閉じタグで壊れない', () => {
   const output = render((m) => {
-    m.statements.find((s) => s.id === 'STM-011').text = '</script><script>alert(3)</script>';
+    m.statements.find((s) => s.id === m.symptom_pages[0].steps[0]).text = '</script><script>alert(3)</script>';
   });
   assert.ok(!output.includes('<script>alert(3)'));
 });

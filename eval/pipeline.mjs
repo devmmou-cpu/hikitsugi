@@ -13,6 +13,7 @@ import { withSearchIndex } from '../plugin/lib/search-index.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { withReplies } from '../plugin/lib/reply.mjs';
+import { locationWarnings } from '../plugin/lib/coverage-check.mjs';
 import { writePhoneBundle } from '../plugin/renderer/phone.mjs';
 import { PC_FILE_LIMIT, writeWithinLimit } from '../plugin/lib/limits.mjs';
 import { clientOf, runGapFinderLive, runVerifierLive } from './lib/adapters/live.mjs';
@@ -146,6 +147,7 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
         save('manual-final', reviewed);
         summary.review = { mode: '模擬（全ページ このままでよい）', pages: reviewed.symptom_pages.length };
         summary.before_leaving = reviewed.before_leaving?.length ?? 0;
+        summary.location_warnings = locationWarnings(reviewed);
         let prepared;
         try {
           prepared = prepareForRender(reviewed);

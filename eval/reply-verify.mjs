@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-// 社員に返す文だけを Verifier にかける（模擬評価）。通しの評価の結果のフォルダを使い、ほかの文章はかけ直さない。
+// プログラムが組む文（社員に返す文、業者に伝える文）だけを Verifier にかける（模擬評価）。通しの評価の結果のフォルダを使い、ほかの文章はかけ直さない。
 // 使い方：node --env-file=.env eval/reply-verify.mjs --dir <通しの結果のフォルダ> --set <会社>
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { REPLY_USAGE, withReplies } from '../plugin/lib/reply.mjs';
+import { withReplies } from '../plugin/lib/reply.mjs';
 import { clientOf, runVerifierLive } from './lib/adapters/live.mjs';
 import { loadInput } from './lib/load-set.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RETIREE = '田中';
 
-/** かける文章を選ぶ。プログラムが組んだ社員に返す文だけ。 */
-export const replyStatements = (manual) => manual.statements.filter((statement) => statement.usage === REPLY_USAGE);
+/** かける文章を選ぶ。プログラムが組んだ文だけ。 */
+export const replyStatements = (manual) => manual.statements.filter((statement) => statement.usage);
 
 /** 判定を数える。回答がない文章を「正しい」に数えない。 */
 export function summarizeReplies(statements, results) {

@@ -38,7 +38,10 @@ export const commonSchema = () => {
 };
 
 /** 手順ページ1つの出力の形。 */
-export const pageSchema = () => objectOf({ statements: WRITER_STATEMENTS, page: without(MANUAL_SCHEMA.properties.symptom_pages.items, 'reply_to_staff') });
+export const pageSchema = () => {
+  const page = without(MANUAL_SCHEMA.properties.symptom_pages.items, 'reply_to_staff');
+  return objectOf({ statements: WRITER_STATEMENTS, page: { ...page, properties: { ...page.properties, fallback: without(page.properties.fallback, 'message') } } });
+};
 
 /** 共通部分が使う文章の ID を返す。 */
 export const commonStatementIds = ({ contacts, routines, devices }) => [

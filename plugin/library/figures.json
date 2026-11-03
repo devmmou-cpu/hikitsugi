@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "$comment": "操作の図。部品と同じ承認制で、本人が承認するまで画面に出さない。枠と文字と暖色の印だけで描く",
+  "figures": {
+    "LIB-001": {
+      "status": "draft",
+      "means": "Windows のキーを押しながら、E のキーを押す",
+      "alt": "キーボードの Windows のキーと E のキーを、同時に押す図",
+      "svg": "<svg viewBox=\"0 0 320 120\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" role=\"img\" aria-label=\"キーボードの Windows のキーと E のキーを、同時に押す図\"><rect x=\"30\" y=\"34\" width=\"110\" height=\"52\" rx=\"8\"/><text x=\"85\" y=\"65\" font-size=\"15\" font-weight=\"700\" fill=\"currentColor\" stroke=\"none\" text-anchor=\"middle\">Windows</text><text x=\"160\" y=\"66\" font-size=\"15\" font-weight=\"700\" fill=\"currentColor\" stroke=\"none\" text-anchor=\"middle\">＋</text><rect x=\"180\" y=\"34\" width=\"52\" height=\"52\" rx=\"8\"/><text x=\"206\" y=\"65\" font-size=\"15\" font-weight=\"700\" fill=\"currentColor\" stroke=\"none\" text-anchor=\"middle\">E</text><rect x=\"18\" y=\"22\" width=\"226\" height=\"76\" rx=\"14\" stroke-width=\"3\" style=\"stroke:var(--accent)\"/></svg>"
+    },
+    "LIB-002": {
+      "status": "draft",
+      "means": "開いた画面の左の一覧で、「PC」を選ぶ",
+      "alt": "画面の左の一覧の中の「PC」に印を付けた図",
+      "svg": "<svg viewBox=\"0 0 320 180\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" role=\"img\" aria-label=\"画面の左の一覧の中の「PC」に印を付けた図\"><rect x=\"10\" y=\"10\" width=\"300\" height=\"160\" rx=\"8\"/><path d=\"M10 36H310M110 36V170\"/><path d=\"M26 56H94M26 80H94M26 140H94M128 60H290M128 84H290M128 108H250\" stroke-width=\"1.5\"/><text x=\"60\" y=\"116\" font-size=\"15\" font-weight=\"700\" fill=\"currentColor\" stroke=\"none\" text-anchor=\"middle\">PC</text><rect x=\"20\" y=\"94\" width=\"80\" height=\"32\" rx=\"8\" stroke-width=\"3\" style=\"stroke:var(--accent)\"/></svg>"
+    },
+    "LIB-013": {
+      "status": "draft",
+      "means": "「PC」の中の、赤い×のついたドライブをダブルクリックする",
+      "alt": "「PC」の画面の中の、×のついたドライブに印を付けた図",
+      "svg": "<svg viewBox=\"0 0 320 180\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" role=\"img\" aria-label=\"「PC」の画面の中の、×のついたドライブに印を付けた図\"><rect x=\"10\" y=\"10\" width=\"300\" height=\"160\" rx=\"8\"/><path d=\"M10 36H310\"/><text x=\"36\" y=\"29\" font-size=\"15\" font-weight=\"700\" fill=\"currentColor\" stroke=\"none\" text-anchor=\"middle\">PC</text><rect x=\"44\" y=\"62\" width=\"104\" height=\"72\" rx=\"6\"/><text x=\"96\" y=\"110\" font-size=\"15\" font-weight=\"700\" fill=\"currentColor\" stroke=\"none\" text-anchor=\"middle\">ドライブ</text><path d=\"M132 72L144 84M144 72L132 84\" stroke-width=\"3\" style=\"stroke:var(--accent)\"/><rect x=\"186\" y=\"62\" width=\"104\" height=\"72\" rx=\"6\" stroke-dasharray=\"4 4\" stroke-width=\"1.5\"/><rect x=\"32\" y=\"50\" width=\"128\" height=\"96\" rx=\"12\" stroke-width=\"3\" style=\"stroke:var(--accent)\"/></svg>"
+    }
+  }
+}

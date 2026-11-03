@@ -1,6 +1,7 @@
 // 通しの流れのテスト。偽のクライアントを使い、API は呼ばない。
 
 import { withoutReplies, withReplies } from '../plugin/lib/reply.mjs';
+import { locationWarnings } from '../plugin/lib/coverage-check.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -1161,4 +1162,20 @@ test('採点器は部品を根拠として認め、存在しない部品は不�
   const summary = manualScorer.summarize(manualScorer.score(manual, null, input));
   assert.deepEqual(summary.bad_evidence, [manual.statements[0].id]);
   assert.deepEqual(summary.unapproved_parts, ['LIB-999']);
+});
+
+test('置き場所に部屋らしい語がない機器を警告し、記録がないと書いた機器は除く', () => {
+  const statements = [
+    { id: 'STM-001', text: '機器A' }, { id: 'STM-002', text: '棚の上にあります。' },
+    { id: 'STM-003', text: '機器B' }, { id: 'STM-004', text: '総務室の棚の上にあります。' },
+    { id: 'STM-005', text: '機器C' }, { id: 'STM-006', text: '置き場所の記録がありません。' },
+  ];
+  const devices = [['STM-001', 'STM-002'], ['STM-003', 'STM-004'], ['STM-005', 'STM-006']].map(([name, location]) => ({ name, location }));
+  assert.deepEqual(locationWarnings({ statements, devices }), [{ device: '機器A', place: '棚の上にあります。' }]);
+});
+
+test('Interviewer は、部屋の名前と目印で置き場所を聞き、部屋の名前がなければ1回だけ聞き直す', () => {
+  const prompt = readFileSync(join(ROOT, 'plugin/agents/interviewer.md'), 'utf8');
+  assert.match(prompt, /部屋の名前＋部屋の中の目印/);
+  assert.match(prompt, /部屋の名前だけを1回だけ聞き直します/);
 });

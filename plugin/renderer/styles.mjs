@@ -507,6 +507,11 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   letter-spacing: .01em;
 }
 
+.intro-role {
+  margin-top: var(--s3);
+  font-weight: 700;
+}
+
 .intro-date {
   margin-top: var(--s5);
   font-size: 17px;
@@ -2001,10 +2006,21 @@ details[open] .plus-v {
   }
 
   .js[data-view="help"] .pick-prompt {
-    display: flex;
-    flex-direction: column;
-    gap: var(--s2);
-    padding-top: var(--s7);
+    display: block;
+    padding-top: var(--s5);
+    padding-bottom: var(--s7);
+  }
+
+  .pick-note {
+    margin-top: var(--s2);
+  }
+
+  .pick-label {
+    margin: var(--s5) 0 var(--s3);
+  }
+
+  .pick-prompt .group-title {
+    margin: var(--s5) 0 var(--s2);
   }
 
   .pick-lead {

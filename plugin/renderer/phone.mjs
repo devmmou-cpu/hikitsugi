@@ -17,7 +17,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { fileSize, oversizeMessage, PHONE_FILE_LIMIT, writeWithinLimit } from '../lib/limits.mjs';
 import { contactProblems, pageProblems } from '../lib/page-check.mjs';
-import { actionHtml, BADGE_LABELS, CATEGORY_LABELS, checkInput, compactCss, esc, evidenceLines, infoTables, makeContext, pageTerms, stepParts, telHtml } from './render.mjs';
+import { actionHtml, BADGE_ICONS, BADGE_LABELS, CATEGORY_LABELS, checkInput, compactCss, esc, evidenceLines, ICONS, infoTables, makeContext, pageTerms, stepParts, telHtml } from './render.mjs';
 import { STYLES } from './styles.mjs';
 
 const SYMPTOM_NAME_MAX = 30;
@@ -45,7 +45,13 @@ h1, h2, h3, p, ul, ol, dl, dd, blockquote { margin: 0; }
 .chip-secret { padding: 0 var(--s2); font-size: 13px; font-weight: 700; color: var(--ink); border: 1px solid var(--ink); border-radius: 4px; }
 .draft { margin-top: var(--s3); padding: var(--s2) var(--s3); font-weight: 700; color: var(--warn-fg); background: var(--warn-bg); border-radius: 8px; }
 h1 { margin-top: var(--s4); font-size: 26px; line-height: 1.4; }
-.verdict { margin-top: var(--s3); font-size: 15px; font-weight: 700; color: var(--ink-2); }
+.verdict { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s3); margin-top: var(--s3); font-size: 15px; color: var(--ink-2); }
+.badge { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px 0 10px; font-size: 15px; font-weight: 700; line-height: 1; white-space: nowrap; border-radius: 999px; }
+.badge svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.badge[data-badge="self"] { color: var(--ok-fg); background: var(--ok-bg); }
+.badge[data-badge="check_first"] { color: var(--warn-fg); background: var(--warn-bg); }
+.badge[data-badge="vendor"] { color: var(--call-fg); background: var(--call-bg); }
+.badge[data-badge="internal"] { color: var(--ask-fg); background: var(--ask-bg); }
 .verdict-text { margin-top: var(--s2); }
 .safe { margin-top: var(--s3); color: var(--ink-2); }
 .part { margin-top: var(--s6); }
@@ -117,6 +123,9 @@ ${[...footLines, 'ほかの症状は、フォルダの一覧から開いてく�
 `;
 }
 
+/** 判定のバッジ。PC 用と同じ色と形で、図形はこのファイルの中に持つ（ページ内の参照は動かないため）。 */
+const badgeHtml = (value) => `<span class="badge" data-badge="${esc(value)}"><svg viewBox="0 0 24 24" role="presentation">${ICONS[BADGE_ICONS[value]]}</svg><span>${esc(BADGE_LABELS[value])}</span></span>`;
+
 const PHONE_NOTE = '番号を長押しすると、発信できます。';
 const COPY_NOTE = '長押しして選択し、コピーしてください。';
 
@@ -179,7 +188,7 @@ function symptomHtml(ctx, page, fileTitle) {
 
   const body = [
     `<h1>${ctx.text(page.title)}</h1>`,
-    `<p class="verdict">${esc(BADGE_LABELS[page.badge.value])}　目安 約${esc(page.minutes)}分</p>`,
+    `<p class="verdict">${badgeHtml(page.badge.value)}<span>目安 約${esc(page.minutes)}分</span></p>`,
     `<p class="verdict-text">${ctx.text(page.badge.statement)}</p>`,
     `<p class="safe">${ctx.text(page.reassurance)}</p>`,
     hasFirst ? '' : reply,
@@ -221,7 +230,7 @@ function phoneShapeProblems(html) {
   const problems = [];
   if (/<script\b/i.test(html)) problems.push('script があります');
   if (/<a\b|\bhref\s*=/i.test(html)) problems.push('リンクがあります');
-  if (/<(?:input|details|button|iframe|img|link|svg)\b/i.test(html)) problems.push('操作する部品か、読み込む部品があります');
+  if (/<(?:input|details|button|iframe|img|link|use)\b/i.test(html)) problems.push('操作する部品か、読み込む部品があります');
   if (/\bsrc\s*=|url\s*\(|@import/i.test(html)) problems.push('外部を読み込む指定があります');
   return problems;
 }

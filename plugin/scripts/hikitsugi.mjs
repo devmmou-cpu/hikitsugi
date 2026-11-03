@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { applyEdits } from '../lib/apply-edits.mjs';
 import { assembleManual, checkCommon, checkPage, commonSchema, droppedFromCommon, mergeRewritten, ownersOf, pageSchema, previousPiece } from '../lib/assemble.mjs';
 import { buildRevision, carryForward, markReviewed, mergeVerification, prepareForRender, summarizeVerification, UnapprovedPartsError, verificationScope } from '../lib/handover.mjs';
-import { coverageLeaks } from '../lib/coverage-check.mjs';
+import { coverageLeaks, locationWarnings } from '../lib/coverage-check.mjs';
 import { bodyFields } from '../lib/page-check.mjs';
 import { plainProblems } from '../lib/plain-check.mjs';
 import { pagesForPhrases, phraseProblems, withSearchIndex } from '../lib/search-index.mjs';
@@ -484,6 +484,8 @@ function render(work, [outPath]) {
   if (bundle.blocked.length) throw new Problem(bundle.blocked.join('\n'));
   const notes = [manual.review ? `取扱説明書を作りました：${target}` : `下書きを作りました：${target}`, `スマホ向けのファイル：${phoneDir}（${bundle.length} ファイル）`];
   if (Buffer.byteLength(html) > PC_FILE_TARGET) notes.push(`PC 用のファイルが目標の ${PC_FILE_TARGET / 1024}KB を超えています（上限の範囲です）`);
+  const places = locationWarnings(manual);
+  if (places.length) notes.push(`置き場所に部屋の名前がない機器があります（止めません）：${places.map(({ device }) => device).join('、')}`);
   if (omitted.routines || omitted.devices) notes.push(`表示プログラムが未対応のため外した項目：定期作業 ${omitted.routines} 件、機器 ${omitted.devices} 件`);
   return notes.join('\n');
 }

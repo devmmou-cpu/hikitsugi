@@ -65,9 +65,22 @@ test('検査は、script、リンク、大きすぎるファイルを見つけ�
   assert.match(phoneFileProblems(page('<a href="#x">x</a>')).join(), /リンク/);
   assert.match(phoneFileProblems(page('<a href="other.html">x</a>')).join(), /リンク/);
   assert.match(phoneFileProblems(page('<details>x</details>')).join(), /部品/);
+  assert.match(phoneFileProblems(page('<svg><use href="#x"/></svg>')).join(), /リンク|部品/);
   assert.match(phoneFileProblems(page('<img src="https://x.example/a.png">')).join(), /読み込/);
   assert.match(phoneFileProblems(page('あ'.repeat(70 * 1024))).join(), /上限/);
   assert.deepEqual(phoneFileProblems(page('本文')), []);
+});
+
+test('判定は PC 用と同じバッジで、色とアイコンを持ち、ページ内の参照を使わない', () => {
+  const css = bundle[0].html.match(/<style>([\s\S]*?)<\/style>/)[1];
+  for (const [value, fg, bg] of [['self', '--ok-fg', '--ok-bg'], ['check_first', '--warn-fg', '--warn-bg'], ['vendor', '--call-fg', '--call-bg'], ['internal', '--ask-fg', '--ask-bg']]) {
+    assert.match(css, new RegExp(`\\.badge\\[data-badge="${value}"\\]\\s*\\{\\s*color:\\s*var\\(${fg}\\);\\s*background:\\s*var\\(${bg}\\)`), value);
+  }
+  for (const page of manual.symptom_pages) {
+    const { name, html } = fileFor(page);
+    assert.match(html, new RegExp(`<span class="badge" data-badge="${page.badge.value}"><svg[^>]*>.+?</svg>`), name);
+    assert.doesNotMatch(html, /<use\b/, name);
+  }
 });
 
 test('各ファイルは1症状だけで、上から ① → ② → ③ の順に、表と連絡先を同梱する', () => {
