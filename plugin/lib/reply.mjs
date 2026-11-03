@@ -80,12 +80,19 @@ function deviceFor(page, manual, byId) {
   return best.length === 1 ? best[0].device : null;
 }
 
-/** 機器の置き場所の文章。根拠があり、「記録がありません」でないときだけ使う。 */
+/** 機器の置き場所の文章。「業者へ連絡」のページで、根拠があり、「記録がありません」でないときだけ使う。 */
 function placeOf(page, manual, byId) {
+  if (page.badge.value !== 'vendor') return null;
   const device = deviceFor(page, manual, byId);
   const place = device ? byId.get(device.location) : null;
   return place?.evidence?.length && !NO_RECORD.test(place.text) ? place : null;
 }
+
+/** 「試しました」と書ける ①。すべてが手順部品のときだけで、操作ではない ① を試したことにしない。 */
+const triedSteps = (page, byId) => {
+  const steps = page.first_steps.map((id) => byId.get(id));
+  return steps.length && steps.every((statement) => statement?.library) ? steps : [];
+};
 
 const triedLine = (steps) => `説明書の手順${steps.map((statement) => `「${withoutStop(statement.text)}」`).join('、')}は試しました。直りません。`;
 
@@ -93,7 +100,7 @@ const triedLine = (steps) => `説明書の手順${steps.map((statement) => `「$
 export function composeCallScript(page, manual) {
   const byId = mapById(manual);
   const title = byId.get(page.title);
-  const steps = page.first_steps.map((id) => byId.get(id));
+  const steps = triedSteps(page, byId);
   const place = placeOf(page, manual, byId);
   const lines = [
     `${manual.company_name}です。`,
@@ -223,7 +230,7 @@ export function callScriptProblems(manual) {
     if (statement.usage !== CALL_USAGE) problems.push(`${page.id}: 業者に伝える文はプログラムが組みます`);
     const lines = statement.text.split('\n');
     const title = byId.get(page.title);
-    const steps = page.first_steps.map((id) => byId.get(id));
+    const steps = triedSteps(page, byId);
     if (lines[0] !== `${manual.company_name}です。`) problems.push(`${page.id}: 1行目は「会社名です。」の型です`);
     if (lines[1] !== `「${withoutStop(title.text)}」件で連絡しました。`) problems.push(`${page.id}: 2行目は「「症状の題名」件で連絡しました。」の型です`);
     if (!sourced(title)) problems.push(`${page.id}: 症状の題名に根拠がありません`);

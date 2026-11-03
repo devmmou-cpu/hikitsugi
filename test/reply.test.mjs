@@ -134,9 +134,9 @@ test('業者に伝える文：① がなければ3行目を出さず、置き場
   assert.ok(!lines.some((line) => line.startsWith('機器の場所')));
 });
 
-test('業者に伝える文：題名か ① に機器があり、根拠のある置き場所があれば、機器の場所の行を出す', () => {
+test('業者に伝える文：業者へ連絡のページで、題名か ① に機器があり、根拠のある置き場所があれば、機器の場所の行を出す', () => {
   const manual = withoutReplies(fixture());
-  const page = manual.symptom_pages.find((p) => p.fallback);
+  const page = manual.symptom_pages.find((p) => p.fallback && p.badge.value === 'vendor');
   const device = manual.devices.find((d) => statementOf(manual, d.location).evidence.length && !/記録がありません/.test(statementOf(manual, d.location).text));
   const name = statementOf(manual, device.name).text.replace(/[（(].*$/, '').trim();
   statementOf(manual, page.title).text = `${name}が止まった`;
@@ -277,9 +277,50 @@ test('Windows 10 の分岐：何度組んでも増えず、Writer には渡さ�
   assert.match(renderManual(withReplies(once)).replace(/<[^>]+>/g, ''), /該当する PC：OKJ-CAD-01。/);
 });
 
+test('業者に伝える文：業者へ連絡以外のページには、機器の場所の行を出さない', () => {
+  const manual = withoutReplies(fixture());
+  const device = manual.devices.find((d) => statementOf(manual, d.location).evidence.length && !/記録がありません/.test(statementOf(manual, d.location).text));
+  const name = statementOf(manual, device.name).text.replace(/[（(].*$/, '').trim();
+  const vendor = manual.symptom_pages.find((p) => p.fallback && p.badge.value === 'vendor');
+  statementOf(manual, vendor.title).text = `${name}が止まった`;
+  assert.ok(composeCallScript(vendor, manual).text.includes('機器の場所：'));
+  for (const value of ['check_first', 'internal', 'self']) {
+    const page = { ...vendor, badge: { ...vendor.badge, value } };
+    assert.ok(!composeCallScript(page, manual).text.includes('機器の場所'), value);
+  }
+});
+
+test('業者に伝える文：① に手順部品でない文があれば、「試しました」の行を出さない', () => {
+  const manual = withoutReplies(fixture());
+  const page = manual.symptom_pages.find((p) => p.fallback && p.first_steps.length && p.first_steps.every((id) => statementOf(manual, id).library));
+  assert.ok(composeCallScript(page, manual).text.includes('は試しました。直りません。'));
+  manual.statements.push({ id: 'STM-901', text: '不審なメールは開かずに、知らせてください。', evidence: ['INT-001'], library: null });
+  const mixed = { ...page, first_steps: [page.first_steps[0], 'STM-901'] };
+  const built = composeCallScript(mixed, manual);
+  assert.ok(!built.text.includes('試しました'));
+  assert.ok(!built.text.includes('不審なメール'));
+  assert.ok(!built.evidence.includes('INT-001'));
+});
+
+test('検査：手順部品でない ① を「試しました」と書いた文と、業者へ連絡以外の機器の場所を見つける', () => {
+  const broken = (edit) => {
+    const manual = fixture();
+    edit(manual);
+    return callScriptProblems(manual).join('\n');
+  };
+  const nonVendor = (manual) => manual.symptom_pages.find((p) => p.fallback && p.badge.value !== 'vendor');
+  assert.match(broken((m) => { const p = nonVendor(m); callOf(m, p).text = callOf(m, p).text.replace('確認をお願いします。', '機器の場所：事務所\n確認をお願いします。'); }), /機器の場所/);
+  assert.match(broken((m) => {
+    const p = m.symptom_pages.find((candidate) => candidate.fallback && candidate.first_steps.length && !candidate.first_steps.every((id) => statementOf(m, id).library));
+    const lines = callOf(m, p).text.split('\n');
+    lines.splice(2, 0, '説明書の手順「知らせる」は試しました。直りません。');
+    callOf(m, p).text = lines.join('\n');
+  }), /最後の行/);
+});
+
 test('業者に伝える文：機器を1つに絞れないときは、機器の場所の行を出さない', () => {
   const manual = withoutReplies(fixture());
-  const page = manual.symptom_pages.find((p) => p.fallback);
+  const page = manual.symptom_pages.find((p) => p.fallback && p.badge.value === 'vendor');
   const add = (id, text) => manual.statements.push({ id, text, evidence: ['INT-001'], library: null });
   add('STM-901', 'NAS');
   add('STM-902', '事務所のサーバーラックにあります。');

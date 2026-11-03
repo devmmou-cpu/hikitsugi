@@ -40,7 +40,7 @@ const replyLines = (manual) => {
 };
 
 test('承認した LIB-029 の文面', () => {
-  assert.equal(NEW_RESUME, '画面右下の雲のマークを押し、右上の歯車を押して、「同期の再開」を押してください。');
+  assert.equal(NEW_RESUME, '右上の歯車を押して、「同期の再開」を押してください。');
   assert.equal(library.procedures.find((part) => part.id === 'LIB-029').status, 'approved');
 });
 
@@ -86,4 +86,17 @@ test('部品の文面が同じなら、何も変えない', () => {
   const prepared = prepareForRender(manual);
   assert.equal(prepared.manual, manual);
   assert.deepEqual(prepared.updatedParts, []);
+  assert.equal(prepared.rebuiltCount, 0);
+});
+
+test('古い型の業者に伝える文を保存した説明書も、次の render でいまの型になる', () => {
+  const saved = fixture();
+  const page = saved.symptom_pages.find((candidate) => candidate.fallback && candidate.badge.value !== 'vendor');
+  const old = saved.statements.find((statement) => statement.id === page.fallback.message);
+  old.text = old.text.replace('確認をお願いします。', '機器の場所：事務所のサーバーラック\n確認をお願いします。');
+  const { manual, updatedParts, rebuiltCount } = prepareForRender(saved);
+  assert.deepEqual(updatedParts, []);
+  assert.equal(rebuiltCount, 1);
+  const message = manual.symptom_pages.find((candidate) => candidate.id === page.id).fallback.message;
+  assert.ok(!manual.statements.find((statement) => statement.id === message).text.includes('機器の場所'));
 });

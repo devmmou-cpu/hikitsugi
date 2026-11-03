@@ -19,16 +19,24 @@ export function prepareForRender(manual, library = loadLibrary()) {
 }
 
 /**
- * 保存した説明書の部品の文面を、いまの承認済みの文面にそろえ、部品を写した文（社員に返す文、業者に伝える文）を組み直す。
- * 本人が部品の文面を直したあと、古い文面の説明書を作らないため。部品が同じなら、何も変えない。
+ * 保存した説明書の部品の文面を、いまの承認済みの文面にそろえ、社員に返す文と業者に伝える文をいまの型で組み直す。
+ * 本人が部品の文面や文の型を決め直したあと、通しをやり直さずに古い文の説明書を作らないため。どちらも同じなら、何も変えない。
  */
-function withCurrentParts(manual, library) {
+export function withCurrentParts(manual, library = loadLibrary()) {
   const texts = new Map(library.procedures.map((part) => [part.id, part.text]));
   const isStale = (statement) => texts.has(statement.library) && statement.text !== texts.get(statement.library);
   const stale = manual.statements.filter(isStale);
-  if (!stale.length) return { manual, updatedParts: [] };
   const statements = manual.statements.map((statement) => (isStale(statement) ? { ...statement, text: texts.get(statement.library) } : statement));
-  return { manual: withReplies({ ...manual, statements }, library), updatedParts: [...new Set(stale.map((statement) => statement.library))].sort() };
+  const rebuilt = withReplies({ ...manual, statements }, library);
+  const composed = (target) => {
+    const byId = new Map(target.statements.map((statement) => [statement.id, statement.text]));
+    return target.symptom_pages.map((page) => [byId.get(page.reply_to_staff), byId.get(page.fallback?.message)]);
+  };
+  const before = composed(manual);
+  const after = composed(rebuilt);
+  const rebuiltCount = after.flat().filter((text, index) => text !== before.flat()[index]).length;
+  if (!stale.length && !rebuiltCount) return { manual, updatedParts: [], rebuiltCount: 0 };
+  return { manual: rebuilt, updatedParts: [...new Set(stale.map((statement) => statement.library))].sort(), rebuiltCount };
 }
 
 /** 検証結果を判定ごとに数え、指摘の一覧を返す。 */

@@ -475,7 +475,7 @@ function render(work, [outPath]) {
     if (error instanceof UnapprovedPartsError) throw new Problem(error.message);
     throw error;
   }
-  const { manual, omitted, updatedParts } = prepared;
+  const { manual, omitted, updatedParts, rebuiltCount } = prepared;
   const target = resolve(outPath ?? join(work, 'manual.html'));
   const html = renderManual(manual);
   if (writeWithinLimit(target, html, PC_FILE_LIMIT)) throw new Problem(oversizeMessage(target, html, PC_FILE_LIMIT));
@@ -485,7 +485,8 @@ function render(work, [outPath]) {
   if (bundle.blocked.length) throw new Problem(bundle.blocked.join('\n'));
   const notes = [manual.review ? `取扱説明書を作りました：${target}` : `下書きを作りました：${target}`, `スマホ向けのファイル：${phoneDir}（${bundle.length} ファイル）`];
   if (Buffer.byteLength(html) > PC_FILE_TARGET) notes.push(`PC 用のファイルが目標の ${PC_FILE_TARGET / 1024}KB を超えています（上限の範囲です）`);
-  if (updatedParts.length) notes.push(`部品の文面が変わったので、いまの文面で作りました：${updatedParts.join('、')}（社員に返す文と業者に伝える文も組み直しました）`);
+  if (updatedParts.length) notes.push(`部品の文面が変わったので、いまの文面で作りました：${updatedParts.join('、')}`);
+  if (rebuiltCount) notes.push(`社員に返す文と業者に伝える文を、いまの型で ${rebuiltCount} 件組み直しました`);
   const places = locationWarnings(manual);
   if (places.length) notes.push(`置き場所に部屋の名前がない機器があります（止めません）：${places.map(({ device }) => device).join('、')}`);
   if (omitted.routines || omitted.devices) notes.push(`表示プログラムが未対応のため外した項目：定期作業 ${omitted.routines} 件、機器 ${omitted.devices} 件`);
