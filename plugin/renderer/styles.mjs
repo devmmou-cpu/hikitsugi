@@ -410,6 +410,50 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   border-radius: 12px;
 }
 
+/* ---- 普段の言葉で探す（JavaScript があるときだけ） ---- */
+.js .search-box {
+  display: block;
+  margin: var(--s3) 0 var(--s5);
+}
+
+.search-label {
+  display: block;
+  margin-bottom: var(--s2);
+  font-weight: 700;
+}
+
+.search-input {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 var(--s3);
+  font-family: inherit;
+  font-size: 17px;
+  color: var(--ink);
+  background: var(--card);
+  border: 2px solid var(--line-strong);
+  border-radius: 8px;
+}
+
+.search-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.js .search-box:not(.has-input) .search-area {
+  display: none;
+}
+
+.search-status {
+  margin: var(--s3) 0 var(--s2);
+  font-size: 15px;
+  color: var(--ink-2);
+}
+
+.search-more {
+  margin: var(--s4) 0 var(--s2);
+}
+
 /* ---- 画面の枠 ---- */
 .panel {
   padding: var(--s5) var(--s4) var(--s7);

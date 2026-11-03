@@ -5,18 +5,20 @@
 // そこで OneDrive のフォルダの一覧を目次にして、1ファイルに1症状だけを置く。
 // - script も、リンクも、チェック欄も、開閉も置かない。読むだけで足りるようにする
 // - その症状で使う会社の情報の表と連絡先を、同じファイルに同梱する
-// - 電話番号、コピー欄、用語の出し方は、実機の確認を待つ仮の形（番号は大きな文字、枠は user-select: all、用語は開いたまま）
+// - tel: リンクは動かないが、番号の文字を長押しすると発信できる（本人の実機）。番号はただの文字で、下に案内を書く
+// - コピー欄は長押しで選択してコピーできる（本人の実機）。文字の枠のまま、下に案内を書く
+// - 用語は details を使わず、開いたまま出す。チェック欄は付けない
 //
 // 使い方：node plugin/renderer/phone.mjs <入力.json> <出力フォルダ>
 
-import { mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { fileSize, oversizeMessage, PHONE_FILE_LIMIT, writeWithinLimit } from '../lib/limits.mjs';
 import { contactProblems, pageProblems } from '../lib/page-check.mjs';
 import { actionHtml, BADGE_LABELS, CATEGORY_LABELS, checkInput, compactCss, esc, evidenceLines, infoTables, makeContext, pageTerms, stepParts } from './render.mjs';
 import { STYLES } from './styles.mjs';
 
-export const PHONE_FILE_LIMIT = 200 * 1024;
 const SYMPTOM_NAME_MAX = 30;
 const LAST_NUMBER = 99;
 const CIRCLED = ['①', '②', '③', '④'];
@@ -63,7 +65,8 @@ code, kbd { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9
 .contact { margin-top: var(--s3); padding: var(--s4); background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
 .contact-name { margin-top: 0; font-size: 19px; }
 .contact-role { display: block; font-size: 15px; font-weight: 400; color: var(--ink-2); }
-.num { margin-top: var(--s2); font-size: 26px; font-weight: 700; line-height: 1.3; letter-spacing: .02em; }
+.num { margin-top: var(--s2); font-size: 22px; font-weight: 700; line-height: 1.3; letter-spacing: .02em; }
+.note { margin-top: var(--s1); font-size: 15px; color: var(--ink-2); }
 .no-phone { margin-top: var(--s2); font-weight: 700; color: var(--danger-fg); }
 .label { margin-top: var(--s3); font-size: 15px; font-weight: 700; }
 .say { margin-top: var(--s1); padding: var(--s3) var(--s4); background: var(--card-2); border-left: 4px solid var(--line-strong); border-radius: 0 8px 8px 0; -webkit-user-select: all; user-select: all; }
@@ -111,14 +114,20 @@ ${[...footLines, 'ほかの症状は、フォルダの一覧から開いてく�
 `;
 }
 
-/** 連絡先の枠。電話番号は実機の確認まで、大きな文字のテキストにする。 */
+const PHONE_NOTE = '番号を長押しすると、発信できます。';
+const COPY_NOTE = '長押しして選択し、コピーしてください。';
+
+/** コピーする文の枠と、やり方の案内。 */
+const copyBoxHtml = (html) => `<blockquote class="say">${html}</blockquote>\n<p class="note">${COPY_NOTE}</p>`;
+
+/** 連絡先の枠。電話番号はただの文字にする。 */
 function contactHtml(ctx, contact, sayLabel, sayId) {
   const parts = [
     '<div class="contact">',
     `<h3 class="contact-name">${esc(contact.name)}<span class="contact-role">${esc(ctx.raw(contact.role))}</span></h3>`,
-    !contact.phone && contact.id.startsWith('VEN-') ? '<p class="no-phone">電話番号の記録がありません</p>' : contact.phone ? `<p class="num">${esc(contact.phone)}</p>` : '',
+    !contact.phone && contact.id.startsWith('VEN-') ? '<p class="no-phone">電話番号の記録がありません</p>' : contact.phone ? `<p class="num">${esc(contact.phone)}</p>\n<p class="note">${PHONE_NOTE}</p>` : '',
     contact.hours ? `<p>${ctx.text(contact.hours)}</p>` : '',
-    sayId ? `<p class="label">${sayLabel}</p>\n<blockquote class="say">${ctx.text(sayId)}</blockquote>` : '',
+    sayId ? `<p class="label">${sayLabel}</p>\n${copyBoxHtml(ctx.text(sayId))}` : '',
     '</div>',
   ];
   return parts.filter(Boolean).join('\n');
@@ -200,15 +209,19 @@ function contactsHtml(ctx, heading, lead, fileTitle) {
   return documentHtml(ctx, fileTitle, body);
 }
 
-/** 1ファイルの問題を返す。外へ出ない、ほかへ飛ばない、大きすぎない。 */
-export function phoneFileProblems(html) {
+/** 1ファイルの形の問題を返す。外へ出ない、ほかへ飛ばない。 */
+function phoneShapeProblems(html) {
   const problems = [];
-  if (Buffer.byteLength(html) > PHONE_FILE_LIMIT) problems.push(`上限の ${PHONE_FILE_LIMIT / 1024}KB を超えています`);
   if (/<script\b/i.test(html)) problems.push('script があります');
   if (/<a\b|\bhref\s*=/i.test(html)) problems.push('リンクがあります');
   if (/<(?:input|details|button|iframe|img|link|svg)\b/i.test(html)) problems.push('操作する部品か、読み込む部品があります');
   if (/\bsrc\s*=|url\s*\(|@import/i.test(html)) problems.push('外部を読み込む指定があります');
   return problems;
+}
+
+/** 1ファイルの問題を返す。形に加えて、大きすぎないこと。 */
+export function phoneFileProblems(html) {
+  return [...(fileSize(html) > PHONE_FILE_LIMIT ? [`上限の ${PHONE_FILE_LIMIT / 1024}KB を超えています`] : []), ...phoneShapeProblems(html)];
 }
 
 /**
@@ -231,18 +244,21 @@ export function renderPhoneBundle(manual) {
     }),
     { name: '99_当てはまる症状がないとき.html', html: contactsHtml(ctx, '当てはまる症状がないとき', '次の相手に、困っていることをそのまま伝えてください。', '当てはまる症状がないとき') },
   ];
-  const problems = bundle.flatMap(({ name, html }) => phoneFileProblems(html).map((problem) => `${name}: ${problem}`));
+  const problems = bundle.flatMap(({ name, html }) => phoneShapeProblems(html).map((problem) => `${name}: ${problem}`));
   if (problems.length) throw new Error(`スマホ向けのファイルに問題があります:\n${problems.map((p) => `- ${p}`).join('\n')}`);
   return bundle;
 }
 
-/** フォルダを作り直して書き出す。古い症状のファイルが残らないようにする。 */
+/**
+ * フォルダを作り直して書き出す。古い症状のファイルが残らないようにする。
+ * 上限を超えたファイルは .blocked で保存して、blocked に理由を返す。
+ */
 export function writePhoneBundle(manual, dir) {
   const bundle = renderPhoneBundle(manual);
   mkdirSync(dir, { recursive: true });
   for (const name of readdirSync(dir)) if (/\.html(?:\.blocked)?$/.test(name)) rmSync(join(dir, name));
-  for (const { name, html } of bundle) writeFileSync(join(dir, name), html);
-  return bundle;
+  const blocked = bundle.filter(({ name, html }) => writeWithinLimit(join(dir, name), html, PHONE_FILE_LIMIT)).map(({ name, html }) => oversizeMessage(join(dir, name), html, PHONE_FILE_LIMIT));
+  return Object.assign(bundle, { blocked });
 }
 
 function main(args) {
@@ -253,6 +269,10 @@ function main(args) {
   try {
     const bundle = writePhoneBundle(JSON.parse(readFileSync(args[0], 'utf8')), resolve(args[1]));
     console.log(`スマホ向けのファイルを作りました：${resolve(args[1])}（${bundle.length} ファイル）`);
+    if (bundle.blocked.length) {
+      for (const message of bundle.blocked) console.error(message);
+      return 1;
+    }
   } catch (error) {
     console.error(`入力に問題があります: ${error.message}`);
     return 1;

@@ -7,7 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { PHONE_FILE_LIMIT, phoneFileName, phoneFileProblems, renderPhoneBundle, safeSymptomName, writePhoneBundle } from '../plugin/renderer/phone.mjs';
+import { PHONE_FILE_LIMIT } from '../plugin/lib/limits.mjs';
+import { phoneFileName, phoneFileProblems, renderPhoneBundle, safeSymptomName, writePhoneBundle } from '../plugin/renderer/phone.mjs';
 import { CATEGORY_LABELS } from '../plugin/renderer/render.mjs';
 import { checkSecretFiles } from '../scripts/check-secrets.mjs';
 import { manualHtmlProblems, withPhoneBundles, writtenHtmlPaths } from '../scripts/hooks/check-manual-html.mjs';
@@ -98,9 +99,14 @@ test('各ファイルは1症状だけで、上から ① → ② → ③ の順�
   }
 });
 
-test('仮の形：番号は大きな文字、コピー欄は user-select: all の枠、用語は開いたまま', () => {
+test('実機の結果の形：番号は 22px 太字の文字で案内つき、コピー欄は枠で案内つき、用語は開いたまま', () => {
   const css = bundle[0].html.match(/<style>([\s\S]*?)<\/style>/)[1];
-  assert.match(css, /\.num\s*\{[^}]*font-size:\s*26px/);
+  assert.match(css, /\.num\s*\{[^}]*font-size:\s*22px;\s*font-weight:\s*700/);
+  assert.match(css, /\.note\s*\{[^}]*font-size:\s*15px/);
+  for (const { name, html } of bundle) {
+    for (const [tag] of html.matchAll(/<p class="num">[^<]*<\/p>/g)) assert.ok(html.includes(`${tag}\n<p class="note">番号を長押しすると、発信できます。</p>`), name);
+    for (const [tag] of html.matchAll(/<blockquote class="say">[\s\S]*?<\/blockquote>/g)) assert.ok(html.includes(`${tag}\n<p class="note">長押しして選択し、コピーしてください。</p>`), name);
+  }
   assert.match(css, /\.say\s*\{[^}]*user-select:\s*all/);
   assert.match(css, /\.info-table th\s*\{[^}]*white-space:\s*nowrap/, '表の見出しを語の途中で折り返さない');
   const withTerm = bundle.find(({ html }) => html.includes('このページのことば'));
@@ -130,6 +136,22 @@ test('形の問題がある取扱説明書からは、1つも作らない', () =
   const broken = fixture();
   broken.statements.find((s) => s.id === broken.contacts[0].role).text = '十五文字を超えるとても長い役割の説明です';
   assert.throws(() => renderPhoneBundle(broken), /手順ページの形/);
+});
+
+test('上限の 200KB を超えるファイルは .blocked で保存し、理由を返す', () => {
+  const big = fixture();
+  const page = big.symptom_pages[0];
+  big.statements.find((s) => s.id === page.reassurance).text = `${'あ'.repeat(49)}。`.repeat(1500);
+  const dir = mkdtempSync(join(tmpdir(), 'hikitsugi-phone-'));
+  try {
+    const written = writePhoneBundle(big, dir);
+    assert.equal(written.blocked.length, 1);
+    assert.match(written.blocked[0], /200KB/);
+    assert.equal(readdirSync(dir).filter((name) => name.endsWith('.blocked')).length, 1);
+    assert.equal(readdirSync(dir).filter((name) => name.endsWith('.html')).length, bundle.length - 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('フォルダに書き出すと、古い症状のファイルが残らない', () => {

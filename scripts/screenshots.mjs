@@ -226,6 +226,18 @@ async function shootBundle(input, output, chromePath) {
         writeFileSync(join(output, `${number}-${theme}.png`), Buffer.from(data, 'base64'));
         shots.push(`${number}-${theme}`);
       }
+      // 03 のファイルで、実機で確かめた形（番号と案内、枠と案内、開いた用語）が映っていること
+      if (number === '03') {
+        const parts = JSON.parse(await evaluate(`JSON.stringify((() => {
+          const shown = (el) => el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
+          const note = (el, text) => shown(el) && el.nextElementSibling?.classList.contains('note') && shown(el.nextElementSibling) && el.nextElementSibling.textContent.includes(text);
+          const num = document.querySelector('.num');
+          // 連絡先のないページは、番号の確認を除く
+          if (!document.querySelector('.contact')) return { say: [...document.querySelectorAll('.say')].every((el) => note(el, '長押しして選択し、コピーしてください。')), term: [...document.querySelectorAll('.terms dd')].some(shown), closed: document.querySelectorAll('details').length === 0 };
+          return { num: shown(num) && getComputedStyle(num).fontSize === '22px' && getComputedStyle(num).fontWeight === '700', numNote: note(num, '番号を長押しすると、発信できます。'), say: [...document.querySelectorAll('.say')].length > 0 && [...document.querySelectorAll('.say')].every((el) => note(el, '長押しして選択し、コピーしてください。')), noteSize: getComputedStyle(document.querySelector('.note') ?? document.body).fontSize === '15px', term: [...document.querySelectorAll('.terms dd')].some(shown), closed: document.querySelectorAll('details').length === 0 };
+        })())`));
+        for (const [key, ok] of Object.entries(parts)) if (!ok) problems.push(`${name}：実機で確かめた形になっていません（${key}）`);
+      }
     }
     browser.close();
   } finally {
@@ -347,6 +359,27 @@ async function main([inputArg, outputArg]) {
     // ハッシュなしで開いたら、困ったときの一覧を出す
     const opened = JSON.parse(await evaluate(`JSON.stringify({ view: document.documentElement.getAttribute('data-view'), help: getComputedStyle(document.getElementById('tab-help')).display !== 'none', intro: getComputedStyle(document.getElementById('intro')).display !== 'none' })`));
     if (opened.view !== 'help' || !opened.help || opened.intro) problems.push(`ハッシュなしで開くと、困ったときの一覧が出ません（${JSON.stringify(opened)}）`);
+    // 普段の言葉で探す（索引のある HTML だけ）。「フォルダが消えた」で共有フォルダのページが1番に出ること
+    const trySearch = async (name) => {
+      const typed = JSON.parse(await evaluate(`JSON.stringify((() => {
+        const input = document.getElementById('search-input');
+        if (!input) return null;
+        input.value = 'フォルダが消えた';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        const cards = [...document.querySelectorAll('.search-results a.sym')];
+        const fallback = document.querySelector('.search-fallback a.sym');
+        return { height: input.getBoundingClientRect().height, count: cards.length, first: cards[0]?.querySelector('.sym-title')?.textContent ?? '', badge: Boolean(cards[0]?.querySelector('.badge')), fallback: fallback?.getAttribute('href') ?? '', more: document.querySelector('.search-more')?.textContent ?? '', fallbackBelow: fallback && cards.at(-1) ? fallback.getBoundingClientRect().top > cards.at(-1).getBoundingClientRect().top : false };
+      })())`));
+      if (!typed) return;
+      if (typed.height < 48) problems.push(`${name}：入力欄の高さが 48px 未満です（${typed.height}）`);
+      if (!typed.first.includes('共有フォルダ')) problems.push(`${name}：「フォルダが消えた」で共有フォルダのページが1番に出ません（${typed.first}）`);
+      if (typed.count > 3) problems.push(`${name}：候補が3件を超えています`);
+      if (!typed.badge) problems.push(`${name}：候補に判定のバッジがありません`);
+      if (typed.fallback !== '#tab-contacts' || !typed.more.includes('当てはまらないとき') || !typed.fallbackBelow) problems.push(`${name}：候補の下に「当てはまらないとき」の行き先がありません`);
+      const { data } = await page('Page.captureScreenshot', { format: 'png' });
+      writeFileSync(join(output, `${name}.png`), Buffer.from(data, 'base64'));
+      shots.push(name);
+    };
     const targets = JSON.parse(await evaluate(`JSON.stringify({
       tabs: [...document.querySelectorAll('nav.tabs a[href^="#"]')].map((a) => a.getAttribute('href').slice(1)),
       pages: [...document.querySelectorAll('a[href^="#symptom-"]')].map((a) => a.getAttribute('href').slice(1)),
@@ -375,6 +408,11 @@ async function main([inputArg, outputArg]) {
         backgrounds[theme] = await evaluate('getComputedStyle(document.body).backgroundColor');
       }
       if (backgrounds.light === backgrounds.dark) problems.push('ダークモードで背景の色が変わりません');
+      // ハッシュなしで開いて、探す
+      await page('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+      await go('');
+      await go('');
+      await trySearch(`search-${viewport.name}`);
 
       // 仕様の値
       await page('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
@@ -445,6 +483,8 @@ async function main([inputArg, outputArg]) {
     await page('Emulation.setScriptExecutionDisabled', { value: true });
     await go('');
     await slices('nojs-all', (file) => join(output, `${file}.png`));
+    // 入力欄は JavaScript があるときだけ
+    if (await evaluate(`(() => { const el = document.getElementById('search-box'); return Boolean(el) && getComputedStyle(el).display !== 'none'; })()`)) problems.push('JavaScript なしで入力欄が見えています');
     // ハッシュなしでも、全文が順に読める。:target は強調にだけ使う
     const readAll = `JSON.stringify((() => {
       const shown = (el) => { const s = getComputedStyle(el); const r = el.getBoundingClientRect(); return s.display !== 'none' && s.visibility !== 'hidden' && r.height > 0; };

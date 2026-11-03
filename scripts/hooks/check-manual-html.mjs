@@ -10,6 +10,7 @@ import { existsSync, readdirSync, readFileSync, realpathSync, renameSync, statSy
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { secretProblems } from '../check-secrets.mjs';
+import { fileSize, PC_FILE_LIMIT } from '../../plugin/lib/limits.mjs';
 import { phoneFileProblems } from '../../plugin/renderer/phone.mjs';
 
 const CREDENTIAL = /(?:パスワード|パスコード|暗証番号|認証コード|password|passcode)(?:は|が|:|=|\s)[\s、,]*[「『"'(]?[!-~]{4,}/iu;
@@ -83,7 +84,8 @@ function checkFiles(paths) {
   let blocked = false;
   for (const path of withPhoneBundles(paths).filter((candidate) => existsSync(candidate))) {
     const html = readFileSync(path, 'utf8');
-    const problems = [...manualHtmlProblems(html), ...(isPhoneFile(path) ? phoneFileProblems(html) : [])];
+    const size = fileSize(html) > PC_FILE_LIMIT ? [`上限の ${PC_FILE_LIMIT / 1024}KB を超えています`] : [];
+    const problems = [...manualHtmlProblems(html), ...(isPhoneFile(path) ? phoneFileProblems(html) : size)];
     if (!problems.length) continue;
     blocked = true;
     // 問題のあるファイルを、そのまま開いたり渡したりできないようにする

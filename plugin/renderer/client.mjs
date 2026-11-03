@@ -7,6 +7,16 @@
 // 本文のプログラムが途中で失敗した環境では、data-ready が付かないので、
 // CLIENT_HEAD_SCRIPT が no-js に戻す。JavaScript なしと同じ全文表示のまま読める。
 
+import { readFileSync } from 'node:fs';
+
+// 探す処理は評価と同じものを使う。plugin/lib/search.mjs をそのまま埋め込むので、画面と評価の結果がずれない
+export const SEARCH_SOURCE = readFileSync(new URL('../lib/search.mjs', import.meta.url), 'utf8')
+  .replace(/^export /gm, '')
+  .replace(/\/\*\*[\s\S]*?\*\//g, '')
+  .replace(/^\s*\/\/.*$/gm, '')
+  .replace(/\n{2,}/g, '\n')
+  .trim();
+
 export const CLIENT_HEAD_SCRIPT = String.raw`
 (function () {
   var root = document.documentElement;
@@ -197,6 +207,40 @@ export const CLIENT_SCRIPT = String.raw`
     }
   }
 
+  // ---- 普段の言葉で探す。入力は端末の中だけで照合し、どこにも送らない ----
+  ${SEARCH_SOURCE}
+
+  function setUpSearch(symptomLinks) {
+    const box = document.getElementById('search-box');
+    const data = document.getElementById('search-index');
+    if (!box || !data) return;
+    const search = buildSearch(JSON.parse(data.textContent));
+    const input = box.querySelector('input');
+    const status = box.querySelector('.search-status');
+    const list = box.querySelector('.search-results');
+    const fallback = box.querySelector('.search-fallback');
+    const noMatch = document.querySelector('#tab-help > .sym-group-last > li');
+    // カードは一覧の部品を写す。文面を script に持たない
+    const cardOf = (page) => {
+      const link = symptomLinks.find((each) => each.getAttribute('href') === '#symptom-' + page);
+      return link ? link.closest('li').cloneNode(true) : null;
+    };
+    fallback.append(noMatch.cloneNode(true));
+    input.addEventListener('input', () => {
+      list.textContent = '';
+      const shown = input.value.trim() !== '';
+      box.classList.toggle('has-input', shown);
+      if (!shown) {
+        status.textContent = '';
+        return;
+      }
+      const cards = searchPages(search, input.value).map((found) => cardOf(found.page)).filter(Boolean);
+      list.append(...cards);
+      list.hidden = !cards.length;
+      status.textContent = cards.length ? '近い症状です。押すと、やることが出ます。' : '近い症状が見つかりませんでした。';
+    });
+  }
+
   // ---- 画面 ----
   // 画面の切り替えはアドレスの # に合わせる。戻る操作がそのまま使える
   const panels = all('.panel');
@@ -272,6 +316,7 @@ export const CLIENT_SCRIPT = String.raw`
   setUpCopy();
   setUpDetails();
   setUpTheme();
+  setUpSearch(symptoms);
   showPanel(false);
   window.addEventListener('hashchange', () => showPanel(true));
   root.setAttribute('data-ready', '');

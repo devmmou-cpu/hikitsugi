@@ -114,8 +114,8 @@ test('外部へ送信するプログラムがない', () => {
   assert.doesNotMatch(scriptOf(html), /fetch\(|XMLHttpRequest|sendBeacon|WebSocket|EventSource|\beval\(|new Function|import\(/);
 });
 
-test('ファイルの大きさは 200KB 以下', () => {
-  assert.ok(Buffer.byteLength(html) <= 200 * 1024);
+test('ファイルの大きさは上限の 1MB 以下で、目標の 500KB にも収まる', () => {
+  assert.ok(Buffer.byteLength(html) <= 500 * 1024);
 });
 
 // ---- JavaScript なしで全文が読める ----
@@ -140,6 +140,8 @@ test('JavaScript なしの状態で、内容を隠していない', () => {
     assert.ok(classesOf(tag).includes('js-only'), `hidden は js-only の部品だけです: ${tag}`);
   }
   for (const [tag] of markup.matchAll(/<[a-z][a-z0-9]*\b[^>]*\bclass="[^"]*\bjs-only\b[^"]*"[^>]*>/gi)) {
+    // 探す入力欄は JavaScript があるときだけの部品で、本文を持たない
+    if (/\bid="search-box"/.test(tag)) continue;
     assert.match(tag, /^<(button|span)\b/i, `js-only は button か span だけです: ${tag}`);
   }
   assert.doesNotMatch(markup, /<[a-z][^>]*\bstyle="[^"]*(?:display\s*:\s*none|visibility\s*:\s*hidden)/i);

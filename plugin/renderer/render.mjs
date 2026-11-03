@@ -5,13 +5,14 @@
 // 使い方：node plugin/renderer/render.mjs <入力.json> <出力.html>
 // 終了コード：0＝成功、1＝入力の異常（出力ファイルを作らない）、2＝引数や出力先の誤り
 
-import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { bodyFields, pageStatementIds, parseInfoRow } from '../lib/page-check.mjs';
 import { validate } from '../lib/validate.mjs';
 import { CLIENT_HEAD_SCRIPT, CLIENT_SCRIPT } from './client.mjs';
 import { STYLES } from './styles.mjs';
+import { oversizeMessage, PC_FILE_LIMIT, writeWithinLimit } from '../lib/limits.mjs';
 
 const SCHEMA = JSON.parse(readFileSync(new URL('../schemas/manual.schema.json', import.meta.url), 'utf8'));
 
@@ -66,7 +67,7 @@ const ICONS = {
 
 const icon = (name, extra = '') => `<svg class="icon${extra ? ` ${extra}` : ''}" role="presentation"><use href="#i-${name}"/></svg>`;
 
-// アイコンの形は1か所にまとめる。同じ形を何度も書くと、ファイルが上限の 200KB を超える
+// アイコンの形は1か所にまとめる。同じ形を何度も書くと、ファイルが大きくなる
 const iconDefs = (review) => `<svg class="icon-defs" width="0" height="0" role="presentation">${Object.entries({ ...ICONS, minus: '<path d="M5 12h14"/>', 'plus-v': '<path d="M12 5v14"/>' }).map(([name, shape]) => `<symbol id="i-${name}" viewBox="0 0 24 24">${shape}</symbol>`).join('')}${review ? `<symbol id="i-seal" viewBox="0 0 64 64">${sealParts(review).body}</symbol>` : ''}</svg>`;
 
 /** CSS のコメント、字下げ、空行を除く。ファイルの上限のため。値は変えない。 */
@@ -254,7 +255,7 @@ const hoursHtml = (ctx, id) => `<p class="contact-hours">${icon('clock')}<span>$
 /** 用語の説明。JavaScript なしでも読めるように開いておき、JavaScript があれば閉じる。 */
 /**
  * 手順ページの用語。一言だけを出し、続きは会社のITの説明へ送る。
- * 4段をすべてのページに書くと、同じ文が繰り返されてファイルが上限の 200KB を超えるため。
+ * 4段をすべてのページに書くと、同じ文が繰り返されるため。
  */
 const pageTermHtml = (ctx, term, id) =>
   `<details class="term" id="${esc(id)}" open><summary class="tap"><span>${esc(term.term)}とは？</span>${PLUS_MINUS}</summary><p>${statementHtml(term.one_line, ctx.words)} <a class="tap text-link" href="#g-all-${ctx.manual.glossary.indexOf(term)}">くわしく</a></p></details>`;
@@ -379,6 +380,20 @@ function symHtml(ctx, page) {
 
 function helpPanel(ctx) {
   const groups = CATEGORY_LABELS.map(([category, label]) => [category, label, ctx.manual.symptom_pages.filter((p) => p.category === category)]).filter(([, , pages]) => pages.length);
+  const searchBox = ctx.manual.search_index?.length
+    ? [
+        '<div class="js-only search-box" id="search-box" role="search">',
+        '<label class="search-label" for="search-input">何が起きていますか？</label>',
+        '<input class="search-input" id="search-input" type="search" autocomplete="off" enterkeyhint="search">',
+        '<div class="search-area">',
+        '<p class="search-status" role="status"></p>',
+        '<ul class="sym-group search-results" role="list"></ul>',
+        '<p class="label search-more">当てはまらないとき</p>',
+        '<ul class="sym-group search-fallback" role="list"></ul>',
+        '</div>',
+        '</div>',
+      ].join('\n')
+    : '';
   const lead = '<p class="lead">いま困っていることを押してください。</p>\n<p class="note">開いて読むだけなら、PC や機器には何も起きません。</p>';
   if (!groups.length) {
     return `<section id="tab-help" class="panel col-list">\n<h2 tabindex="-1">${SCREEN_TITLE_HELP}</h2>\n${emptyHtml('症状の手順は、まだこの説明書に入っていません。')}\n</section>`;
@@ -387,7 +402,7 @@ function helpPanel(ctx) {
   const lists = groups.map(([category, label, pages]) => `<h3 class="group-title" id="cat-${category}">${esc(label)}</h3>\n<ul class="sym-group" role="list">\n${pages.map((page) => symHtml(ctx, page)).join('\n')}\n</ul>`);
   // 一覧に当てはまらないときの行き先を、必ず残す。社内の相談先は連絡先の先頭にある
   const noMatch = `<ul class="sym-group sym-group-last" role="list"><li><a class="sym tap" href="#tab-contacts"><span class="sym-title">当てはまる症状がないとき</span><span class="sym-meta">${badgeHtml('internal')}</span>${icon('next', 'chev')}</a></li></ul>`;
-  return [`<section id="tab-help" class="panel col-list">`, `<h2 tabindex="-1">${SCREEN_TITLE_HELP}</h2>`, lead, jump, ...lists, noMatch, '</section>'].filter(Boolean).join('\n');
+  return [`<section id="tab-help" class="panel col-list">`, `<h2 tabindex="-1">${SCREEN_TITLE_HELP}</h2>`, searchBox, lead, jump, ...lists, noMatch, '</section>'].filter(Boolean).join('\n');
 }
 
 /** 2列以上で、まだ症状を選んでいないときに中央の列に出す案内。 */
@@ -817,7 +832,10 @@ function main(args) {
   }
 
   try {
-    writeFileSync(outputPath, html);
+    if (writeWithinLimit(outputPath, html, PC_FILE_LIMIT)) {
+      console.error(oversizeMessage(outputPath, html, PC_FILE_LIMIT));
+      return 1;
+    }
   } catch (error) {
     console.error(`出力先に書き込めません: ${error.message}`);
     return 2;

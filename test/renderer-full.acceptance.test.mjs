@@ -211,8 +211,8 @@ test('外部への読み込みがない', () => {
   assert.ok(!/https?:\/\//i.test(html));
 });
 
-test('ファイルの大きさは 400KB 以下', () => {
-  assert.ok(Buffer.byteLength(html) <= 400 * 1024, `${Buffer.byteLength(html)} バイト`);
+test('ファイルの大きさは上限の 1MB 以下で、目標の 500KB にも収まる', () => {
+  assert.ok(Buffer.byteLength(html) <= 500 * 1024, `${Buffer.byteLength(html)} バイト`);
 });
 
 test('押す部品はすべて tap のクラスを持ち、高さ 44px 以上', () => {

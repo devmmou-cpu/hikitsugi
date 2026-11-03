@@ -19,6 +19,7 @@ import { appendEntry, appendReviewEntry, checkNextQuestion, emptyTranscript, int
 import { validate } from '../lib/validate.mjs';
 import { renderManual } from '../renderer/render.mjs';
 import { writePhoneBundle } from '../renderer/phone.mjs';
+import { oversizeMessage, PC_FILE_LIMIT, PC_FILE_TARGET, writeWithinLimit } from '../lib/limits.mjs';
 
 const PLUGIN = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const MAX_RESENDS = 2;
@@ -472,11 +473,14 @@ function render(work, [outPath]) {
   }
   const { manual, omitted } = prepared;
   const target = resolve(outPath ?? join(work, 'manual.html'));
-  writeFileSync(target, renderManual(manual));
-  if (target !== resolve(join(work, 'manual.html'))) writeFileSync(join(work, 'manual.html'), renderManual(manual));
+  const html = renderManual(manual);
+  if (writeWithinLimit(target, html, PC_FILE_LIMIT)) throw new Problem(oversizeMessage(target, html, PC_FILE_LIMIT));
+  if (target !== resolve(join(work, 'manual.html'))) writeWithinLimit(join(work, 'manual.html'), html, PC_FILE_LIMIT);
   const phoneDir = join(dirname(target), 'phone');
   const bundle = writePhoneBundle(manual, phoneDir);
+  if (bundle.blocked.length) throw new Problem(bundle.blocked.join('\n'));
   const notes = [manual.review ? `取扱説明書を作りました：${target}` : `下書きを作りました：${target}`, `スマホ向けのファイル：${phoneDir}（${bundle.length} ファイル）`];
+  if (Buffer.byteLength(html) > PC_FILE_TARGET) notes.push(`PC 用のファイルが目標の ${PC_FILE_TARGET / 1024}KB を超えています（上限の範囲です）`);
   if (omitted.routines || omitted.devices) notes.push(`表示プログラムが未対応のため外した項目：定期作業 ${omitted.routines} 件、機器 ${omitted.devices} 件`);
   return notes.join('\n');
 }

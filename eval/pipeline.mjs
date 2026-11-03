@@ -13,6 +13,7 @@ import { withSearchIndex } from '../plugin/lib/search-index.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { writePhoneBundle } from '../plugin/renderer/phone.mjs';
+import { PC_FILE_LIMIT, writeWithinLimit } from '../plugin/lib/limits.mjs';
 import { clientOf, runGapFinderLive, runVerifierLive } from './lib/adapters/live.mjs';
 import { UsageError } from './lib/adapters/errors.mjs';
 import { runInterviewLive } from './lib/interview-loop.mjs';
@@ -151,8 +152,9 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
           throw error;
         }
         const { manual: forRender, omitted } = prepared;
-        writeFileSync(join(dir, 'manual.html'), renderManual(forRender));
-        writePhoneBundle(forRender, join(dir, 'phone'));
+        const html = renderManual(forRender);
+        const bundle = writePhoneBundle(forRender, join(dir, 'phone'));
+        if (writeWithinLimit(join(dir, 'manual.html'), html, PC_FILE_LIMIT) || bundle.blocked.length) return finish('blocked_file_size', { resends: round - 1, omitted });
         return finish('passed', { resends: round - 1, omitted });
       }
       revision = buildRevision(manual, result.findings);

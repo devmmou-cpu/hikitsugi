@@ -3,12 +3,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildQueriesRequest, pickQueries, scoreSearch } from '../eval/search-eval.mjs';
 import { pagesForPhrases, phraseProblems, withSearchIndex } from '../plugin/lib/search-index.mjs';
 import { buildSearch, charPairs, normalizeText, searchPages } from '../plugin/lib/search.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
+import { CLIENT_SCRIPT, SEARCH_SOURCE } from '../plugin/renderer/client.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -126,7 +128,8 @@ test('索引は HTML に入り、画面の文字にはならず、タグとし�
   assert.equal(JSON.parse(script)[0].page, manual.symptom_pages[0].id);
   assert.ok(!html.replace(/<script\b[\s\S]*?<\/script>/g, '').includes('同じ言い方'));
   // 索引がない取扱説明書では、何も足さない
-  assert.ok(!renderManual(manual).includes('search-index'));
+  const { search_index: _none, ...withoutIndex } = manual;
+  assert.ok(!renderManual(withoutIndex).includes('id="search-index"'));
 });
 
 test('アイコンの形は1か所にあり、使うアイコンはすべて定義されている', () => {
@@ -139,4 +142,36 @@ test('アイコンの形は1か所にあり、使うアイコンはすべて定�
 test('モデルに渡す症状の一覧には、題名とすることと最初の操作だけが入る', () => {
   const pages = pagesForPhrases(fixture());
   assert.deepEqual(Object.keys(pages[0]).sort(), ['first_steps', 'id', 'title', 'what_to_do']);
+});
+
+// ---- 画面の照合（HTML に埋め込むもの） ----
+test('画面の照合は search-eval の照合と同じ結果になる', () => {
+  const context = {};
+  vm.runInNewContext(`${SEARCH_SOURCE}\nthis.buildSearch = buildSearch; this.searchPages = searchPages;`, context);
+  const inputs = ['フォルダが消えた', 'ふぉるだ でてこない', 'ワイファイ切れる', 'コピーが動かないです', 'ネットワークパスが見つかりません。', 'お昼ごはんを食べる', '', '  、。 ', 'ネットが止まる', 'ＮＡＳ'];
+  const inPage = context.buildSearch(INDEX);
+  const inEval = buildSearch(INDEX);
+  for (const input of inputs) {
+    assert.deepEqual(JSON.parse(JSON.stringify(context.searchPages(inPage, input))), searchPages(inEval, input), input);
+  }
+  // しきい値と上限の既定値も同じもの
+  assert.match(SEARCH_SOURCE, /limit = 3, threshold = 0\.25/);
+});
+
+test('埋め込む処理は、通信せず、script の外に出ない', () => {
+  assert.doesNotMatch(SEARCH_SOURCE, /<\/script|\bfetch\b|XMLHttpRequest|\bimport\b|\bexport\b/);
+  assert.ok(CLIENT_SCRIPT.includes(SEARCH_SOURCE));
+});
+
+test('入力欄は索引があるときだけ出し、js-only で、候補の下に行き先の枠を持つ', () => {
+  const manual = JSON.parse(readFileSync(new URL('./fixtures/manual-full.json', import.meta.url), 'utf8'));
+  assert.ok(manual.search_index?.length, '見本に索引がありません');
+  const html = renderManual(manual);
+  const box = html.slice(html.indexOf('<div class="js-only search-box"'), html.indexOf('<p class="lead">いま困っていることを'));
+  assert.match(box, /<label[^>]*for="search-input">何が起きていますか？<\/label>/);
+  assert.match(box, /<input[^>]*id="search-input"/);
+  assert.ok(box.indexOf('search-results') < box.indexOf('当てはまらないとき'));
+  assert.ok(html.indexOf('id="search-box"') > html.indexOf('id="tab-help"'));
+  const { search_index: _unused, ...withoutIndex } = manual;
+  assert.ok(!renderManual(withoutIndex).includes('id="search-box"'));
 });
