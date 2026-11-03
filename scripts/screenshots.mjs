@@ -258,7 +258,7 @@ async function main([inputArg, outputArg]) {
       const target = document.getElementById(${JSON.stringify(id)});
       const shown = (el) => getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
       if (!target || !shown(target)) return -1;
-      const beside = innerWidth >= 768 && id.startsWith('symptom-');
+      const beside = innerWidth >= 768 && ${JSON.stringify(id)}.startsWith('symptom-');
       return [...document.querySelectorAll('.panel, article[id^="symptom-"]')].filter((el) => el !== target && !el.contains(target) && !target.contains(el) && shown(el) && !(beside && el.id === 'tab-help')).length;
     })()`;
 
