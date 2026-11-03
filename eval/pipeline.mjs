@@ -12,7 +12,7 @@ import { applyRetireeCheck } from '../plugin/lib/retiree-check.mjs';
 import { withSearchIndex } from '../plugin/lib/search-index.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
-import { withReplies, withWindows10Note } from '../plugin/lib/reply.mjs';
+import { withoutFlaggedPlace, withReplies, withWindows10Note } from '../plugin/lib/reply.mjs';
 import { locationWarnings } from '../plugin/lib/coverage-check.mjs';
 import { writePhoneBundle } from '../plugin/renderer/phone.mjs';
 import { PC_FILE_LIMIT, writeWithinLimit } from '../plugin/lib/limits.mjs';
@@ -161,7 +161,7 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
         if (writeWithinLimit(join(dir, 'manual.html'), html, PC_FILE_LIMIT) || bundle.blocked.length) return finish('blocked_file_size', { resends: round - 1, omitted });
         return finish('passed', { resends: round - 1, omitted });
       }
-      revision = buildRevision(manual, result.findings);
+      revision = buildRevision(withoutFlaggedPlace(manual, result.findings), result.findings);
       lastFindings = result.findings;
       previousManual = manual;
       previousVerification = verification;

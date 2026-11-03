@@ -30,6 +30,14 @@
       "type": "string",
       "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
     },
+    "call_without_place": {
+      "$comment": "業者に伝える文から機器の場所の行を外すページ。Verifier の指摘を受けてプログラムが入れる",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^T\\d+$"
+      }
+    },
     "statements": {
       "type": "array",
       "items": {

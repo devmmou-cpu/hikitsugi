@@ -43,6 +43,21 @@ export const pageSchema = () => {
   return objectOf({ statements: WRITER_STATEMENTS, page: { ...page, properties: { ...page.properties, fallback: without(page.properties.fallback, 'message') } } });
 };
 
+// 部品の文は text と evidence を空にする決まり（文面と根拠はプログラムが入れる）なので、組み立ての前の形では空を認める。
+// 部品でない文が空でないことは、組み立てのあとに確かめる。API の出力の形（commonSchema、pageSchema）は評価の条件なので変えない
+const { minLength: _text, ...TEXT_BEFORE_COMPOSE } = WRITER_STATEMENTS.items.properties.text;
+const { minItems: _evidence, ...EVIDENCE_BEFORE_COMPOSE } = WRITER_STATEMENTS.items.properties.evidence;
+const STATEMENTS_BEFORE_COMPOSE = {
+  ...WRITER_STATEMENTS,
+  items: { ...WRITER_STATEMENTS.items, properties: { ...WRITER_STATEMENTS.items.properties, text: TEXT_BEFORE_COMPOSE, evidence: EVIDENCE_BEFORE_COMPOSE } },
+};
+
+/** プラグインの Writer が保存する形。part は common か page。 */
+export const writerFormat = (part) => {
+  const schema = part === 'common' ? commonSchema() : pageSchema();
+  return { $comment: 'Writer が保存する JSON の形。この項目の名前と値のとおりに保存する', ...schema, properties: { ...schema.properties, statements: STATEMENTS_BEFORE_COMPOSE } };
+};
+
 /** 共通部分が使う文章の ID を返す。 */
 export const commonStatementIds = ({ contacts, routines, devices }) => [
   ...contacts.flatMap((c) => [c.role, c.hours, c.contract_location, c.what_to_tell].filter(Boolean)),

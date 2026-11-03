@@ -17,6 +17,7 @@ const willContact = (name) => `${name}に連絡します。`;
 const willConsult = (name) => `${name}に相談します。`;
 const CALL_END = '確認をお願いします。';
 const NO_RECORD = /記録がありません/;
+const PLACE_LINE = '機器の場所：';
 
 const mapById = (manual) => new Map(manual.statements.map((statement) => [statement.id, statement]));
 const contactOf = (page, manual) => (page.fallback ? manual.contacts.find((entry) => entry.id === page.fallback.contact) ?? null : null);
@@ -82,7 +83,7 @@ function deviceFor(page, manual, byId) {
 
 /** 機器の置き場所の文章。「業者へ連絡」のページで、根拠があり、「記録がありません」でないときだけ使う。 */
 function placeOf(page, manual, byId) {
-  if (page.badge.value !== 'vendor') return null;
+  if (page.badge.value !== 'vendor' || manual.call_without_place?.includes(page.id)) return null;
   const device = deviceFor(page, manual, byId);
   const place = device ? byId.get(device.location) : null;
   return place?.evidence?.length && !NO_RECORD.test(place.text) ? place : null;
@@ -106,11 +107,26 @@ export function composeCallScript(page, manual) {
     `${manual.company_name}です。`,
     `「${withoutStop(title.text)}」件で連絡しました。`,
     ...(steps.length ? [triedLine(steps)] : []),
-    ...(place ? [`機器の場所：${withoutStop(place.text)}`] : []),
+    ...(place ? [`${PLACE_LINE}${withoutStop(place.text)}`] : []),
     CALL_END,
   ];
   return { text: lines.join('\n'), evidence: [...new Set([title, ...steps, ...(place ? [place] : [])].flatMap((statement) => (statement.library ? [statement.library] : statement.evidence)))] };
 }
+
+/**
+ * Verifier が業者に伝える文を指摘したページでは、機器の場所の行を外す。
+ * プログラムが組む文は Writer では直せず、この行は無くても連絡できる。外すだけなので、事実は増えない。
+ * 外すページがなければ、同じオブジェクトを返す。
+ */
+export function withoutFlaggedPlace(manual, findings) {
+  const flagged = new Set(findings.map((finding) => finding.statement));
+  const byId = mapById(manual);
+  const pages = manual.symptom_pages.filter((page) => flagged.has(page.fallback?.message) && byId.get(page.fallback.message)?.text.includes(PLACE_LINE)).map((page) => page.id);
+  return pages.length ? { ...manual, call_without_place: [...new Set([...(manual.call_without_place ?? []), ...pages])] } : manual;
+}
+
+/** プログラムが組む文かどうか。Writer と Editor には直せない。 */
+export const isComposedStatement = (statement) => Boolean(statement?.usage);
 
 /** 該当する PC の行を外す。Writer と Editor には渡さない。 */
 export function withoutPcNotes(manual) {

@@ -74,7 +74,9 @@ export function applyEdits(manual, edits, { revert = true, retiree } = {}) {
   const glossary = [...manual.glossary];
   const terms = new Set(glossary.map((entry) => entry.term));
   const pages = new Set(manual.symptom_pages?.map((page) => page.id));
-  for (const { term, one_line: oneLine, analogy, company, evidence, help_page: helpPage } of edits.glossary) {
+  // 直しは同じ保存先へ追記するので、同じ語は後の説明を使う
+  const latest = new Map(edits.glossary.map((entry) => [entry.term, entry]));
+  for (const { term, one_line: oneLine, analogy, company, evidence, help_page: helpPage } of latest.values()) {
     if (terms.has(term)) continue;
     // 後任向けの説明に、退職する担当者の名前を入れない。残った語は Editor がもう一度書く
     if ([oneLine, analogy, company].some(namesRetiree)) continue;

@@ -3,11 +3,12 @@
 // AI を使わず、外部への送信もしない。作業の結果は ./hikitsugi-work/ に保存するので、途中で止めても続きから再開できる。
 // 終了コード：0＝成功、1＝内容の問題（理由を表示）、2＝使い方の誤り
 
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyEdits } from '../lib/apply-edits.mjs';
-import { assembleManual, checkCommon, checkPage, commonSchema, droppedFromCommon, mergeRewritten, ownersOf, pageSchema, previousPiece } from '../lib/assemble.mjs';
+import { assembleManual, checkCommon, checkPage, droppedFromCommon, mergeRewritten, ownersOf, previousPiece, writerFormat } from '../lib/assemble.mjs';
 import { buildRevision, carryForward, markReviewed, mergeVerification, prepareForRender, summarizeVerification, UnapprovedPartsError, verificationScope } from '../lib/handover.mjs';
 import { coverageLeaks, locationWarnings } from '../lib/coverage-check.mjs';
 import { bodyFields } from '../lib/page-check.mjs';
@@ -18,7 +19,7 @@ import { composeProcedures, libraryForAgents } from '../lib/procedures.mjs';
 import { appendEntry, appendReviewEntry, checkNextQuestion, emptyTranscript, interviewProgress, QUESTION_LIMIT } from '../lib/transcript.mjs';
 import { validate } from '../lib/validate.mjs';
 import { renderManual } from '../renderer/render.mjs';
-import { withReplies, withWindows10Note } from '../lib/reply.mjs';
+import { isComposedStatement, withoutFlaggedPlace, withReplies, withWindows10Note } from '../lib/reply.mjs';
 import { writePhoneBundle } from '../renderer/phone.mjs';
 import { oversizeMessage, PC_FILE_LIMIT, PC_FILE_TARGET, writeWithinLimit } from '../lib/limits.mjs';
 
@@ -48,23 +49,34 @@ const checkSchema = (name, value) => {
   return value;
 };
 
-/** 作業フォルダの中のファイルから、次にすることを判定する。 */
+// 検査に通した印。中身のハッシュを残すので、検査のあとに書き換えたファイルは「検査前」に戻る
+const CHECKED = 'checked.json';
+const digestOf = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
+const isChecked = (work, name) => existsSync(join(work, name)) && existsSync(join(work, CHECKED)) && readJson(join(work, CHECKED))[name] === digestOf(join(work, name));
+function markChecked(work, name) {
+  const marks = existsSync(join(work, CHECKED)) ? readJson(join(work, CHECKED)) : {};
+  writeJson(join(work, CHECKED), { ...marks, [name]: digestOf(join(work, name)) });
+}
+
+/** 作業フォルダの中のファイルから、次にすることを判定する。unchecked は、結果はあるが検査に通っていないこと。 */
 export function nextStep(work) {
   const has = (name) => existsSync(join(work, name));
   if (!has('state.json')) return { step: 'init' };
   if (!has('gaps.json')) return { step: 'gap-finder' };
   const state = readJson(join(work, 'state.json'));
   if (!state.interview_done) {
+    if (!isChecked(work, 'gaps.json')) return { step: 'gap-finder', unchecked: true };
     const count = has('transcript.json') ? readJson(join(work, 'transcript.json')).entries.length : 0;
     return { step: 'interview', asked: count, limit: QUESTION_LIMIT, pending_question: has('next.json') };
   }
   const round = state.round ?? 1;
   if (!has(`manual-${round}.json`)) {
-    const part = writerParts(work, state, round).find((name) => !has(partFile(round, name)));
-    return { step: 'writer', round, part };
+    const part = writerParts(work, state, round).find((name) => !isChecked(work, partFile(round, name)));
+    return { step: 'writer', round, part, ...(has(partFile(round, part)) ? { unchecked: true } : {}) };
   }
   if (!has(`edited-${round}.json`)) return { step: 'editor', round };
   if (!has(`verification-${round}.json`)) return { step: 'verifier', round };
+  if (!state.passed && !isChecked(work, `verification-${round}.json`)) return { step: 'verifier', round, unchecked: true };
   if (state.passed && !readJson(join(work, 'manual-final.json')).search_index) return { step: 'phrases' };
   if (state.passed && !state.review?.done) {
     const manual = readJson(join(work, 'manual-final.json'));
@@ -112,6 +124,7 @@ function checkGaps(work) {
   const dropped = gaps.coverage.filter((entry) => entry.state !== 'filled' && !inGap.has(entry.item)).map((entry) => entry.item);
   if (dropped.length) throw new Problem(`聞き取りの対象から漏れた必須項目があります：${dropped.join(', ')}`);
   writeJson(join(work, 'gaps.json'), gaps);
+  markChecked(work, 'gaps.json');
   writeJson(join(work, 'interview-progress.json'), interviewProgress(gaps, readJson(join(work, 'transcript.json'))));
   const count = gaps.coverage.filter((entry) => entry.state === 'filled').length;
   return `調査データで埋まった項目 ${count} 件、聞き取りの空白 ${gaps.gaps.length} 件`;
@@ -190,6 +203,7 @@ function writerTask(work, [round, part]) {
     }
   }
   writeJson(join(work, 'writer-task.json'), { ...task, retiree: state.retiree });
+  writeJson(join(work, 'writer-format.json'), writerFormat(task.part));
   return `${part} を書く準備ができました（writer-task.json）`;
 }
 
@@ -211,7 +225,7 @@ function checkWriter(work, [round, part]) {
   let checked;
   if (part === 'common') {
     const output = previous ? { ...raw, page_plan: plan } : raw;
-    const schemaProblems = validate(commonSchema(), output);
+    const schemaProblems = validate(writerFormat('common'), output);
     if (schemaProblems.length) throw new Problem(`形式が違います（共通部分）：\n${schemaProblems.slice(0, 10).join('\n')}`);
     checked = checkCommon(output, sources, { retiree: state.retiree });
     // 載せ漏れの書き直しは足すだけ。前の版が消えていれば受け付けない
@@ -220,7 +234,7 @@ function checkWriter(work, [round, part]) {
       checked.problems.push(...droppedFromCommon(before, raw));
     }
   } else {
-    const schemaProblems = validate(pageSchema(), raw);
+    const schemaProblems = validate(writerFormat('page'), raw);
     if (schemaProblems.length) throw new Problem(`形式が違います（${part}）：\n${schemaProblems.slice(0, 10).join('\n')}`);
     const entry = plan.find((candidate) => candidate.id === part);
     if (!entry) throw new Problem(`手順ページの一覧にありません：${part}`);
@@ -229,9 +243,15 @@ function checkWriter(work, [round, part]) {
   if (checked.problems.length) throw new Problem(`手順部品の指定やページの形に問題があります：\n${checked.problems.join('\n')}`);
   writeJson(path, checked.output);
   const parts = writerParts(work, state, round);
-  const left = parts.filter((name) => !existsSync(join(work, partFile(round, name))));
-  if (left.length) return `${part} を確かめました（残り ${left.length} 件）`;
-  return assembleRound(work, Number(round));
+  const left = parts.filter((name) => name !== part && !isChecked(work, partFile(round, name)));
+  if (left.length) {
+    markChecked(work, partFile(round, part));
+    return `${part} を確かめました（残り ${left.length} 件）`;
+  }
+  // 最後の部分は、組み立てまで通ってから印を付ける。載せ漏れの書き直しでは、共通部分のファイルは消えている
+  const message = assembleRound(work, Number(round));
+  if (existsSync(path)) markChecked(work, partFile(round, part));
+  return message;
 }
 
 /** 部分をまとめて、この回の取扱説明書にする。 */
@@ -307,14 +327,27 @@ function writeScope(work, round) {
 
 function mergeEdits(work, [round]) {
   const manual = readJson(join(work, `manual-${round}.json`));
-  const { manual: edited, changes } = applyEdits(manual, readJson(join(work, `editor-${round}.json`)), { retiree: readJson(join(work, 'state.json')).retiree });
+  let applied;
+  try {
+    applied = applyEdits(manual, readJson(join(work, `editor-${round}.json`)), { retiree: readJson(join(work, 'state.json')).retiree });
+  } catch (error) {
+    if (error instanceof Problem) throw error;
+    throw new Problem(`${error.message}\n用語の説明の文は rewrites ではなく、glossary の同じ語の company を直してください`);
+  }
+  const { manual: edited, changes } = applied;
   // 社員に返す文は Editor のあとにプログラムで組み、Verifier にはかける
   const withReply = withReplies(withWindows10Note(edited, readJson(join(work, 'survey.json'))));
   checkSchema('manual', withReply);
   writeJson(join(work, `edited-${round}.json`), withReply);
   writeScope(work, round);
   const problems = plainProblems(edited);
-  const remaining = { long_sentences: problems.long_sentences, unexplained_terms: problems.unexplained_terms };
+  // この回に足した用語の説明の文は manual-<回>.json になく、ID では直せないので、語で伝える
+  const known = new Set(manual.statements.map((statement) => statement.id));
+  const termOf = new Map(edited.glossary.filter((entry) => !known.has(entry.company)).map((entry) => [entry.company, entry.term]));
+  const remaining = {
+    long_sentences: problems.long_sentences.map(({ id, sentence }) => (termOf.has(id) ? { glossary_term: termOf.get(id), sentence } : { id, sentence })),
+    unexplained_terms: problems.unexplained_terms,
+  };
   writeJson(join(work, `plain-findings-${round}.json`), remaining);
   const notes = [`やさしく直しました。事実が変わったので元に戻した文章：${changes.length} 件`];
   if (problems.long_sentences.length || problems.unexplained_terms.length) {
@@ -339,6 +372,7 @@ function checkVerification(work, [round]) {
   const { verification } = applyRetireeCheck({ schema_version: 1, company: state.company, round: Number(round), results }, manual, state.retiree);
   checkSchema('verification', verification);
   writeJson(path, verification);
+  markChecked(work, `verification-${round}.json`);
   const result = summarizeVerification(verification, manual);
   if (result.passed) {
     const { page_fix: _fix, todo: _todo, ...rest } = state;
@@ -349,10 +383,16 @@ function checkVerification(work, [round]) {
     return `合格しました（文章 ${manual.statements.length} 件）`;
   }
   const line = `不合格：矛盾 ${result.counts.contradiction} 件、根拠なし ${result.counts.unsupported} 件、危険 ${result.counts.dangerous} 件、判定なし ${result.unanswered.length} 件`;
-  const revision = buildRevision(manual, result.findings);
+  const fixed = withoutFlaggedPlace(manual, result.findings);
+  const revision = buildRevision(fixed, result.findings);
   writeJson(join(work, `findings-${round}.json`), revision);
   if (Number(round) - (state.round_base ?? 0) > MAX_RESENDS) return `${line}\n差し戻しの上限に達しました`;
   const todo = [...ownersOf(revision.previous_manual, revision.findings).keys()];
+  // プログラムが組む文の指摘だけが残り、外せる行もないなら、やり直しても同じ文になる。回数を使わずに止める
+  const byId = new Map(manual.statements.map((statement) => [statement.id, statement]));
+  if (!todo.length && fixed === manual && result.findings.length && result.findings.every((finding) => isComposedStatement(byId.get(finding.statement)))) {
+    return `${line}\nプログラムが組む文への指摘で、書き直しでは直りません（${result.findings.map((finding) => finding.statement).join('、')}）`;
+  }
   const next = Number(round) + 1;
   writeJson(join(work, 'state.json'), { ...state, round: next, todo });
   // 用語の説明だけの指摘なら、Writer の仕事はない。すぐに組み立てて Editor へ進む

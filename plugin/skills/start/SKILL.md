@@ -18,6 +18,8 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/hikitsugi.mjs" <コマンド>
 ## 最初に
 `hikitsugi status` を実行し、返ってきた `step` の段階から始めます。段階が終わるたびに `hikitsugi status` で次を確かめます。
 
+`status` に `"unchecked": true` があるときは、結果のファイルはありますが、検査に通っていません。その段階の検査（`check-gaps`、`check-writer <round> <part>`、`check-verification <round>`）を実行し、問題が表示されたら内容を担当に伝えて直してもらいます。先へ進みません。
+
 プログラムが問題を表示したら、内容に従って直します。**検査を飛ばしたり、結果のファイルを手で書き換えて通したりしません。**
 
 ## 守ること
@@ -60,7 +62,7 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/hikitsugi.mjs" <コマンド>
 1. `hikitsugi:interviewer` に次を依頼します。
    > `hikitsugi-work/` の `survey.json`、`gaps.json`、`checklist.json`、`transcript.json`、`interview-progress.json`（進み具合）を読み、次の1問の JSON（`action`、`gap`、`covers`、`question`、`unfilled`）を `hikitsugi-work/next.json` に保存してください。
 2. `hikitsugi check-next` を実行します。聞き取りが終わったという表示が出たら、この段階は完了です。それ以外の表示が質問文です。問題が表示されたときは、その質問を本人に見せず、手順 1 からやり直します。
-3. 質問文を AskUserQuestion で聞きます。選択肢は「分からない」と「あとで調べる」の2つにします。ふつうの回答は、自由入力で答えてもらいます。何問目かも伝えます。
+3. 質問文を AskUserQuestion で聞きます。選択肢は「分からない」と「あとで調べる」の2つにします。ふつうの回答は、選択肢の下にある自由入力の欄に書いてもらいます。案内するときは「下の欄に入力してください」と書き、「Other」とは書きません（画面の表示と合わないためです）。何問目かも伝えます。
 4. 回答を記録します。回答の文は、本人の言葉のまま、標準入力で渡します。
    ```
    hikitsugi record answered <<'EOF_ANSWER'
@@ -74,7 +76,7 @@ Writer は1回に1つの部分だけを書きます。`status` の `round` と `
 
 1. `hikitsugi writer-task <round> <part>` を実行します。
 2. `hikitsugi:writer` に次を依頼します。
-   > `hikitsugi-work/survey.json`、`hikitsugi-work/transcript.json`、`hikitsugi-work/library.json`、`hikitsugi-work/writer-task.json` を読み、`writer-task.json` を task として、その部分の結果の JSON だけを `hikitsugi-work/writer-<round>-<part>.json` に保存してください。
+   > `hikitsugi-work/survey.json`、`hikitsugi-work/transcript.json`、`hikitsugi-work/library.json`、`hikitsugi-work/writer-task.json` を読み、`writer-task.json` を task として、その部分の結果の JSON だけを `hikitsugi-work/writer-<round>-<part>.json` に保存してください。保存する形は `hikitsugi-work/writer-format.json` です。項目の名前と値は、このとおりにしてください。
 3. `hikitsugi check-writer <round> <part>` を実行します。問題が表示されたら、その内容を Writer に structure_problems として伝えて直してもらいます。
 
 `status` が次の部分を示すあいだ、繰り返します。1ページごとに、いくつ終わったかを短く伝えます。
@@ -86,7 +88,7 @@ Writer は1回に1つの部分だけを書きます。`status` の `round` と `
 `round` が 2 以上のときは、次も加えます。
 > `hikitsugi-work/editor-findings-<round>.json` を findings として読み、そこにある文章だけを直してください。すでにある用語の説明は作り直しません。
 
-終わったら `hikitsugi merge-edits <round>` を実行します。問題が残ったと表示されたら、`plain-findings-<round>.json` を findings として渡し、同じ保存先へ前回の内容に追記する形で1回だけ直してもらって、もう一度 `merge-edits` を実行します。
+終わったら `hikitsugi merge-edits <round>` を実行します。問題が残ったと表示されたら、`plain-findings-<round>.json` を findings として渡し、同じ保存先へ前回の内容に追記する形で1回だけ直してもらって、もう一度 `merge-edits` を実行します。`long_sentences` の指摘に `glossary_term` があるものは用語の説明の文なので、`rewrites` ではなく、`glossary` に同じ語の説明を直して追記してもらいます。
 
 ### verifier
 `hikitsugi:verifier` に次を依頼します。
@@ -104,7 +106,7 @@ Writer は1回に1つの部分だけを書きます。`status` の `round` と `
 前任者本人に、ページごとに確認してもらいます。**全文を精読してもらう必要はありません。** 確認が終わるまで、取扱説明書には「下書き（前任者の確認前）」の帯が付き、確認の印は出ません。
 
 1. `reviewer` が `null` のときは、`state.json` の `retiree` の名前で `hikitsugi review-start <名前>` を実行します。表示された「退職前にやること」は、本人にしかできない作業の一覧です。後任向けの取扱説明書には載らないので、そのまま本人に見せます。あとで見るときは `hikitsugi before-leaving` です。続けて `hikitsugi render` を実行し、下書きの HTML の場所を伝えます。
-2. `status` の `page` について `hikitsugi review-show <page>` を実行し、表示された内容を見せます。
+2. `status` の `page` について `hikitsugi review-show <page>` を実行し、表示された内容を、省略も要約もせずに見せます。「社員に返す文」も全文を見せます。
 3. AskUserQuestion で聞きます。選択肢は「このままでよい」と「直す」の2つです。何ページ目かも伝えます。
 4. 「このままでよい」なら `hikitsugi review-ok <page>` を実行します。
 5. 「直す」なら、直す内容を一言で聞いて、本人の言葉のまま標準入力で渡します。

@@ -35,6 +35,7 @@ export function composeStatements(rawStatements, library = loadLibrary()) {
   const statements = rawStatements.map(({ library: partId, ...statement }) => {
     if (!partId) {
       if (statement.evidence.some((ref) => ref.startsWith('LIB-'))) problems.push(`${statement.id}: 部品の指定がないのに、部品を根拠にしています`);
+      if (!statement.evidence.length) problems.push(`${statement.id}: 根拠（evidence）が空です。空にできるのは、部品を使う文章だけです`);
       return statement;
     }
     const part = parts.get(partId);
