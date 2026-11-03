@@ -504,7 +504,8 @@ test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途�
     assert.ok(!finalHtml.includes('下書き（前任者の確認前）'));
     assert.ok(finalHtml.includes('田中 確認'));
     assert.ok(finalHtml.includes('この取扱説明書は、AIがもとの情報と照らし合わせ、前任の田中さんが全ページを確認したものです。'));
-    assert.equal(nextStep(work).step, 'done');
+    // 完成したあとは、更新の入口になる
+    assert.equal(nextStep(work).step, 'update');
   }));
 
 test('/hikitsugi:start：差し戻しの上限に達すると not_passed で止まる', () =>

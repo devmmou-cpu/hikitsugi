@@ -123,7 +123,25 @@ Writer は1回に1つの部分だけを書きます。`status` の `round` と `
 `hikitsugi render` を実行し、できた HTML のパスと、隣の `phone` フォルダの場所を伝えます。未承認の手順部品があると表示されたら、取扱説明書は作れません。そのまま本人に伝えて止まります。「PC では HTML を開きます。スマホでは、`phone` フォルダごと会社の OneDrive に置くと、フォルダの一覧を目次にして症状のファイルを開けます」と案内します。
 
 ### not_passed
-差し戻しの上限に達しました。取扱説明書は作りません。`findings-<round>.json` の指摘を、IT の知識がなくても分かる言葉で伝え、追加で確認できることがないか相談します。
+差し戻しの上限に達しました。更新の途中なら、内容を伝えて `hikitsugi update-cancel` で前の説明書に戻します。それ以外では、取扱説明書は作りません。`findings-<round>.json` の指摘を、IT の知識がなくても分かる言葉で伝え、追加で確認できることがないか相談します。
 
-### done
-すでに完成しています。`hikitsugi-work/manual.html` と `hikitsugi-work/phone` の場所を伝えます。
+### update
+取扱説明書はすでに完成しています。更新を受け付けます。**更新した文も、Verifier の照合と、更新する人の確認を通します。**
+
+1. `updater` が `null` なら、更新する人の名前を聞いて `hikitsugi update-start <名前>` を実行します。`from_bundle` が `true` のときは、隣の `manual.json` から作業フォルダを作り直します。
+2. `output_dir` が `null` なら、取扱説明書を置いているフォルダ（OneDrive など）を1回だけ聞いて `hikitsugi update-output <フォルダ>` を実行します。以後はそこへ直接書きます。
+3. `memo_left` が1以上なら、手順 5 の「後任のメモから取り込む」の続きから始めます。
+4. AskUserQuestion で聞きます。選択肢は「連絡先を直す」「症状を足す」「手順を直す」「後任のメモから取り込む」の4つです。
+5. 選択肢ごとに進めます。`hikitsugi update-targets` が、ページ、連絡先、機器の一覧を返します。
+   - **連絡先を直す、手順を直す：** どれを直すかを聞き、`hikitsugi review-show <ID>` の内容を省略せずに見せて、直す内容を一言で聞きます。本人の言葉のまま渡します。
+     ```
+     hikitsugi update-fix <ID> <<'EOF_ANSWER'
+     （直す内容）
+     EOF_ANSWER
+     ```
+   - **症状を足す：** 症状と、そのときの対応を一言で聞きます。`hikitsugi update-add` に同じように標準入力で渡します。
+   - **後任のメモから取り込む：** 「メモをまとめてコピー」で写した文を貼ってもらい、`hikitsugi update-memo` に標準入力で渡します。返ってきた `next` を1件ずつ、AskUserQuestion で確認します（「取り込む」「取り込まない」）。メモは確認されていない内容です。`has_credential` が `true` のメモは、値を読み上げずに、保管場所だけを教えてもらいます。`target` が `null` のメモは、どのページのことかを聞きます。「取り込む」なら `hikitsugi update-fix <target>` に本文を渡し、終わったら `hikitsugi memo-next done` で次へ進みます。「取り込まない」なら、すぐ `memo-next done` を実行します。
+6. あとは `hikitsugi status` の段階に従います。その部分だけを書き直して照合し、`review` の段階で更新する人に確認してもらいます。`hikitsugi review-ok <ID>` のあと、`render` の段階で、同じ場所の PC 用、スマホ用の束、`manual.json` が新しくなります。
+7. 伝えることは次のとおりです。更新には Claude Code が要りますが、読むだけなら要りません。
+
+`not_passed` になった更新は、`hikitsugi update-cancel` で取り消せます。説明書は前のままです。

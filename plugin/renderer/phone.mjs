@@ -206,7 +206,7 @@ function symptomHtml(ctx, page, fileTitle) {
     termsPart,
   ].filter(Boolean).join('\n');
   const shown = [page.title, page.badge.statement, page.reassurance, ...page.first_steps, ...page.steps, ...page.notes, ...page.info_rows, ...page.branches, ...page.exceptions, ...(page.fallback ? [page.fallback.message] : [])];
-  return documentHtml(ctx, fileTitle, body, evidenceLines(ctx, shown));
+  return documentHtml(ctx, fileTitle, body, evidenceLines(ctx, shown, page.id));
 }
 
 /** 連絡先の一覧。まず誰に言うかの順に、社内の相談先を先に並べる。 */

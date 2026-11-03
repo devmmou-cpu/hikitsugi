@@ -30,6 +30,21 @@
       "type": "string",
       "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
     },
+    "updates": {
+      "$comment": "完成後の更新の記録。target は直した相手、pages は更新の行を出すページ",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target", "pages", "by", "date"],
+        "properties": {
+          "target": { "type": "string", "minLength": 1 },
+          "pages": { "type": "array", "items": { "type": "string", "pattern": "^T\\d+$" } },
+          "by": { "type": "string", "minLength": 1 },
+          "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+        }
+      }
+    },
     "call_without_place": {
       "$comment": "業者に伝える文から機器の場所の行を外すページ。Verifier の指摘を受けてプログラムが入れる",
       "type": "array",
@@ -447,6 +462,15 @@
         "reviewer": {
           "type": "string",
           "minLength": 1
+        },
+        "updated_by": {
+          "$comment": "最新の更新を確認した人。角印に出す",
+          "type": "string",
+          "minLength": 1
+        },
+        "updated_on": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         },
         "confirmed_on": {
           "type": "string",

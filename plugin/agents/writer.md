@@ -98,6 +98,11 @@ tools: Read, Write
 - 指摘されていない文章と ID は変えません。直せない内容を、推測で埋めません
 - 共通部分の書き直しでは、`page_plan` は前の版のまま返します
 
+## 更新（task.revision.update がある場合）
+完成した取扱説明書を、あとから直します。`page_fix` の `comment` のとおりに直し、`evidence` の ID を根拠にします。古い内容の文は新しい内容に置き換えます。`comment` に関係のない文章と ID は変えません。
+- `task.part` が `contact` のときは、`task.revision.previous` の連絡先1件だけを書きます。`contact` と、その文章だけの `statements` を返します
+- `update.add_symptom` があるとき、共通部分では `page_plan` に `add_symptom.id` の行を足します。`category` と `symptom` を書き、前の版の連絡先、定期作業、機器は変えません
+
 ## 載せ漏れ（task.revision.missing がある場合）
 `missing` は、聞き取りや調査で答えがあるのに、取扱説明書に載っていない事実です。根拠のとおりに、共通部分の `devices` か `routines` に足します。`credential_location` にはパスワードを置いてある場所、`location` には機器の置き場所、`caution` には大型更新の保留を書きます。ほかの文章と ID は変えません。**足すだけです。前の版の文章、連絡先、定期作業、機器を消さず、全体を返します。**
 

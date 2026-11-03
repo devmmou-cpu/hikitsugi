@@ -52,9 +52,12 @@ const STATEMENTS_BEFORE_COMPOSE = {
   items: { ...WRITER_STATEMENTS.items, properties: { ...WRITER_STATEMENTS.items.properties, text: TEXT_BEFORE_COMPOSE, evidence: EVIDENCE_BEFORE_COMPOSE } },
 };
 
-/** プラグインの Writer が保存する形。part は common か page。 */
+/** 更新で連絡先1件を書く形。ほかの文が変わらないよう、その連絡先の文だけを書く。 */
+const contactSchema = () => objectOf({ statements: WRITER_STATEMENTS, contact: MANUAL_SCHEMA.properties.contacts.items });
+
+/** プラグインの Writer が保存する形。part は common、page、contact。 */
 export const writerFormat = (part) => {
-  const schema = part === 'common' ? commonSchema() : pageSchema();
+  const schema = part === 'common' ? commonSchema() : part === 'contact' ? contactSchema() : pageSchema();
   return { $comment: 'Writer が保存する JSON の形。この項目の名前と値のとおりに保存する', ...schema, properties: { ...schema.properties, statements: STATEMENTS_BEFORE_COMPOSE } };
 };
 
@@ -83,6 +86,20 @@ export function checkCommon(output, sources, { library = loadLibrary(), retiree 
     if (hasCredential(text)) problems.push(`before_leaving の ${index + 1} 件目：認証情報の本体を書かないでください`);
   });
   return { output: { ...output, statements }, problems };
+}
+
+const contactStatementIds = (contact) => [contact.role, contact.hours, contact.contract_location, contact.what_to_tell].filter(Boolean);
+
+/** 更新で書いた連絡先1件を確かめる。id は対象に固定する。 */
+export function checkContact(output, id, sources, { library = loadLibrary(), retiree } = {}) {
+  const contact = { ...output.contact, id };
+  const { statements, problems } = composeStatements(output.statements, library);
+  const known = new Set(statements.map((statement) => statement.id));
+  const missing = contactStatementIds(contact).filter((ref) => !known.has(ref));
+  if (missing.length) problems.push(`statements にない文章を参照しています: ${missing.join(', ')}`);
+  const piece = { statements, contacts: [contact] };
+  problems.push(...statementProblems(statements, retiree), ...contactProblems(piece), ...contactEvidenceProblems([contact], sources));
+  return { output: { statements, contact }, problems };
 }
 
 /** 載せ漏れの書き直しで、前の版の文章や機器が消えていないかを確かめる。足すだけの書き直しなので、消えていれば問題にする。 */
@@ -182,22 +199,25 @@ export function ownersOf(manual, findings) {
 export function previousPiece(manual, owner) {
   const byId = new Map(manual.statements.map((statement) => [statement.id, statement]));
   const pick = (ids) => [...new Set(ids)].map((id) => byId.get(id));
+  const contact = manual.contacts.find((candidate) => candidate.id === owner);
+  if (contact) return { statements: pick(contactStatementIds(contact)), contact };
   if (owner === 'common') {
     const { contacts, routines, devices } = manual;
     return { statements: pick(commonStatementIds(manual)), contacts, routines, devices, before_leaving: manual.before_leaving ?? [] };
   }
   const page = manual.symptom_pages.find((candidate) => candidate.id === owner);
-  return { statements: pick(pageStatementIds(page)), page };
+  // 更新で足す新しいページには、前の版がない
+  return page ? { statements: pick(pageStatementIds(page)), page } : { statements: [], page: null };
 }
 
 /**
  * 書き直した部分を、前の版へ差し替える。ほかの部分の文章と ID は変わらない。
  * @param previous 用語の説明を外した前の版
- * @param rewritten { common?, pages: { T1: 出力 } }
+ * @param rewritten { common?, pages: { T1: 出力 }, contacts?: { VEN-01: 出力 } }。前の版にないページは、末尾に足す
  */
 export function mergeRewritten(previous, rewritten) {
   const allocate = counter(Math.max(0, ...previous.statements.map((s) => Number(s.id.slice(4)))));
-  const owners = [...(rewritten.common ? ['common'] : []), ...Object.keys(rewritten.pages)];
+  const owners = [...(rewritten.common ? ['common'] : []), ...Object.keys(rewritten.pages), ...Object.keys(rewritten.contacts ?? {})];
   const removed = new Set(owners.flatMap((owner) => previousPiece(previous, owner).statements.map((s) => s.id)));
   const statements = previous.statements.filter((s) => !removed.has(s.id));
   let merged = { ...previous };
@@ -207,13 +227,23 @@ export function mergeRewritten(previous, rewritten) {
     statements.push(...placed.statements);
     merged = { ...merged, ...placed.rest };
   }
+  for (const [id, output] of Object.entries(rewritten.contacts ?? {})) {
+    const placed = place(output, (piece) => contactStatementIds(piece.contact), new Set(previousPiece(previous, id).statements.map((s) => s.id)), allocate);
+    statements.push(...placed.statements);
+    merged = { ...merged, contacts: merged.contacts.map((contact) => (contact.id === id ? placed.rest.contact : contact)) };
+  }
+  const placePage = (output, keep) => {
+    const placed = place(output, (piece) => pageStatementIds(piece.page), keep, allocate);
+    statements.push(...placed.statements);
+    return placed.rest.page;
+  };
+  const known = new Set(merged.symptom_pages.map((page) => page.id));
   const pages = merged.symptom_pages.map((page) => {
     const output = rewritten.pages[page.id];
     if (!output) return page;
-    const placed = place(output, (piece) => pageStatementIds(piece.page), new Set(previousPiece(previous, page.id).statements.map((s) => s.id)), allocate);
-    statements.push(...placed.statements);
-    return placed.rest.page;
+    return placePage(output, new Set(previousPiece(previous, page.id).statements.map((s) => s.id)));
   });
-  return { ...merged, symptom_pages: pages, statements };
+  const added = Object.entries(rewritten.pages).filter(([id]) => !known.has(id)).map(([, output]) => placePage(output, new Set()));
+  return { ...merged, symptom_pages: [...pages, ...added], statements };
 }
 

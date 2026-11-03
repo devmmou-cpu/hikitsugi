@@ -139,15 +139,16 @@ export function appendEntry(transcript, { next, answer, status, answeredAt }) {
  * 前任者の確認で出た直しを、聞き取りの記録に足す。質問の上限は数えない。
  * 空白や必須項目には対応しないので、予約の番号を入れる。
  */
-export function appendReviewEntry(transcript, { pageId, title, comment, answeredAt }) {
+export function appendReviewEntry(transcript, { pageId, title, comment, answeredAt, question }) {
   if (!comment.trim()) throw new Error('直す内容が空です');
   if (hasCredential(comment)) throw new Error('回答にパスワードの本体が含まれています。保管場所だけを記録してください');
-  const number = String(transcript.entries.length + 1).padStart(3, '0');
+  // manual.json から戻した記録は番号が飛ぶので、数ではなく最大の番号から続ける
+  const number = String(Math.max(0, ...transcript.entries.map((item) => Number(item.id.slice(4)))) + 1).padStart(3, '0');
   const entry = {
     id: `INT-${number}`,
     gap: REVIEW_GAP,
     covers: [REVIEW_ITEM],
-    question: `手順ページ ${pageId}「${title}」について、直すところを教えてください。`,
+    question: question ?? `手順ページ ${pageId}「${title}」について、直すところを教えてください。`,
     answer: comment.trim(),
     status: 'answered',
     answered_at: answeredAt,

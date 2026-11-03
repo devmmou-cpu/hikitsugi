@@ -15,6 +15,7 @@ import { STYLES } from './styles.mjs';
 import { oversizeMessage, PC_FILE_LIMIT, writeWithinLimit } from '../lib/limits.mjs';
 import { callScriptProblems, replyProblems } from '../lib/reply.mjs';
 import { firstStepFigures } from '../lib/figures.mjs';
+import { latestUpdateOf } from '../lib/update.mjs';
 
 const SCHEMA = JSON.parse(readFileSync(new URL('../schemas/manual.schema.json', import.meta.url), 'utf8'));
 
@@ -298,15 +299,19 @@ const bandsHtml = (ctx, ids, kind) => ids.map((id) => bandHtml(ctx, id, kind)).j
 const goalHtml = (ctx, id) => (id ? `<p class="goal">${icon('check')}<span>${ctx.text(id)}</span></p>` : '');
 
 // ---- 確認の印 ----
+const latestCheck = (review) => ({ by: review.updated_by ?? review.reviewer, on: review.updated_on ?? review.confirmed_on });
+
 /** 角印。文字は実寸で 14px にするので、64px の大きさで描く。色は墨で、押せないことを示す。 */
 function sealParts(review) {
-  const [, month, day] = review.confirmed_on.split('-');
-  const name = esc(review.reviewer);
+  // 角印は最新の確認者と確認日を出す。前任者の確認の文は、別に残す
+  const { by, on } = latestCheck(review);
+  const [, month, day] = on.split('-');
+  const name = esc(by);
   // 長い名前は枠の中に収める
-  const fit = [...review.reviewer].length > 3 ? ' textLength="52" lengthAdjust="spacingAndGlyphs"' : '';
+  const fit = [...by].length > 3 ? ' textLength="52" lengthAdjust="spacingAndGlyphs"' : '';
   const line = (y, text, attrs = '') => `<text x="32" y="${y}" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor"${attrs}>${text}</text>`;
   return {
-    open: `<svg class="seal" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="${name} 確認 ${esc(formatDate(review.confirmed_on))}">`,
+    open: `<svg class="seal" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="${name} 確認 ${esc(formatDate(on))}">`,
     body: [
       '<rect x="1" y="1" width="62" height="62" rx="6" fill="none" stroke="currentColor" stroke-width="2"/>',
       line(20, name, fit),
@@ -339,7 +344,8 @@ const draftBand = ({ review }) => (review ? '' : '<p class="draft-band" role="no
 /** 上部バーの確認の表示。角印の代わりに、文字のない 24px の印を添える。 */
 function topStatus({ review }) {
   if (!review) return '<p class="top-status"><span>前任者の確認前</span></p>';
-  return `<p class="top-status">${icon('stamp', 'top-mark')}<span class="top-status-text"><span>${esc(review.reviewer)} 確認 </span><span>${esc(formatDate(review.confirmed_on))}</span></span></p>`;
+  const { by, on } = latestCheck(review);
+  return `<p class="top-status">${icon('stamp', 'top-mark')}<span class="top-status-text"><span>${esc(by)} 確認 </span><span>${esc(formatDate(on))}</span></span></p>`;
 }
 
 function topbarHtml(ctx) {
@@ -597,7 +603,7 @@ function railHtml(ctx, page, contact, leading) {
 }
 
 /** ページに表示した記述の根拠から、確かめ方の一文を作る。as_of は調査の日付で、確認の日付とは別のもの。 */
-export function evidenceLines(ctx, ids) {
+export function evidenceLines(ctx, ids, pageId) {
   const evidence = ids.flatMap((id) => ctx.statements.get(id).evidence);
   const has = (prefix) => evidence.some((ref) => ref.startsWith(prefix));
   const sources = [
@@ -608,13 +614,14 @@ export function evidenceLines(ctx, ids) {
   ];
   const { review } = ctx.manual;
   const state = review ? `この手順は、前任の${esc(review.reviewer)}さんが確認済みです。` : 'この手順は、前任者の確認前です。';
-  return [state, `もとにした情報：${sources.join('、')}`];
+  const update = pageId ? latestUpdateOf(ctx.manual, pageId) : null;
+  return [state, `もとにした情報：${sources.join('、')}`, ...(update ? [`更新：${esc(formatDate(update.date))} ${esc(update.by)} 確認`] : [])];
 }
 
-function evidenceHtml(ctx, ids) {
+function evidenceHtml(ctx, ids, pageId) {
   const { review } = ctx.manual;
-  const [state, sources] = evidenceLines(ctx, ids);
-  return `<div class="evidence">${review ? sealUseHtml(review) : ''}<p><span>${state}</span><span>${sources}</span></p></div>`;
+  const lines = evidenceLines(ctx, ids, pageId);
+  return `<div class="evidence">${review ? sealUseHtml(review) : ''}<p>${lines.map((line) => `<span>${line}</span>`).join('')}</p></div>`;
 }
 
 const CIRCLED = ['①', '②', '③', '④'];
@@ -674,7 +681,7 @@ function symptomPanel(ctx, page) {
     !contact && ctx.manual.contacts.length ? '<p class="tab-link"><a class="tap text-link" href="#tab-contacts">連絡先の一覧を見る</a></p>' : '',
     infoHtml(ctx, page),
     termsBlock,
-    evidenceHtml(ctx, shownIds),
+    evidenceHtml(ctx, shownIds, page.id),
     backLink,
     '</div>',
     railHtml(ctx, page, contact, contactLeads),
