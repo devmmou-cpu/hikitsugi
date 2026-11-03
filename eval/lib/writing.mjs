@@ -2,7 +2,7 @@
 
 import { applyEdits } from '../../plugin/lib/apply-edits.mjs';
 import { plainProblems } from '../../plugin/lib/plain-check.mjs';
-import { assembleManual, checkCommon, checkPage, commonSchema, mergeRewritten, ownersOf, pageSchema, previousPiece } from '../../plugin/lib/assemble.mjs';
+import { assembleManual, checkCommon, checkPage, commonSchema, droppedFromCommon, mergeRewritten, ownersOf, pageSchema, previousPiece } from '../../plugin/lib/assemble.mjs';
 import { coverageLeaks } from '../../plugin/lib/coverage-check.mjs';
 import { composeProcedures, libraryForAgents } from '../../plugin/lib/procedures.mjs';
 import { buildRequest, callAgent, clientOf, LiveFailure, loadAgent, stripUnsupported, tagged } from './adapters/live.mjs';
@@ -124,7 +124,10 @@ export async function runWriterLive({ survey, transcript, companyName, retiree, 
       return finishWriter(manual, sources, retiree);
     }
     const piece = { ...previousPiece(manual, 'common'), page_plan: manual.symptom_pages.map(({ id, category, title }) => ({ id, category, symptom: manual.statements.find((s) => s.id === title).text })) };
-    const output = await once('common-leaks', { part: 'common', revision: { previous: piece, findings: [], missing: found } }, (raw) => checkCommon({ ...raw, page_plan: piece.page_plan }, sources, { retiree }));
+    const output = await once('common-leaks', { part: 'common', revision: { previous: piece, findings: [], missing: found } }, (raw) => {
+      const checked = checkCommon({ ...raw, page_plan: piece.page_plan }, sources, { retiree });
+      return { ...checked, problems: [...checked.problems, ...droppedFromCommon(piece, raw)] };
+    });
     const filled = mergeRewritten(manual, { common: output, pages: {} });
     const remaining = coverageLeaks(filled, sources);
     onLeaks({ found: found.length, remaining: remaining.length, kinds: found.map((leak) => leak.kind) });

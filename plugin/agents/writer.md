@@ -95,7 +95,7 @@ tools: Read, Write
 - 共通部分の書き直しでは、`page_plan` は前の版のまま返します
 
 ## 載せ漏れ（task.revision.missing がある場合）
-`missing` は、聞き取りや調査で答えがあるのに、取扱説明書に載っていない事実です。根拠のとおりに、共通部分の `devices` か `routines` に足します。`credential_location` にはパスワードを置いてある場所、`location` には機器の置き場所、`caution` には大型更新の保留を書きます。ほかの文章と ID は変えません。
+`missing` は、聞き取りや調査で答えがあるのに、取扱説明書に載っていない事実です。根拠のとおりに、共通部分の `devices` か `routines` に足します。`credential_location` にはパスワードを置いてある場所、`location` には機器の置き場所、`caution` には大型更新の保留を書きます。ほかの文章と ID は変えません。**足すだけです。前の版の文章、連絡先、定期作業、機器を消さず、全体を返します。**
 
 ## 形の問題（structure_problems がある場合）
 `previous_output` は前の出力で、`problems` はプログラムが見つけた形の問題です。挙げられた問題だけを直して、この部分の全体を返します。手順にある事実や注意は、文章を変えずに正しい項目へ移します。

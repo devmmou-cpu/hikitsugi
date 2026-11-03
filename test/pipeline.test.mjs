@@ -12,7 +12,7 @@ import * as manualScorer from '../eval/lib/scorers/manual.mjs';
 import { buildWriterRequest, runWriterLive } from '../eval/lib/writing.mjs';
 import { runPipeline } from '../eval/pipeline.mjs';
 import { applyEdits, missingTokens } from '../plugin/lib/apply-edits.mjs';
-import { assembleManual, checkCommon, commonStatementIds, mergeRewritten, ownersOf, previousPiece } from '../plugin/lib/assemble.mjs';
+import { assembleManual, checkCommon, commonStatementIds, droppedFromCommon, mergeRewritten, ownersOf, previousPiece } from '../plugin/lib/assemble.mjs';
 import { buildRevision, carryForward, markReviewed, mergeVerification, prepareForRender, summarizeVerification, UnapprovedPartsError, verificationScope } from '../plugin/lib/handover.mjs';
 import { coverageLeaks } from '../plugin/lib/coverage-check.mjs';
 import { longSentences, plainProblems } from '../plugin/lib/plain-check.mjs';
@@ -868,6 +868,22 @@ test('載せ漏れ：答えのあるパスワードの置き場所と機器の�
   const leaks = coverageLeaks(manualWith('関係のない文章です。'), sources);
   assert.deepEqual(leaks.map((leak) => leak.kind), ['credential_location', 'device_location']);
   assert.deepEqual(coverageLeaks(manualWith('控えは総務の鍵つき棚にあります。', 'ルーターの場所は 倉庫の奥の棚の上 です。'), sources), []);
+});
+
+test('載せ漏れ：ソフトを入れた話や掲示の話は、機器の置き場所として数えない', () => {
+  const sources = leakSources('業務ソフトは2台の PC に入れていて、問い合わせ先は販売店です。ルールは注意書きにして各部署に貼ってあります。');
+  assert.deepEqual(coverageLeaks(manualWith('関係のない文章です。'), sources), []);
+  // 認証情報の文では、同じ言い方も置き場所として数える
+  assert.equal(coverageLeaks(manualWith('関係のない文章です。'), leakSources('パスワードを書いたメモは総務の棚に入れてあります。')).length, 1);
+});
+
+test('載せ漏れの書き直しで、前の版の文章や機器が消えていれば止める', () => {
+  const previous = pieces().common;
+  assert.deepEqual(droppedFromCommon(previous, previous), []);
+  const shrunk = { ...previous, statements: previous.statements.slice(1) };
+  assert.match(droppedFromCommon(previous, shrunk).join(), /前の版の文章を消さないでください/);
+  const before = { ...previous, devices: [{ id: 'D1' }] };
+  assert.match(droppedFromCommon(before, previous).join(), /前の版の devices を消さないでください：D1/);
 });
 
 test('載せ漏れ：「分からない」の回答は対象にしない', () => {

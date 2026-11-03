@@ -3,12 +3,14 @@
 
 const compact = (text) => text.normalize('NFKC').replace(/\s+/g, '');
 
-const PLACED = /(?:にあります|に設置され|に置いて|に保管|に入れて|に貼)/;
+// 機器の置き場所の言い方。「に入れて」「に貼って」は、ソフトや掲示の文にも使うので、認証情報の文でだけ認める
+const PLACED = /(?:にあります|に設置され|に置いて|に保管)/;
+const CREDENTIAL_PLACED = /(?:にあります|に設置され|に置いて|に保管|に入れて|に貼)/;
 const CREDENTIAL_WORD = /パスワード|暗証番号/;
 
 /** 文の中の場所の語句を取り出す。述語の直前の、読点や「は」で区切られた部分。 */
 function placeOf(sentence) {
-  const match = sentence.match(PLACED);
+  const match = sentence.match(CREDENTIAL_WORD.test(sentence) ? CREDENTIAL_PLACED : PLACED);
   if (!match) return null;
   const before = sentence.slice(0, match.index);
   const part = before.split(/[、,]|(?:は|で)(?=[^、]*$)/).at(-1)?.trim() ?? '';

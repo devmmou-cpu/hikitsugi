@@ -60,6 +60,20 @@ export function checkCommon(output, sources, { library = loadLibrary(), retiree 
   return { output: { ...output, statements }, problems };
 }
 
+/** 載せ漏れの書き直しで、前の版の文章や機器が消えていないかを確かめる。足すだけの書き直しなので、消えていれば問題にする。 */
+export function droppedFromCommon(previous, output) {
+  const kept = new Set(output.statements.map((statement) => statement.id));
+  const problems = [];
+  const gone = previous.statements.filter((statement) => !kept.has(statement.id)).map((statement) => statement.id);
+  if (gone.length) problems.push(`前の版の文章を消さないでください。足りない事実を足すだけで、全体を返してください：${gone.slice(0, 10).join(', ')}`);
+  for (const key of ['contacts', 'routines', 'devices']) {
+    const ids = new Set(output[key].map((entry) => entry.id));
+    const lost = previous[key].filter((entry) => !ids.has(entry.id)).map((entry) => entry.id);
+    if (lost.length) problems.push(`前の版の ${key} を消さないでください：${lost.join(', ')}`);
+  }
+  return problems;
+}
+
 /** ページの出力を確かめる。id と category は一覧の値に固定する。連絡先の照合には共通部分を使う。 */
 export function checkPage(output, entry, contacts, sources, { library = loadLibrary(), retiree } = {}) {
   const page = { ...output.page, id: entry.id, category: entry.category };

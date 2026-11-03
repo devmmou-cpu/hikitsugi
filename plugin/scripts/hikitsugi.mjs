@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyEdits } from '../lib/apply-edits.mjs';
-import { assembleManual, checkCommon, checkPage, commonSchema, mergeRewritten, ownersOf, pageSchema, previousPiece } from '../lib/assemble.mjs';
+import { assembleManual, checkCommon, checkPage, commonSchema, droppedFromCommon, mergeRewritten, ownersOf, pageSchema, previousPiece } from '../lib/assemble.mjs';
 import { buildRevision, carryForward, markReviewed, mergeVerification, prepareForRender, summarizeVerification, UnapprovedPartsError, verificationScope } from '../lib/handover.mjs';
 import { coverageLeaks } from '../lib/coverage-check.mjs';
 import { bodyFields } from '../lib/page-check.mjs';
@@ -202,6 +202,11 @@ function checkWriter(work, [round, part]) {
     const schemaProblems = validate(commonSchema(), output);
     if (schemaProblems.length) throw new Problem(`形式が違います（共通部分）：\n${schemaProblems.slice(0, 10).join('\n')}`);
     checked = checkCommon(output, sources, { retiree: state.retiree });
+    // 載せ漏れの書き直しは足すだけ。前の版が消えていれば受け付けない
+    if (state.leaks) {
+      const before = Number(round) === 1 ? readJson(join(work, partFile(1, 'common-previous'))) : previousPiece(previous, 'common');
+      checked.problems.push(...droppedFromCommon(before, raw));
+    }
   } else {
     const schemaProblems = validate(pageSchema(), raw);
     if (schemaProblems.length) throw new Problem(`形式が違います（${part}）：\n${schemaProblems.slice(0, 10).join('\n')}`);
