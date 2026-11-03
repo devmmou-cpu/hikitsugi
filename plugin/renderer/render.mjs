@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 表示プログラム。取扱説明書の中身から、スマホで読む HTML を1ファイル作る。
+// 表示プログラム。取扱説明書の中身から、HTML を1ファイル作る。画面の正は docs/design/visual-spec.md。
 // AI を使わず、時刻や乱数にも頼らない。同じ入力からは毎回同じ出力になる。
 //
 // 使い方：node plugin/renderer/render.mjs <入力.json> <出力.html>
@@ -10,13 +10,21 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { bodyFields, pageStatementIds, parseInfoRow } from '../lib/page-check.mjs';
 import { validate } from '../lib/validate.mjs';
-import { CLIENT_SCRIPT } from './client.mjs';
+import { CLIENT_HEAD_SCRIPT, CLIENT_SCRIPT } from './client.mjs';
 import { STYLES } from './styles.mjs';
 
 const SCHEMA = JSON.parse(readFileSync(new URL('../schemas/manual.schema.json', import.meta.url), 'utf8'));
 
 // ---- 画面の固定の文言 ----
 const BADGE_LABELS = { self: '自分で直せる', check_first: '確認してから', vendor: '業者へ連絡', internal: '社内で相談' };
+
+// 凡例の短い説明。バッジの意味を「はじめに」で一度だけ伝える
+const BADGE_MEANINGS = {
+  self: '自分でやります',
+  check_first: '確かめてから動きます',
+  vendor: '業者に電話します',
+  internal: '社内の人に聞きます',
+};
 
 const CATEGORY_LABELS = [
   ['net', 'インターネット'],
@@ -35,22 +43,31 @@ const FREQUENCY_LABELS = [
   ['yearly', '年に1回'],
 ];
 
+const SCREEN_TITLE_HELP = '困ったとき';
+
 // ---- 印。線だけのインライン SVG で、色は文字の色に従う ----
 const ICONS = {
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/>',
   phone:
     '<path d="M6.6 3.5h2.2c.5 0 .9.3 1 .8l.8 3.2c.1.4 0 .8-.3 1L8.7 9.9a13 13 0 0 0 5.4 5.4l1.4-1.6c.3-.3.7-.4 1-.3l3.2.8c.5.1.8.5.8 1v2.2c0 1.1-.9 2-2 2C10.6 19.4 4.6 13.4 4.6 5.5c0-1.1.9-2 2-2z"/>',
+  people: '<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M16 4.8a3.5 3.5 0 0 1 0 6.4M17.5 14.3c2.2.7 3.5 2.8 3.5 5.7"/>',
+  shield: '<path d="M12 3l7.5 3v5.5c0 4.6-3.1 8-7.5 9.5-4.4-1.5-7.5-4.9-7.5-9.5V6z"/><path d="M8.8 12l2.3 2.3 4.2-4.4"/>',
+  cross: '<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>',
   next: '<path d="M9 6l6 6-6 6"/>',
   back: '<path d="M15 6l-6 6 6 6"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.1 1-1.1 1.8M12 16.8v.01"/>',
   calendar: '<rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M4 10.5h16M8.5 3.5v4M15.5 3.5v4"/>',
   monitor: '<rect x="3.5" y="4.5" width="17" height="12" rx="2"/><path d="M9 20h6M12 16.5V20"/>',
-  people: '<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M16 4.8a3.5 3.5 0 0 1 0 6.4M17.5 14.3c2.2.7 3.5 2.8 3.5 5.7"/>',
+  list: '<path d="M8.5 6.5H20M8.5 12H20M8.5 17.5H20M4 6.5h.01M4 12h.01M4 17.5h.01"/>',
+  stamp: '<rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><path d="M8 12.3l2.8 2.8L16.2 9.300"/>',
 };
 
-const icon = (name) => `<svg class="icon" viewBox="0 0 24 24" role="presentation" focusable="false">${ICONS[name]}</svg>`;
+const icon = (name, extra = '') => `<svg class="icon${extra ? ` ${extra}` : ''}" viewBox="0 0 24 24" role="presentation" focusable="false">${ICONS[name]}</svg>`;
+
+/** 開閉の印。縦の線を CSS で消して「＋」と「−」を切り替える。 */
+const PLUS_MINUS = '<svg class="icon plus" viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M5 12h14"/><path class="plus-v" d="M12 5v14"/></svg>';
 
 const BADGE_ICONS = { self: 'check', check_first: 'alert', vendor: 'phone', internal: 'people' };
 
@@ -66,19 +83,22 @@ const TABS = [
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ESCAPES[c]);
 
-/** 2026-11-05 を 2026年11月5日 にする。Date を使わず、文字列のまま変換する。 */
+/** 2026-11-05 を 2026年11月5日 にする。文字列のまま変換する。 */
 function formatDate(isoDate) {
   const [year, month, day] = isoDate.split('-').map(Number);
   return `${year}年${month}月${day}日`;
 }
 
 /**
- * 文章を HTML にする。\\ で始まる接続先は、見ながら入力する値なので、途中で折り返さない印を付ける。
+ * 文章を HTML にする。\\ で始まる接続先は、見ながら入力する値なので、コードの形で示す。
  * 文字は変えない（タグを除けば元の文章のまま。コピーする文面も変わらない）。
  */
 function statementHtml(text) {
-  return esc(text).replace(/\\\\[^\s、。，．）」』]+/g, (path) => `<span class="path">${path}</span>`);
+  return esc(text).replace(/\\\\[^\s、。，．）」』]+/g, (path) => `<code class="path">${path}</code>`);
 }
+
+/** 操作の文の中のキーの名前を kbd で囲む。文字は変えない。 */
+const actionHtml = (text) => statementHtml(text).replace(/(?<![A-Za-z0-9-])([A-Z][A-Za-z0-9]*) (のキー|キー)/g, (_, key, rest) => `<kbd>${key}</kbd> ${rest}`);
 
 /** 語が使われているか。英数字の語は単語の境界で判定する（NAS が別の英単語の一部に当たらないように）。 */
 function usesTerm(text, term) {
@@ -177,49 +197,152 @@ function checkInput(manual) {
 }
 
 // ---- 部品 ----
-const badgeHtml = (value) => `<span class="badge" data-badge="${esc(value)}">${icon(BADGE_ICONS[value])}${esc(BADGE_LABELS[value])}</span>`;
+const isPhoneNumber = (phone) => /^\+?[0-9][0-9-]*$/.test(phone);
 
-/** 電話リンク。番号として正しい形のときだけリンクにし、それ以外は文字で見せる。 */
-function callHtml(phone) {
-  if (/^\+?[0-9][0-9-]*$/.test(phone)) {
-    return `<a class="tap call" href="tel:${esc(phone)}">${icon('phone')}電話をかける ${esc(phone)}</a>`;
-  }
-  return `<p>電話番号：${esc(phone)}</p>`;
+/** 判定バッジ。形は4種で同じで、色とアイコンだけが違う。 */
+const badgeHtml = (value) =>
+  `<span class="badge" data-badge="${esc(value)}" title="${esc(BADGE_LABELS[value])}">${icon(BADGE_ICONS[value])}<span class="badge-text">${esc(BADGE_LABELS[value])}</span></span>`;
+
+const etaHtml = (minutes) => `<span class="eta">目安 約${esc(minutes)}分</span>`;
+
+/** 電話ボタン。番号として正しい形のときだけリンクにし、それ以外は文字で見せる。 */
+function callHtml(phone, quiet = false) {
+  if (!isPhoneNumber(phone)) return `<p class="phone-text">電話番号：${esc(phone)}</p>`;
+  const kind = quiet ? 'btn-call-quiet' : 'btn-call';
+  return `<a class="btn ${kind} tap" href="tel:${esc(phone)}">${icon('phone')}<span class="btn-text"><span class="btn-label">電話をかける</span><span class="num">${esc(phone)}</span></span></a>`;
 }
 
-const termHtml = (ctx, term) =>
-  `<details class="term" open><summary class="tap">${esc(term.term)} とは？</summary><p>${ctx.text(term.explanation)}</p></details>`;
+/** PC では電話を押せないことがあるので、番号をコピーできるようにする。2列以上の幅でだけ出す。 */
+const copyNumberHtml = (phone, statusId) =>
+  isPhoneNumber(phone) ? `<button type="button" class="btn btn-copy btn-copy-num tap js-only" data-copy-text="${esc(phone)}" data-status="${statusId}">番号をコピー</button>` : '';
+
+const copyStatusHtml = (statusId) => `<span class="js-only copy-status" id="${statusId}" role="status"></span>`;
+
+/** 受付の時間。文章が「受付は〜」で始まるので、見出しを付けると同じ言葉が重なる。印と文だけで示す。 */
+const hoursHtml = (ctx, id) => `<p class="contact-hours">${icon('clock')}<span>${ctx.text(id)}</span></p>`;
+
+/** 用語の説明。JavaScript なしでも読めるように開いておき、JavaScript があれば閉じる。 */
+const termHtml = (ctx, term, id) =>
+  `<details class="term" id="${esc(id)}" open><summary class="tap"><span>${esc(term.term)}とは？</span>${PLUS_MINUS}</summary><p>${ctx.text(term.explanation)}</p></details>`;
 
 const emptyHtml = (text) => `<p class="empty">${esc(text)}</p>`;
 
 const factsHtml = (ctx, rows) => `<dl class="facts">${rows.map(([label, id]) => `<dt>${esc(label)}</dt><dd>${ctx.text(id)}</dd>`).join('')}</dl>`;
 
-// ---- 困ったとき：症状の一覧 ----
-function helpPanel(ctx) {
-  const groups = CATEGORY_LABELS.map(([category, label]) => {
-    const pages = ctx.manual.symptom_pages.filter((p) => p.category === category);
-    if (!pages.length) return '';
-    const items = pages.map(
-      (p) =>
-        `<li><a class="tap symptom-link" href="#symptom-${esc(p.id)}"><span><span class="symptom-name">${ctx.text(p.title)}</span>${badgeHtml(p.badge.value)}</span>${icon('next')}</a></li>`,
-    );
-    return `<h3>${esc(label)}</h3>\n<ul class="symptoms">\n${items.join('\n')}\n</ul>`;
-  }).filter(Boolean);
-  // 一覧に当てはまらないときの行き先を、必ず残す。社内の相談先は連絡先の先頭にある
-  if (groups.length) {
-    groups.push(`<h3>そのほか</h3>\n<ul class="symptoms">\n<li><a class="tap symptom-link no-match" href="#tab-contacts"><span><span class="symptom-name">当てはまる症状がないとき</span>${badgeHtml('internal')}</span>${icon('next')}</a></li>\n</ul>`);
-  }
+/** 帯。手順の外に置く。安心は盾、分岐は！、例外は×の印を付ける。 */
+const BAND_ICONS = { safe: 'shield', branch: 'alert', exception: 'cross' };
+const bandHtml = (ctx, id, kind) => `<p class="band band-${kind}">${icon(BAND_ICONS[kind])}<span>${ctx.text(id)}</span></p>`;
+const bandsHtml = (ctx, ids, kind) => ids.map((id) => bandHtml(ctx, id, kind)).join('\n');
 
-  const body = groups.length
-    ? `<p class="lead">いま困っていることを押してください。</p>\n<p class="note">開いて読むだけなら、PC や機器には何も起きません。</p>\n${groups.join('\n')}`
-    : emptyHtml('症状の手順は、まだこの説明書に入っていません。');
-  return `<section id="tab-help" class="panel">\n<h2 tabindex="-1">困ったとき</h2>\n${body}\n</section>`;
+/** 直ったと分かる状態。チェック欄を付けない。 */
+const goalHtml = (ctx, id) => (id ? `<p class="goal">${icon('check')}<span>${ctx.text(id)}</span></p>` : '');
+
+// ---- 確認の印 ----
+/** 角印。文字は実寸で 14px にするので、64px の大きさで描く。色は墨で、押せないことを示す。 */
+function sealHtml(review) {
+  const [, month, day] = review.confirmed_on.split('-');
+  const name = esc(review.reviewer);
+  // 長い名前は枠の中に収める
+  const fit = [...review.reviewer].length > 3 ? ' textLength="52" lengthAdjust="spacingAndGlyphs"' : '';
+  const line = (y, text, attrs = '') => `<text x="32" y="${y}" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor"${attrs}>${text}</text>`;
+  return [
+    `<svg class="seal" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="${name} 確認 ${esc(formatDate(review.confirmed_on))}">`,
+    '<rect x="1" y="1" width="62" height="62" rx="6" fill="none" stroke="currentColor" stroke-width="2"/>',
+    line(20, name, fit),
+    line(37, '確認'),
+    line(54, `${esc(month)}.${esc(day)}`),
+    '</svg>',
+  ].join('');
 }
+
+/** 新しく描いたオコジョ。白い体と黒い尾先。 */
+const OKOJO = [
+  '<svg class="okojo" width="16" height="16" viewBox="0 0 32 32" role="presentation" focusable="false">',
+  '<path class="okojo-body" d="M1 17.500C2 15.500 3.500 14.500 5 14L5.500 11.500 7.500 13.500C10 13 12 12.500 15 12.500 18 12.500 20 13 22 15L27.500 15.200 27 18.500 24 20C22 20 21.500 21 21.500 24L18.500 24C18.500 22 18 20.500 16 20L10 20C9 21 9 22.500 9 24L6 24C6 22 6.200 20.500 6 19.500 4 19.500 2 19 1 17.500Z"/>',
+  '<path class="okojo-tip" d="M27.500 15.200C28.800 14.500 30 13.400 31 12 31.500 15 30 17.700 27 18.500Z"/>',
+  '</svg>',
+].join('');
+
+// ---- 上部 ----
+/** 前任者の確認が終わるまで、下書きだと分かるようにする。 */
+const draftBand = ({ review }) => (review ? '' : '<p class="draft-band" role="note">下書き（前任者の確認前）</p>\n');
+
+/** 上部バーの確認の表示。角印の代わりに、文字のない 24px の印を添える。 */
+function topStatus({ review }) {
+  if (!review) return '<p class="top-status"><span>前任者の確認前</span></p>';
+  return `<p class="top-status">${icon('stamp', 'top-mark')}<span>${esc(review.reviewer)} 確認 </span><span>${esc(formatDate(review.confirmed_on))}</span></p>`;
+}
+
+function topbarHtml(ctx) {
+  const links = TABS.map(([id, label]) => `<a class="tap" href="#${id}">${label}</a>`).join('');
+  return [
+    '<header class="topbar">',
+    `<p class="brand"><span class="chip-secret">社外秘</span><span class="brand-names"><span class="brand-company">${esc(ctx.manual.company_name)}</span> <span class="brand-title">ITの取扱説明書</span></span></p>`,
+    `<nav class="topnav" aria-label="画面の切り替え">${links}</nav>`,
+    topStatus(ctx.manual),
+    '</header>',
+  ].join('\n');
+}
+
+// ---- はじめに ----
+function introPanel(ctx) {
+  const { manual } = ctx;
+  const { review } = manual;
+  const legend = Object.keys(BADGE_LABELS).map((value) => `<li>${badgeHtml(value)}<span class="legend-text">${esc(BADGE_MEANINGS[value])}</span></li>`);
+  const cans = [
+    ['check', '症状を選ぶと、やることが順に出ます。'],
+    ['phone', '直せないときは、電話と、送る文面があります。'],
+    ...(review ? [['stamp', `この取扱説明書は、AIがもとの情報と照らし合わせ、前任の${esc(review.reviewer)}さんが全ページを確認したものです。`]] : []),
+  ];
+  return [
+    '<section id="intro" class="panel">',
+    `<div class="intro-top"><span class="chip-secret">社外秘</span>${review ? sealHtml(review) : ''}</div>`,
+    `<p class="intro-company">${esc(manual.company_name)}</p>`,
+    '<h1 class="intro-title">ITの取扱説明書</h1>',
+    `<p class="intro-date">${esc(formatDate(manual.as_of))}時点の内容です。</p>`,
+    '<p class="intro-text">前任の担当者が使っていた設定と手順を、調査と聞き取りをもとにまとめました。</p>',
+    `<a class="btn btn-primary tap" href="#tab-help">困ったときは</a>`,
+    '<p class="intro-more"><a class="tap text-link" href="#tab-contacts">連絡先を見る</a></p>',
+    '<p class="label intro-label">この説明書でできること</p>',
+    `<ul class="can-list" role="list">${cans.map(([name, text]) => `<li>${icon(name)}<span>${text}</span></li>`).join('')}</ul>`,
+    '<p class="label intro-label">判定の見かた</p>',
+    `<ul class="legend" role="list">${legend.join('')}</ul>`,
+    '</section>',
+  ].join('\n');
+}
+
+// ---- 困ったとき：症状の一覧 ----
+function symHtml(ctx, page) {
+  return [
+    `<li><a class="sym tap" href="#symptom-${esc(page.id)}">`,
+    `<span class="sym-title">${ctx.text(page.title)}</span>`,
+    `<span class="sym-meta">${badgeHtml(page.badge.value)}${etaHtml(page.minutes)}</span>`,
+    icon('next', 'chev'),
+    '</a></li>',
+  ].join('');
+}
+
+function helpPanel(ctx) {
+  const groups = CATEGORY_LABELS.map(([category, label]) => [category, label, ctx.manual.symptom_pages.filter((p) => p.category === category)]).filter(([, , pages]) => pages.length);
+  const lead = '<p class="lead">いま困っていることを押してください。</p>\n<p class="note">開いて読むだけなら、PC や機器には何も起きません。</p>';
+  if (!groups.length) {
+    return `<section id="tab-help" class="panel col-list">\n<h2 tabindex="-1">${SCREEN_TITLE_HELP}</h2>\n${emptyHtml('症状の手順は、まだこの説明書に入っていません。')}\n</section>`;
+  }
+  const jump = groups.length > 1 ? `<nav class="jump" aria-label="症状のまとまりへ移る">${groups.map(([category, label]) => `<a class="tap" href="#cat-${category}">${esc(label)}</a>`).join('')}</nav>` : '';
+  const lists = groups.map(([category, label, pages]) => `<h3 class="group-title" id="cat-${category}">${esc(label)}</h3>\n<ul class="sym-group" role="list">\n${pages.map((page) => symHtml(ctx, page)).join('\n')}\n</ul>`);
+  // 一覧に当てはまらないときの行き先を、必ず残す。社内の相談先は連絡先の先頭にある
+  const noMatch = `<ul class="sym-group sym-group-last" role="list"><li><a class="sym tap" href="#tab-contacts"><span class="sym-title">当てはまる症状がないとき</span><span class="sym-meta">${badgeHtml('internal')}</span>${icon('next', 'chev')}</a></li></ul>`;
+  return [`<section id="tab-help" class="panel col-list">`, `<h2 tabindex="-1">${SCREEN_TITLE_HELP}</h2>`, lead, jump, ...lists, noMatch, '</section>'].filter(Boolean).join('\n');
+}
+
+/** 2列以上で、まだ症状を選んでいないときに中央の列に出す案内。 */
+const pickPromptHtml = () =>
+  '<span class="js-only pick-prompt"><span class="pick-lead">いま困っていることを押してください。</span><span class="pick-note">開いて読むだけなら、PC や機器には何も起きません。</span></span>';
 
 // ---- 手順ページ ----
 /**
  * 手順ページに添える用語を選ぶ。同じ用語はページの中で最初の1回だけ。
- * 手順で使う語はその手順の下に、それ以外の文に出てくる語はページの最後にまとめる。
+ * 手順で使う語はその手順の下からリンクし、説明はすべてページの最後に置く。
  */
 function pageTerms(ctx, page, contact) {
   const shown = new Set();
@@ -234,40 +357,44 @@ function pageTerms(ctx, page, contact) {
   return { steps, rest: [...others, ...(contact?.hours ? [contact.hours] : [])].flatMap(pick) };
 }
 
-/** 帯。分岐と例外を手順の外に置く。 */
-const bandsHtml = (ctx, ids, kind) => ids.map((id) => `<p class="band band-${kind}">${ctx.text(id)}</p>`).join('\n');
+const termAnchor = (ctx, page, term) => `g-${page.id}-${ctx.manual.glossary.indexOf(term)}`;
 
-/** 直ったと分かる状態。チェック欄を付けない。 */
-const goalHtml = (ctx, id) => (id ? `<p class="goal">${icon('check')}<span>${ctx.text(id)}</span></p>` : '');
-
-/** ① まずこれだけ。手順ページの最初に見る場所。 */
+/** ① まずこれだけ。手順ページの最初に見る場所で、ページ内で唯一の暖色の枠と影を持つ。 */
 function firstHtml(ctx, page, number) {
-  if (!page.first_steps.length) return '';
+  const many = page.first_steps.length > 1;
   return [
     '<section class="first">',
-    `<h3 class="first-kicker">${number} まずこれだけ<span class="eta">1分</span></h3>`,
-    page.first_steps.map((id) => `<p class="first-body">${ctx.text(id)}</p>`).join('\n'),
+    `<h3 class="first-kicker">${number} まずこれだけ <span class="eta">1分</span></h3>`,
+    `<div class="first-steps${many ? ' is-many' : ''}">`,
+    page.first_steps.map((id) => `<p class="first-body"><span>${actionHtml(ctx.raw(id))}</span></p>`).join('\n'),
+    '</div>',
     goalHtml(ctx, page.first_goal),
     '</section>',
   ].filter(Boolean).join('\n');
 }
 
-const notesHtml = (ctx, page) =>
-  page.notes.length ? `<h3>先に知っておくこと</h3>\n<ul class="page-notes" role="list">\n${page.notes.map((id) => `<li>${ctx.text(id)}</li>`).join('\n')}\n</ul>` : '';
+function notesHtml(ctx, page, leading) {
+  if (!page.notes.length) return '';
+  return `<div class="page-notes${leading ? ' is-main' : ''}"><h3 class="sub-title">先に知っておくこと</h3>\n<ul role="list">\n${page.notes.map((id) => `<li>${ctx.text(id)}</li>`).join('\n')}\n</ul></div>`;
+}
 
-/** この症状で使う会社の情報。値は検証した文章から読む。 */
-function infoHtml(ctx, page) {
-  if (!page.info_rows.length) return '';
+/** この症状で使う会社の情報。値は検証した文章から読む。本文と右の列で同じものを出す。 */
+function infoTables(ctx, page) {
   const rows = page.info_rows.map((id) => parseInfoRow(ctx.raw(id)));
   const drives = rows.filter((row) => row.type === 'drive');
   const values = rows.filter((row) => row.type === 'value');
   const driveTable = drives.length
-    ? `<table class="drive-table">\n<thead><tr><th scope="col">PC</th><th scope="col">ドライブ</th><th scope="col">接続先</th></tr></thead>\n<tbody>\n${drives.map((row) => `<tr><td>${esc(row.target ?? '全員')}</td><td class="drive-letter">${esc(row.drive)}</td><td><span class="path">${esc(row.path)}</span></td></tr>`).join('\n')}\n</tbody>\n</table>`
+    ? `<table class="info-table info-drives">\n<thead><tr><th scope="col">PC</th><th scope="col">ドライブ</th><th scope="col">接続先</th></tr></thead>\n<tbody>\n${drives.map((row) => `<tr><td class="info-target">${esc(row.target ?? '全員')}</td><td class="info-drive">${esc(row.drive)}</td><td class="info-path"><code class="path">${esc(row.path)}</code></td></tr>`).join('\n')}\n</tbody>\n</table>`
     : '';
   const valueTable = values.length
-    ? `<table class="drive-table">\n<thead><tr><th scope="col">項目</th><th scope="col">値</th></tr></thead>\n<tbody>\n${values.map((row) => `<tr><td>${esc(row.label)}</td><td><span class="path">${esc(row.value)}</span></td></tr>`).join('\n')}\n</tbody>\n</table>`
+    ? `<table class="info-table info-values">\n<thead><tr><th scope="col">項目</th><th scope="col">値</th></tr></thead>\n<tbody>\n${values.map((row) => `<tr><td class="info-target">${esc(row.label)}</td><td class="info-path"><code class="path">${esc(row.value)}</code></td></tr>`).join('\n')}\n</tbody>\n</table>`
     : '';
-  return `<h3>この症状で使う会社の情報</h3>\n<div class="card drive-box">\n${[driveTable, valueTable].filter(Boolean).join('\n')}\n</div>`;
+  return [driveTable, valueTable].filter(Boolean).join('\n');
+}
+
+function infoHtml(ctx, page) {
+  if (!page.info_rows.length) return '';
+  return `<div class="info-block"><h3 class="sub-title">この症状で使う会社の情報</h3>\n<div class="card info-card">\n${infoTables(ctx, page)}\n</div></div>`;
 }
 
 /** 部品の補足は、手順の下に分けて出す。チェックの対象は最初の1文の操作だけ。 */
@@ -278,45 +405,81 @@ function stepParts(text) {
 
 function stepsHtml(ctx, page, stepTerms, heading) {
   const items = page.steps.map((id, index) => {
-    const terms = stepTerms[index].length ? `<div class="step-terms">${stepTerms[index].map((term) => termHtml(ctx, term)).join('')}</div>` : '';
     const [body, note] = stepParts(ctx.raw(id));
-    // チェック欄を先に置くのは、チェックしたときに番号と文の色を CSS で変えるため。見た目では右端に並ぶ
     // 短い手順だけ文節で折り返す。長い文を文節で切ると、かえって行の長さがばらつくため
-    const textClass = body.length <= SHORT_STEP_LENGTH ? 'step-text is-short' : 'step-text';
+    const bodyClass = body.length <= SHORT_STEP_LENGTH ? 'step-body is-short' : 'step-body';
     const noteHtml = note ? `<p class="step-note">${statementHtml(note)}</p>` : '';
-    return `<li><label class="tap step"><input type="checkbox" data-check="${esc(page.id)}:${esc(id)}"><span class="step-number">${index + 1}</span><span class="${textClass}">${statementHtml(body)}</span></label>${noteHtml}${terms}</li>`;
+    const terms = stepTerms[index].length
+      ? `<p class="step-terms">${stepTerms[index].map((term) => `<a class="tap" href="#${esc(termAnchor(ctx, page, term))}">${esc(term.term)}とは？</a>`).join('')}</p>`
+      : '';
+    return [
+      '<li class="step">',
+      `<label class="tap"><input type="checkbox" data-check="${esc(page.id)}:${esc(id)}">`,
+      `<span class="step-n">${index + 1}</span>`,
+      `<span class="${bodyClass}">${actionHtml(body)}</span>`,
+      `<span class="step-box">${icon('check')}</span>`,
+      '</label>',
+      noteHtml,
+      terms,
+      '</li>',
+    ].join('');
   });
   return [
-    `<div class="steps-head"><h3>${heading}</h3><span class="js-only progress"></span></div>`,
+    '<div class="part part-steps">',
+    `<div class="part-head"><h3 class="part-title">${heading}</h3><p class="progress"><span class="count-static">手順は ${page.steps.length} つです</span><span class="count-live"></span></p></div>`,
     bandsHtml(ctx, page.branches, 'branch'),
-    '<p class="note">上から順に進めます。終わった手順にチェックを入れてください。</p>',
+    '<p class="steps-note">上から順に進めます。終わった手順にチェックを入れてください。</p>',
     `<ol class="steps" role="list">\n${items.join('\n')}\n</ol>`,
     goalHtml(ctx, page.goal),
     bandsHtml(ctx, page.exceptions, 'exception'),
-    '<button type="button" class="tap js-only reset" data-reset>チェックをすべて外す</button>',
+    '<button type="button" class="tap js-only btn-reset" data-reset>チェックをすべて外す</button>',
+    '</div>',
   ].filter(Boolean).join('\n');
 }
 
-function fallbackHtml(ctx, page, contact, heading) {
+/** 連絡先の部。手順ページでは、連絡先の「伝えること」ではなく、このページの文面だけを出す。 */
+function contactPartHtml(ctx, page, contact, heading, leading) {
   const messageId = `message-${esc(page.id)}`;
   const statusId = `copy-status-${esc(page.id)}`;
   const internal = contact.id.startsWith('INH-');
-  // 連絡先の「伝えること」は1社に1文で、別の症状の文のことがある。ここではこのページの文面だけを出す
   return [
-    `<h3>${heading}</h3>`,
-    '<div class="card contact-box">',
-    `<p class="contact-name">${esc(contact.name)}<span class="contact-role">${ctx.text(contact.role)}</span></p>`,
-    contact.phone ? callHtml(contact.phone) : '',
-    contact.hours ? `<dl class="facts"><dt>受付の時間</dt><dd>${ctx.text(contact.hours)}</dd></dl>` : '',
+    `<div class="part part-contact${leading ? ' is-lead' : ''}">`,
+    `<h3 class="part-title">${heading}</h3>`,
+    '<div class="contact-box">',
+    `<h4 class="contact-name">${esc(contact.name)}<span class="contact-role">${ctx.text(contact.role)}</span></h4>`,
+    contact.phone ? `<div class="call-row">${callHtml(contact.phone)}${copyNumberHtml(contact.phone, statusId)}</div>` : '',
+    contact.hours ? hoursHtml(ctx, contact.hours) : '',
+    `<p class="say-label">${internal ? '相談のときに伝える文面' : '業者に送る文面'}</p>`,
+    `<blockquote class="say" id="${messageId}">${ctx.text(page.fallback.message)}</blockquote>`,
+    `<button type="button" class="btn btn-copy tap js-only" data-copy="${messageId}" data-status="${statusId}">文面をコピー</button>`,
+    copyStatusHtml(statusId),
     '</div>',
-    `<h4>${internal ? '相談のときに伝える文面' : '業者に送る文面'}</h4>`,
-    `<p class="message" id="${messageId}">${ctx.text(page.fallback.message)}</p>`,
-    `<button type="button" class="tap js-only button" data-copy="${messageId}" data-status="${statusId}">文面をコピーする</button>`,
-    `<span class="js-only copy-status" id="${statusId}" role="status"></span>`,
+    '</div>',
   ].filter(Boolean).join('\n');
 }
 
-/** ページに表示した記述の根拠から、確かめ方の一文を作る。 */
+/** 右の列。手順を読みながら見る表と連絡先。本文にも同じものがあるので、1200px 未満と印刷では出さない。 */
+function railHtml(ctx, page, contact, leading) {
+  if (!page.info_rows.length && !contact) return '';
+  const statusId = `copy-status-rail-${esc(page.id)}`;
+  const info = page.info_rows.length ? `<div class="rail-block"><h3 class="label">この症状で使う会社の情報</h3>\n${infoTables(ctx, page)}\n</div>` : '';
+  // 連絡先が本文の主役のページでは、右の列の電話を控えめにする。主役を1つにするため
+  const contactBlock = contact
+    ? [
+        '<div class="rail-block">',
+        `<h3 class="label">${leading ? '連絡先' : '直らなかったら'}</h3>`,
+        `<p class="rail-name">${esc(contact.name)}</p>`,
+        contact.phone ? callHtml(contact.phone, leading) : '',
+        contact.hours ? `<p class="rail-hours">${ctx.text(contact.hours)}</p>` : '',
+        leading ? '' : `<button type="button" class="btn btn-copy tap js-only" data-copy="message-${esc(page.id)}" data-status="${statusId}">文面をコピー</button>`,
+        leading ? '' : copyStatusHtml(statusId),
+        '</div>',
+      ].filter(Boolean).join('\n')
+    : '';
+  return `<aside class="rail" aria-label="この症状の情報">\n${info}\n${contactBlock}\n</aside>`;
+}
+
+/** ページに表示した記述の根拠から、確かめ方の一文を作る。as_of は調査の日付で、確認の日付とは別のもの。 */
 function evidenceHtml(ctx, ids) {
   const evidence = ids.flatMap((id) => ctx.statements.get(id).evidence);
   const has = (prefix) => evidence.some((ref) => ref.startsWith(prefix));
@@ -326,9 +489,9 @@ function evidenceHtml(ctx, ids) {
     ...(has('PUB-') ? ['公開資料'] : []),
     ...(has('LIB-') ? ['確認済みの標準手順'] : []),
   ];
-  const review = ctx.manual.review;
+  const { review } = ctx.manual;
   const state = review ? `この手順は、前任の${esc(review.reviewer)}さんが確認済みです。` : 'この手順は、前任者の確認前です。';
-  return `<p class="evidence"><span>${state}</span><span>もとにした情報：${sources.join('、')}</span></p>`;
+  return `<div class="evidence">${review ? sealHtml(review) : ''}<p><span>${state}</span><span>もとにした情報：${sources.join('、')}</span></p></div>`;
 }
 
 const CIRCLED = ['①', '②', '③', '④'];
@@ -336,43 +499,46 @@ const CIRCLED = ['①', '②', '③', '④'];
 function symptomPanel(ctx, page) {
   const contact = page.fallback ? ctx.contacts.get(page.fallback.contact) : null;
   const terms = pageTerms(ctx, page, contact);
-  const shownIds = [
-    ...pageStatementIds(page),
-    ...terms.steps.flat().map((term) => term.explanation),
-    ...terms.rest.map((term) => term.explanation),
-    ...(contact?.hours ? [contact.hours] : []),
-  ];
+  const allTerms = [...terms.steps.flat(), ...terms.rest];
+  const shownIds = [...pageStatementIds(page), ...allTerms.map((term) => term.explanation), ...(contact?.hours ? [contact.hours] : [])];
   // 3部構成。部がないページは番号を詰め、見出しもそのページに合う言葉にする
   const hasFirst = page.first_steps.length > 0;
   const hasSteps = page.steps.length > 0;
+  // 操作が1つもないページは、連絡先を主役にして、題名と判定のすぐあとに置く
+  const contactLeads = !hasFirst && !hasSteps && Boolean(contact);
   let part = 0;
   const number = () => CIRCLED[part++];
   const first = hasFirst ? firstHtml(ctx, page, number()) : '';
   const steps = hasSteps ? stepsHtml(ctx, page, terms.steps, `${number()} ${hasFirst ? 'それでも直らなければ' : 'やること'}`) : '';
   const lastLabel = hasFirst || hasSteps ? 'それでもだめなら' : contact?.id.startsWith('INH-') ? '相談してください' : '連絡してください';
-  const last = contact ? fallbackHtml(ctx, page, contact, `${number()} ${lastLabel}`) : '';
+  const last = contact ? contactPartHtml(ctx, page, contact, `${number()} ${lastLabel}`, contactLeads) : '';
   // 手順がないページの分岐と例外も、落とさず出す
   const looseBands = hasSteps ? '' : [bandsHtml(ctx, page.branches, 'branch'), bandsHtml(ctx, page.exceptions, 'exception')].filter(Boolean).join('\n');
-  const backLink = `<a class="tap back" href="#tab-help">${icon('back')}症状の一覧に戻る</a>`;
+  const backLink = `<a class="tap back" href="#tab-help">${icon('back')}<span>症状の一覧に戻る</span></a>`;
+  const termsBlock = allTerms.length
+    ? `<div class="terms-block"><h3 class="sub-title">このページのことば</h3>\n<div class="terms">\n${allTerms.map((term) => termHtml(ctx, term, termAnchor(ctx, page, term))).join('\n')}\n</div></div>`
+    : '';
   const parts = [
-    `<article id="symptom-${esc(page.id)}" class="panel" data-tab="tab-help">`,
+    `<article id="symptom-${esc(page.id)}" class="panel symptom" data-tab="tab-help">`,
+    '<div class="symptom-body">',
     backLink,
-    `<h2 tabindex="-1">${ctx.text(page.title)}</h2>`,
-    '<div class="card verdict">',
-    `<div class="verdict-head">${badgeHtml(page.badge.value)}<p class="time">${icon('clock')}目安：約${esc(page.minutes)}分</p></div>`,
+    `<h2 class="symptom-title" tabindex="-1">${ctx.text(page.title)}</h2>`,
+    `<div class="verdict">${badgeHtml(page.badge.value)}${etaHtml(page.minutes)}</div>`,
     `<p class="verdict-text">${ctx.text(page.badge.statement)}</p>`,
-    '</div>',
-    `<p class="reassure">${ctx.text(page.reassurance)}</p>`,
+    bandHtml(ctx, page.reassurance, 'safe'),
+    contactLeads ? last : '',
     first,
-    notesHtml(ctx, page),
+    notesHtml(ctx, page, !hasFirst && !hasSteps),
     looseBands,
     steps,
-    last,
-    !contact && ctx.manual.contacts.length ? '<p class="tab-link"><a class="tap button button-quiet" href="#tab-contacts">連絡先の一覧を見る</a></p>' : '',
+    contactLeads ? '' : last,
+    !contact && ctx.manual.contacts.length ? '<p class="tab-link"><a class="tap text-link" href="#tab-contacts">連絡先の一覧を見る</a></p>' : '',
     infoHtml(ctx, page),
-    terms.rest.length ? `<h4>このページのことば</h4>\n<div class="terms">\n${terms.rest.map((term) => termHtml(ctx, term)).join('\n')}\n</div>` : '',
+    termsBlock,
     evidenceHtml(ctx, shownIds),
     backLink,
+    '</div>',
+    railHtml(ctx, page, contact, contactLeads),
     '</article>',
   ];
   return parts.filter(Boolean).join('\n');
@@ -381,16 +547,18 @@ function symptomPanel(ctx, page) {
 // ---- 連絡先 ----
 function contactCard(ctx, contact) {
   const internal = contact.id.startsWith('INH-');
-  const rows = [
-    ...(contact.hours ? [['受付の時間', contact.hours]] : []),
-    [internal ? '相談のときに伝えること' : '電話で伝えること', contact.what_to_tell],
-  ];
+  const statusId = `copy-status-c-${esc(contact.id)}`;
   return [
     '<div class="card contact-box">',
     `<h3 class="contact-name">${esc(contact.name)}<span class="contact-role">${ctx.text(contact.role)}</span></h3>`,
-    contact.phone ? callHtml(contact.phone) : '',
-    factsHtml(ctx, rows),
-    contact.contract_location ? `<details class="term contact-more"><summary class="tap">契約番号の控えの場所</summary><p>${ctx.text(contact.contract_location)}</p></details>` : '',
+    contact.phone ? `<div class="call-row">${callHtml(contact.phone)}${copyNumberHtml(contact.phone, statusId)}</div>` : '',
+    contact.phone ? copyStatusHtml(statusId) : '',
+    contact.hours ? hoursHtml(ctx, contact.hours) : '',
+    `<p class="say-label">${internal ? '相談のときに伝えること' : '電話で伝えること'}</p>`,
+    `<blockquote class="say">${ctx.text(contact.what_to_tell)}</blockquote>`,
+    contact.contract_location
+      ? `<details class="term contact-more" open><summary class="tap"><span>契約番号の控えの場所</span>${PLUS_MINUS}</summary><p>${ctx.text(contact.contract_location)}</p></details>`
+      : '',
     '</div>',
   ].filter(Boolean).join('\n');
 }
@@ -399,15 +567,16 @@ function contactsPanel(ctx) {
   // まず誰に言うかの順に、社内の相談先を先に並べる
   const inside = ctx.manual.contacts.filter((c) => c.id.startsWith('INH-'));
   const vendors = ctx.manual.contacts.filter((c) => !c.id.startsWith('INH-'));
+  const grid = (items) => `<div class="contact-grid">\n${items.map((c) => contactCard(ctx, c)).join('\n')}\n</div>`;
   const body = ctx.manual.contacts.length
     ? [
         '<p class="lead">困ったときに連絡する相手です。</p>',
-        '<p class="note">押すと、電話をかける画面が開きます。</p>',
-        ...(inside.length ? ['<h3>社内の相談先</h3>', ...inside.map((c) => contactCard(ctx, c))] : []),
-        ...(vendors.length ? [inside.length ? '<h3>業者</h3>' : '', ...vendors.map((c) => contactCard(ctx, c))] : []),
+        '<p class="note">電話のボタンを押すと、電話をかける画面が開きます。</p>',
+        ...(inside.length ? ['<h3 class="section-title">まず社内に相談</h3>', grid(inside)] : []),
+        ...(vendors.length ? [inside.length ? '<h3 class="section-title">業者</h3>' : '', grid(vendors)] : []),
       ].filter(Boolean).join('\n')
     : emptyHtml('連絡先は、まだこの説明書に入っていません。');
-  return `<section id="tab-contacts" class="panel">\n<h2 tabindex="-1">連絡先</h2>\n${body}\n</section>`;
+  return `<section id="tab-contacts" class="panel screen">\n<h2 tabindex="-1">連絡先</h2>\n${body}\n</section>`;
 }
 
 // ---- 毎月やること ----
@@ -417,31 +586,36 @@ function monthsAway(routine, asOfMonth) {
 }
 
 function routineHtml(ctx, routine) {
-  // 題名に月が書いてあれば、同じことを2回出さない。書いていなければ、月をデータから補う
-  const showMonth = routine.frequency === 'yearly' && routine.month !== undefined && !ctx.raw(routine.title).includes(`${routine.month}月`);
-  const month = showMonth ? `<p class="routine-month">毎年${esc(routine.month)}月</p>` : '';
-  const steps = routine.steps.map((id, index) => `<li><span class="step-number">${index + 1}</span><span class="step-text">${ctx.text(id)}</span></li>`);
+  const steps = routine.steps.map((id, index) => `<li><span class="step-n">${index + 1}</span><span>${ctx.text(id)}</span></li>`);
   const details = steps.length
-    ? `<details class="routine-steps" open><summary class="tap">手順を見る</summary><ol class="routine-list" role="list">${steps.join('')}</ol></details>`
+    ? `<details class="term routine-steps" open><summary class="tap"><span>手順を見る</span>${PLUS_MINUS}</summary><ol class="routine-list" role="list">${steps.join('')}</ol></details>`
     : '';
-  return `<article class="card routine" data-frequency="${esc(routine.frequency)}">${month}<h4 class="routine-title">${ctx.text(routine.title)}</h4>${details}</article>`;
+  const title = `<h4 class="routine-title">${ctx.text(routine.title)}</h4>`;
+  if (routine.frequency !== 'yearly') return `<article class="card routine" data-frequency="${esc(routine.frequency)}">${title}${details}</article>`;
+  // 年表の左に月を太字でそろえる。題名に月が書いてあれば、同じことを2回出さない
+  const showMonth = routine.month !== undefined && !ctx.raw(routine.title).includes(`${routine.month}月`);
+  const month = `<p class="routine-month">${showMonth ? `${esc(routine.month)}月` : ''}</p>`;
+  return `<article class="routine routine-year" data-frequency="yearly">${month}<div class="routine-main">${title}${details}</div></article>`;
 }
 
 function routinesPanel(ctx) {
   const { routines, as_of: asOf, glossary } = ctx.manual;
   if (!routines.length) {
-    return `<section id="tab-routines" class="panel">\n<h2 tabindex="-1">毎月やること</h2>\n${emptyHtml('毎月やることは、まだこの説明書に入っていません。')}\n</section>`;
+    return `<section id="tab-routines" class="panel screen">\n<h2 tabindex="-1">毎月やること</h2>\n${emptyHtml('毎月やることは、まだこの説明書に入っていません。')}\n</section>`;
   }
   const asOfMonth = Number(asOf.slice(5, 7));
-  const groups = FREQUENCY_LABELS.map(([frequency, label]) => {
+  const present = FREQUENCY_LABELS.filter(([frequency]) => routines.some((r) => r.frequency === frequency));
+  const groups = present.map(([frequency, label]) => {
     const items = routines.filter((r) => r.frequency === frequency);
-    if (!items.length) return '';
-    if (frequency === 'yearly') items.sort((a, b) => monthsAway(a, asOfMonth) - monthsAway(b, asOfMonth));
-    const note = frequency === 'yearly' ? `<p class="note">${esc(formatDate(asOf))}から近い順に並べています。</p>\n` : '';
-    return `<h3>${esc(label)}</h3>\n${note}${items.map((r) => routineHtml(ctx, r)).join('\n')}`;
-  }).filter(Boolean);
-  const link = glossary.length ? '\n<p class="tab-link"><a class="tap button button-quiet" href="#company-terms">分からないことばを調べる</a></p>' : '';
-  return `<section id="tab-routines" class="panel">\n<h2 tabindex="-1">毎月やること</h2>\n<p class="lead">決まった時期にやる作業です。</p>\n${groups.join('\n')}${link}\n</section>`;
+    if (frequency === 'yearly') {
+      items.sort((a, b) => monthsAway(a, asOfMonth) - monthsAway(b, asOfMonth));
+      return `<h3 class="section-title" id="freq-yearly">${esc(label)}</h3>\n<p class="note">${esc(formatDate(asOf))}から近い順に並べています。</p>\n<div class="timeline">\n${items.map((r) => routineHtml(ctx, r)).join('\n')}\n</div>`;
+    }
+    return `<h3 class="section-title" id="freq-${frequency}">${esc(label)}</h3>\n<div class="routine-cards">\n${items.map((r) => routineHtml(ctx, r)).join('\n')}\n</div>`;
+  });
+  const toc = `<nav class="toc" aria-label="頻度へ移る">${present.map(([frequency, label]) => `<a class="tap" href="#freq-${frequency}">${esc(label)}</a>`).join('')}</nav>`;
+  const link = glossary.length ? '\n<p class="tab-link"><a class="tap text-link" href="#company-terms">分からないことばを調べる</a></p>' : '';
+  return `<section id="tab-routines" class="panel screen">\n<h2 tabindex="-1">毎月やること</h2>\n<p class="lead">決まった時期にやる作業です。</p>\n<div class="routines-layout">\n${toc}\n<div class="routines-main">\n${groups.join('\n')}${link}\n</div>\n</div>\n</section>`;
 }
 
 // ---- 会社のIT ----
@@ -461,29 +635,36 @@ function deviceHtml(ctx, device) {
 function companyPanel(ctx) {
   const { devices, glossary } = ctx.manual;
   const list = devices.length
-    ? `<p class="lead">会社にある機器と、ことばの説明です。</p>\n${glossary.length ? '<p class="tab-link"><a class="tap button button-quiet" href="#company-terms">ことばの説明へ移る</a></p>\n' : ''}<h3>機器の一覧</h3>\n${devices.map((d) => deviceHtml(ctx, d)).join('\n')}`
+    ? `<div class="company-devices"><h3 class="section-title">機器の一覧</h3>\n<div class="device-grid">\n${devices.map((d) => deviceHtml(ctx, d)).join('\n')}\n</div></div>`
     : emptyHtml('機器の一覧は、まだこの説明書に入っていません。');
   const terms = glossary.length
-    ? `<h3 id="company-terms" tabindex="-1">ことばの説明</h3>\n<p class="note">押すと説明が開きます。</p>\n<div class="terms">\n${glossary.map((g) => termHtml(ctx, g)).join('\n')}\n</div>`
+    ? `<div class="company-terms"><h3 class="section-title" id="company-terms" tabindex="-1">ことばの説明</h3>\n<p class="note">押すと説明が開きます。</p>\n<div class="terms">\n${glossary.map((g, index) => termHtml(ctx, g, `g-all-${index}`)).join('\n')}\n</div></div>`
     : '';
-  return `<section id="tab-company" class="panel">\n<h2 tabindex="-1">会社のIT</h2>\n${list}\n${terms}\n</section>`;
+  const jump = glossary.length && devices.length ? '<p class="tab-link company-jump"><a class="tap text-link" href="#company-terms">ことばの説明へ移る</a></p>\n' : '';
+  return `<section id="tab-company" class="panel screen">\n<h2 tabindex="-1">会社のIT</h2>\n<p class="lead">会社にある機器と、ことばの説明です。</p>\n${jump}<div class="company-layout">\n${list}\n${terms}\n</div>\n</section>`;
 }
 
-// ---- 全体 ----
-function navHtml() {
-  const links = TABS.map(([id, label, name]) => `<a class="tap tab" href="#${id}">${icon(name)}<span>${label}</span></a>`);
+// ---- フッターと下部タブ ----
+function footerHtml() {
+  const themes = [
+    ['auto', '自動'],
+    ['light', '明るい'],
+    ['dark', '暗い'],
+  ];
+  return [
+    '<footer class="site-footer">',
+    `<p>${OKOJO}<span>このファイルは Okojyo-Soft のヒキツギで作られました。</span></p>`,
+    `<span class="js-only theme-switch">表示：${themes.map(([value, label]) => `<button type="button" class="tap" data-theme-set="${value}">${label}</button>`).join('')}</span>`,
+    '</footer>',
+  ].join('\n');
+}
+
+function tabsHtml() {
+  const links = TABS.map(([id, label, name]) => `<a class="tap" href="#${id}">${icon(name)}<span>${label}</span></a>`);
   return `<nav class="tabs" aria-label="画面の切り替え">\n${links.join('\n')}\n</nav>`;
 }
 
-/** 前任者の確認が終わるまで、下書きだと分かるようにする。 */
-const reviewBand = (manual) => (manual.review ? '' : '<p class="draft-band" role="note">下書き（前任者の確認前）</p>\n');
-
-/** 全ページの確認が済んだら、確認した人と日付を示す。 */
-const reviewNote = ({ review }) =>
-  review
-    ? `<p class="confirmed"><span class="seal">${esc(review.reviewer)} 確認 ${esc(formatDate(review.confirmed_on))}</span>この取扱説明書は、AIがもとの情報と照らし合わせ、前任の${esc(review.reviewer)}さんが全ページを確認したものです。</p>\n`
-    : '';
-
+// ---- 全体 ----
 /** 取扱説明書の中身から HTML の文字列を作る。入力に異常があれば例外を投げる。 */
 export function renderManual(manual) {
   checkInput(manual);
@@ -499,29 +680,35 @@ export function renderManual(manual) {
 
   const company = esc(manual.company_name);
   return `<!doctype html>
-<html lang="ja" data-company="${esc(manual.company)}">
+<html lang="ja" class="no-js" data-company="${esc(manual.company)}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${company} ITの取扱説明書</title>
+<script>
+${CLIENT_HEAD_SCRIPT}
+</script>
 <style>
 ${STYLES}
 </style>
 </head>
 <body>
-<header class="masthead">
-${reviewBand(manual)}<p class="confidential"><strong>社外秘</strong>${company}</p>
-<h1>ITの取扱説明書</h1>
-<p>${esc(formatDate(manual.as_of))}時点の内容です。</p>
-${reviewNote(manual)}</header>
+${draftBand(manual)}${topbarHtml(ctx)}
 <main>
+${introPanel(ctx)}
+<div class="workspace">
 ${helpPanel(ctx)}
+<div class="col-main">
+${pickPromptHtml()}
 ${manual.symptom_pages.map((page) => symptomPanel(ctx, page)).join('\n')}
+</div>
+</div>
 ${contactsPanel(ctx)}
 ${routinesPanel(ctx)}
 ${companyPanel(ctx)}
 </main>
-${navHtml()}
+${footerHtml()}
+${tabsHtml()}
 <script>
 ${CLIENT_SCRIPT}
 </script>
