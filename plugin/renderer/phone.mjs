@@ -17,6 +17,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { fileSize, oversizeMessage, PHONE_FILE_LIMIT, writeWithinLimit } from '../lib/limits.mjs';
 import { contactProblems, pageProblems } from '../lib/page-check.mjs';
+import { firstStepFigures } from '../lib/figures.mjs';
 import { actionHtml, BADGE_ICONS, BADGE_LABELS, CATEGORY_LABELS, checkInput, compactCss, esc, evidenceLines, ICONS, infoTables, makeContext, pageTerms, stepParts, telHtml } from './render.mjs';
 import { STYLES } from './styles.mjs';
 
@@ -59,6 +60,7 @@ h2 { font-size: 22px; line-height: 1.4; }
 h3 { margin-top: var(--s4); font-size: 17px; }
 .first { padding: var(--s4); background: var(--card); border: 2px solid var(--accent); border-radius: 12px; }
 .first-body { margin-top: var(--s2); font-size: 19px; font-weight: 500; }
+.step-figure { display: block; width: 100%; max-width: 320px; height: auto; margin-top: var(--s2); color: var(--ink); }
 .goal { margin-top: var(--s3); padding: var(--s2) var(--s3); color: var(--ok-fg); background: var(--ok-bg); border-radius: 8px; }
 .band { margin-top: var(--s3); padding: var(--s2) var(--s3); background: var(--card-2); border-radius: 8px; }
 .notes, .phone-steps { padding-left: 1.5em; }
@@ -168,8 +170,9 @@ function symptomHtml(ctx, page, fileTitle) {
     return `<section class="part">\n<h2>${number()} ${heading}</h2>\n${contactHtml(ctx, contact, internal ? '相談のときに伝える文面' : '業者に送る文面', page.fallback.message)}\n</section>`;
   };
   const leading = contactLeads ? contactPart() : '';
+  const figures = firstStepFigures(page, ctx.manual);
   const first = hasFirst
-    ? `<section class="part first">\n<h2>${number()} まずこれだけ</h2>\n${page.first_steps.map((id) => `<p class="first-body">${actionHtml(ctx.raw(id), ctx.words)}</p>`).join('\n')}\n${goal(page.first_goal)}\n</section>`
+    ? `<section class="part first">\n<h2>${number()} まずこれだけ</h2>\n${page.first_steps.map((id) => `<p class="first-body">${actionHtml(ctx.raw(id), ctx.words)}${figures.get(id) ?? ''}</p>`).join('\n')}\n${goal(page.first_goal)}\n</section>`
     : '';
   const reply = `<section class="part">\n<h2>社員に返す文</h2>\n${copyBoxHtml(ctx.text(page.reply_to_staff))}\n</section>`;
   const notes = page.notes.length ? `<section class="part">\n<h2>先に知っておくこと</h2>\n<ul class="notes">\n${page.notes.map((id) => `<li>${ctx.text(id)}</li>`).join('\n')}\n</ul>\n</section>` : '';

@@ -14,6 +14,7 @@ import { CLIENT_HEAD_SCRIPT, CLIENT_SCRIPT } from './client.mjs';
 import { STYLES } from './styles.mjs';
 import { oversizeMessage, PC_FILE_LIMIT, writeWithinLimit } from '../lib/limits.mjs';
 import { callScriptProblems, replyProblems } from '../lib/reply.mjs';
+import { firstStepFigures } from '../lib/figures.mjs';
 
 const SCHEMA = JSON.parse(readFileSync(new URL('../schemas/manual.schema.json', import.meta.url), 'utf8'));
 
@@ -477,11 +478,12 @@ const termAnchor = (ctx, page, term) => `g-${page.id}-${ctx.manual.glossary.inde
 /** ① まずこれだけ。手順ページの最初に見る場所で、ページ内で唯一の暖色の枠と影を持つ。 */
 function firstHtml(ctx, page, number) {
   const many = page.first_steps.length > 1;
+  const figures = firstStepFigures(page, ctx.manual);
   return [
     '<section class="first">',
     `<h3 class="first-kicker">${number} まずこれだけ <span class="eta">1分</span></h3>`,
     `<div class="first-steps${many ? ' is-many' : ''}">`,
-    page.first_steps.map((id) => `<p class="first-body"><span>${actionHtml(ctx.raw(id), ctx.words)}</span></p>`).join('\n'),
+    page.first_steps.map((id) => `<p class="first-body"><span>${actionHtml(ctx.raw(id), ctx.words)}${figures.get(id) ?? ''}</span></p>`).join('\n'),
     '</div>',
     goalHtml(ctx, page.first_goal),
     '</section>',

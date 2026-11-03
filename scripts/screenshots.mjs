@@ -20,6 +20,43 @@ import { pathToFileURL } from 'node:url';
 import { CHECKS, COLOR_CHECKS, VIEWPORTS } from './visual-spec-checks.mjs';
 import { phoneFileProblems } from '../plugin/renderer/phone.mjs';
 
+// 操作の図の検査。LIB-013 の文面が ① にあるページにだけ3枚あり、見えていて、枠の中に収まり、暖色の印と赤い×の色が正しいこと
+const FIGURE_PART_TEXT = JSON.parse(readFileSync(new URL('../plugin/library/procedures.json', import.meta.url), 'utf8')).procedures.find((part) => part.id === 'LIB-013').text;
+const figureCheck = (rootExpression) => `JSON.stringify((() => {
+  const root = ${rootExpression};
+  const firsts = [...root.querySelectorAll('.first-body')];
+  const expected = firsts.some((el) => el.textContent.includes(${JSON.stringify(FIGURE_PART_TEXT)})) ? 3 : 0;
+  const figures = [...root.querySelectorAll('.step-figure')];
+  const resolved = (name) => {
+    const probe = document.createElement('div');
+    probe.style.color = 'var(' + name + ')';
+    document.body.appendChild(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  };
+  const shown = (el) => { const box = el.getBoundingClientRect(); return getComputedStyle(el).display !== 'none' && box.width >= 200 && box.height > 0; };
+  const inside = (el) => { const box = el.getBoundingClientRect(); const outer = el.closest('.first').getBoundingClientRect(); return box.left >= outer.left && box.right <= outer.right; };
+  const marks = (name) => [...root.querySelectorAll('.step-figure [style*="' + name + '"]')];
+  return {
+    expected,
+    count: figures.length,
+    inFirst: figures.every((el) => el.closest('.first-body')),
+    shown: figures.every(shown),
+    inside: figures.every(inside),
+    accent: marks('--accent').length === figures.length && marks('--accent').every((el) => getComputedStyle(el).stroke === resolved('--accent')),
+    cross: marks('--danger-fg').length === (figures.length ? 1 : 0) && marks('--danger-fg').every((el) => getComputedStyle(el).stroke === resolved('--danger-fg')),
+    text: [...root.querySelectorAll('.step-figure text')].every((el) => getComputedStyle(el).fill === resolved('--ink')),
+  };
+})())`;
+const figureProblems = (result, label) => {
+  if (result.count !== result.expected) return [`${label}：操作の図の数が ${result.expected} 枚のはずが ${result.count} 枚`];
+  if (!result.count) return [];
+  return Object.entries({ inFirst: '① の中にありません', shown: '見えていません', inside: '① の枠からはみ出しています', accent: '暖色の印の色が違います', cross: '×の色が赤ではありません', text: '文字の色が違います' })
+    .filter(([key]) => !result[key])
+    .map(([, message]) => `${label}：操作の図 ${message}`);
+};
+
 // 長いページは分割して撮る。1枚が大きすぎると Chrome が応答しなくなるため
 const SLICE_HEIGHT = 5000;
 // 応答がなければ止める。夜間の作業が固まらないようにするため
@@ -186,6 +223,7 @@ async function shootBundle(input, output, chromePath) {
   const { endpoint, stop } = await launchChrome(chromePath);
   const problems = [];
   const shots = [];
+  const figureFiles = [];
   try {
     const browser = await connect(endpoint);
     const { targetId } = await browser.send('Target.createTarget', { url: 'about:blank' });
@@ -212,6 +250,7 @@ async function shootBundle(input, output, chromePath) {
       await settle();
       const narrow = JSON.parse(await evaluate(MEASURE));
       if (narrow.overflow > 0) problems.push(`${name} 320px：横にはみ出しています（${narrow.overflow}px）${narrow.wide.join('、')}`);
+      problems.push(...figureProblems(JSON.parse(await evaluate(figureCheck('document.body'))), `${name} 320px`));
       await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 2, mobile: true });
       for (const theme of ['light', 'dark']) {
         await page('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] });
@@ -222,6 +261,9 @@ async function shootBundle(input, output, chromePath) {
         if (metrics.small.length) problems.push(`${label}：小さすぎる文字があります ${metrics.small.join('、')}`);
         if (metrics.lowContrast.length) problems.push(`${label}：コントラスト比が 4.5 未満の文字があります ${metrics.lowContrast.join('、')}`);
         if (metrics.brokenWords.length) problems.push(`${label}：語の途中で折り返しています ${metrics.brokenWords.join('、')}`);
+        const figures = JSON.parse(await evaluate(figureCheck('document.body')));
+        problems.push(...figureProblems(figures, label));
+        if (figures.count && !figureFiles.includes(name)) figureFiles.push(name);
         const { data } = await page('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width: 375, height: Math.min(metrics.height, 8000), scale: 1 } });
         writeFileSync(join(output, `${number}-${theme}.png`), Buffer.from(data, 'base64'));
         shots.push(`${number}-${theme}`);
@@ -246,14 +288,14 @@ async function shootBundle(input, output, chromePath) {
   } finally {
     await stop();
   }
-  writeFileSync(join(output, 'report.json'), JSON.stringify({ files: names, shots, problems }, null, 2) + '\n');
+  writeFileSync(join(output, 'report.json'), JSON.stringify({ files: names, shots, figure_files: figureFiles, problems }, null, 2) + '\n');
   console.log(`撮影しました：${names.length} ファイル、${shots.length} 枚（${output}）`);
   if (problems.length) {
     console.error(`画面の検査で問題が ${problems.length} 件あります：`);
     for (const problem of problems) console.error(`- ${problem}`);
     return 1;
   }
-  console.log('画面の検査：問題なし（JavaScript なし、外部読み込みなし、リンクなし、200KB 以内、横のはみ出し、文字の大きさ、コントラスト）');
+  console.log('画面の検査：問題なし（JavaScript なし、外部読み込みなし、リンクなし、200KB 以内、横のはみ出し、文字の大きさ、コントラスト、操作の図）');
   return 0;
 }
 
@@ -419,6 +461,15 @@ async function main([inputArg, outputArg]) {
     if (!targets.fullPage) problems.push('全部品がそろった手順ページが見本にありません');
     const screenOf = { intro: 'intro', help: 'tab-help', contacts: 'tab-contacts', symptom: targets.fullPage ?? targets.firstPage };
 
+    // 操作の図は、どのページにあるかを先に確かめる。開いている画面によらない数え方にする
+    const figurePages = [];
+    for (const id of new Set(targets.pages)) {
+      const result = JSON.parse(await evaluate(figureCheck(`document.getElementById('${id}')`)));
+      if (result.count !== result.expected) problems.push(`${id}：操作の図の数が ${result.expected} 枚のはずが ${result.count} 枚`);
+      if (result.count) figurePages.push(id);
+    }
+    report.figure_pages = figurePages;
+
     const backgrounds = {};
     for (const current of VIEWPORTS) {
       viewport = current;
@@ -432,6 +483,7 @@ async function main([inputArg, outputArg]) {
           const others = await evaluate(otherScreens(screen));
           if (others !== 0) problems.push(`${viewport.name} ${theme} ${screen}：${others < 0 ? '開いた画面が表示されていません' : `ほかの画面が ${others} 個見えています`}`);
           await capture(`${theme}-${screen}`, `${viewport.name} ${theme} ${screen}`);
+          if (figurePages.includes(screen)) problems.push(...figureProblems(JSON.parse(await evaluate(figureCheck(`document.getElementById('${screen}')`))), `${viewport.name} ${theme} ${screen}`));
         }
         backgrounds[theme] = await evaluate('getComputedStyle(document.body).backgroundColor');
       }
@@ -586,7 +638,7 @@ async function main([inputArg, outputArg]) {
     for (const problem of problems) console.error(`- ${problem}`);
     return 1;
   }
-  console.log('画面の検査：問題なし（横のはみ出し、文字の大きさ、コントラスト、44px、手順の配置、列の幅、仕様の値）');
+  console.log('画面の検査：問題なし（横のはみ出し、文字の大きさ、コントラスト、44px、手順の配置、列の幅、仕様の値、操作の図）');
   return 0;
 }
 

@@ -952,6 +952,16 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   border-radius: 50%;
 }
 
+.step-figure {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  margin-top: var(--s2);
+  color: var(--ink);
+  break-inside: avoid;
+}
+
 kbd {
   display: inline-block;
   padding: 0 8px;
