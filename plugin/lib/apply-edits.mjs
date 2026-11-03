@@ -23,7 +23,9 @@ export function missingTokens(before, after, extra = []) {
  * @param revert true なら、事実が変わった文章を元に戻す。評価では false にして、変わった件数をそのまま数える
  * @returns { manual, changes } changes は事実が変わった文章の一覧
  */
-export function applyEdits(manual, edits, { revert = true } = {}) {
+export function applyEdits(manual, edits, { revert = true, retiree } = {}) {
+  const retireeName = retiree?.trim().replace(/(さん|様|氏)$/, '').split(/\s+/)[0];
+  const namesRetiree = (text) => Boolean(retireeName) && text.includes(retireeName);
   const known = new Map(manual.statements.map((statement) => [statement.id, statement]));
   const names = manual.contacts.map((contact) => contact.name);
   const rewrites = new Map();
@@ -40,6 +42,10 @@ export function applyEdits(manual, edits, { revert = true } = {}) {
     const text = rewrites.get(statement.id);
     if (text === undefined) return statement;
     // 部品の文面は確認済みなので、Editor の直しを受け付けない
+    if (namesRetiree(text)) {
+      changes.push({ statement: statement.id, missing: ['退職する担当者の名前'] });
+      return statement;
+    }
     if (statement.library) {
       if (text !== statement.text) changes.push({ statement: statement.id, missing: ['部品の文面'] });
       return statement;
@@ -67,6 +73,8 @@ export function applyEdits(manual, edits, { revert = true } = {}) {
   const terms = new Set(glossary.map((entry) => entry.term));
   for (const { term, text, evidence } of edits.glossary) {
     if (terms.has(term)) continue;
+    // 後任向けの説明に、退職する担当者の名前を入れない。残った語は Editor がもう一度書く
+    if (namesRetiree(text)) continue;
     terms.add(term);
     next += 1;
     const id = `STM-${String(next).padStart(3, '0')}`;

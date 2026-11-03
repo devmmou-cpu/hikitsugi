@@ -182,7 +182,7 @@ function referencedStatements(manual) {
     ...manual.symptom_pages.flatMap(pageStatementIds),
     ...manual.contacts.flatMap((c) => [c.role, c.hours, c.contract_location, c.what_to_tell].filter(Boolean)),
     ...manual.routines.flatMap((r) => [r.title, ...r.steps]),
-    ...manual.devices.flatMap((d) => [d.name, d.location, d.purpose, d.impact]),
+    ...manual.devices.flatMap((d) => [d.name, d.location, d.purpose, d.impact, d.credential_location, d.caution].filter(Boolean)),
     ...manual.glossary.map((g) => g.explanation),
   ];
 }
@@ -471,7 +471,7 @@ function contactPartHtml(ctx, page, contact, heading, leading) {
     `<h3 class="part-title">${heading}</h3>`,
     '<div class="contact-box">',
     `<h4 class="contact-name">${esc(contact.name)}<span class="contact-role">${esc(ctx.raw(contact.role))}</span></h4>`,
-    contact.phone ? `<div class="call-row">${callHtml(contact.phone)}${copyNumberHtml(contact.phone, statusId)}</div>` : '',
+    !contact.phone && contact.id.startsWith('VEN-') ? '<p class="no-phone">電話番号の記録がありません</p>' : contact.phone ? `<div class="call-row">${callHtml(contact.phone)}${copyNumberHtml(contact.phone, statusId)}</div>` : '',
     contact.hours ? hoursHtml(ctx, contact.hours) : '',
     `<p class="say-label">${internal ? '相談のときに伝える文面' : '業者に送る文面'}</p>`,
     `<blockquote class="say" id="${messageId}">${ctx.text(page.fallback.message)}</blockquote>`,
@@ -575,7 +575,7 @@ function contactCard(ctx, contact) {
   return [
     '<div class="card contact-box">',
     `<h3 class="contact-name">${esc(contact.name)}<span class="contact-role">${esc(ctx.raw(contact.role))}</span></h3>`,
-    contact.phone ? `<div class="call-row">${callHtml(contact.phone)}${copyNumberHtml(contact.phone, statusId)}</div>` : '',
+    !contact.phone && contact.id.startsWith('VEN-') ? '<p class="no-phone">電話番号の記録がありません</p>' : contact.phone ? `<div class="call-row">${callHtml(contact.phone)}${copyNumberHtml(contact.phone, statusId)}</div>` : '',
     contact.phone ? copyStatusHtml(statusId) : '',
     contact.hours ? hoursHtml(ctx, contact.hours) : '',
     `<p class="say-label">${internal ? '相談のときに伝えること' : '電話で伝えること'}</p>`,
@@ -649,8 +649,10 @@ function deviceHtml(ctx, device) {
     `<h4 class="device-name">${ctx.text(device.name)}</h4>`,
     factsHtml(ctx, [
       ['置き場所', device.location],
+      ...(device.credential_location ? [['パスワードの保管場所', device.credential_location]] : []),
       ['役割', device.purpose],
       ['止まると', device.impact],
+      ...(device.caution ? [['やってはいけないこと', device.caution]] : []),
     ]),
     '</article>',
   ].join('\n');

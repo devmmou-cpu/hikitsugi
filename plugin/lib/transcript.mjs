@@ -1,6 +1,8 @@
 // 聞き取り記録の操作。ID の採番と、記録してはいけない内容の確認はプログラムが行う。
 // /hikitsugi:start と評価の両方で使う。
 
+import { readFileSync } from 'node:fs';
+
 export const QUESTION_LIMIT = 20;
 export const REVIEW_GAP = 'GAP-000';
 export const REVIEW_ITEM = 'CHK-00';
@@ -8,6 +10,10 @@ export const QUESTION_CHARS = 150;
 // 同じ項目を聞くのは2回まで。答えが得られない項目で、質問を使い切らないため
 const MAX_ASKS_PER_ITEM = 2;
 const PRIORITY_RANK = { high: 0, mid: 1, low: 2 };
+// 聞き直しは、障害のときに行き止まりになる項目を先にする。業者の連絡先、機器の置き場所、定期作業の入口、そのほかの順
+const FOLLOWUP_RANK = { 連絡先: 0, 置き場所: 1, 定期作業: 2 };
+const followupOf = new Map(JSON.parse(readFileSync(new URL('../checklist/handover-items.json', import.meta.url), 'utf8')).items.map((item) => [item.id, item.followup]));
+const followupRank = (item) => FOLLOWUP_RANK[followupOf.get(item)] ?? 3;
 
 // パスワードや認証情報の本体を書いた形。保管場所の文には当たらない。
 const CREDENTIAL = /(?:パスワード|暗証番号|認証コード|password|passcode)(?:は|:|：|=|＝)\s*[「"']?[!-~]{4,}/iu;
@@ -40,7 +46,7 @@ function reviewTarget(next, gaps, transcript) {
 }
 
 /**
- * 聞き直してよい項目を、重要度の高い順に返す。
+ * 聞き直してよい項目を、聞く順に返す。行き止まりになる項目を先にし、同じ区分の中では空白の重要度の順。
  * 「分からない」「あとで」と答えた項目と、すでに2回聞いた項目は含めない。埋まったかどうかは Interviewer が記録を読んで判断する。
  */
 export function reviewCandidates(gaps, transcript) {
@@ -59,7 +65,8 @@ export function reviewCandidates(gaps, transcript) {
       candidates.push({ item, gap: gap.id, priority: gap.priority, asked: asked.length });
     }
   }
-  return candidates;
+  // 並べ替えは安定なので、同じ区分の中は上の順番のまま
+  return candidates.sort((a, b) => followupRank(a.item) - followupRank(b.item));
 }
 
 /** Interviewer に渡す進み具合。聞き直しの段階では、聞き直してよい項目を重要度の順に示す。 */
@@ -99,7 +106,7 @@ export function checkNextQuestion(next, gaps, transcript) {
   if (transcript && unaskedItems(gaps, transcript).length === 0) {
     const target = reviewTarget(next, gaps, transcript);
     if (!target) problems.push('聞き直せる未回収の項目がありません。unfilled に項目を挙げるか、終えてください');
-    else if (!next.covers.includes(target)) problems.push(`未回収の項目は、重要度の高いものから聞いてください：${target} を covers に入れます`);
+    else if (!next.covers.includes(target)) problems.push(`未回収の項目は、決まった順番（業者の連絡先、機器の置き場所、定期作業の入口、そのほか）で聞いてください：${target} を covers に入れます`);
   }
   return problems;
 }

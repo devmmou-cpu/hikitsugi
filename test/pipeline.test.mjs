@@ -12,8 +12,9 @@ import * as manualScorer from '../eval/lib/scorers/manual.mjs';
 import { buildWriterRequest, runWriterLive } from '../eval/lib/writing.mjs';
 import { runPipeline } from '../eval/pipeline.mjs';
 import { applyEdits, missingTokens } from '../plugin/lib/apply-edits.mjs';
-import { assembleManual, commonStatementIds, mergeRewritten, ownersOf, previousPiece } from '../plugin/lib/assemble.mjs';
+import { assembleManual, checkCommon, commonStatementIds, mergeRewritten, ownersOf, previousPiece } from '../plugin/lib/assemble.mjs';
 import { buildRevision, carryForward, markReviewed, mergeVerification, prepareForRender, summarizeVerification, UnapprovedPartsError, verificationScope } from '../plugin/lib/handover.mjs';
+import { coverageLeaks } from '../plugin/lib/coverage-check.mjs';
 import { longSentences, plainProblems } from '../plugin/lib/plain-check.mjs';
 import { applyRetireeCheck, namesRetireeAsContact, retireeFindings } from '../plugin/lib/retiree-check.mjs';
 import { composeProcedures, libraryForAgents, loadLibrary, unapprovedParts } from '../plugin/lib/procedures.mjs';
@@ -164,9 +165,22 @@ const pieces = () => {
       contacts,
       routines,
       devices,
+      before_leaving: [],
     },
     page: { statements: pick(pageStatementIds(page)), page },
   };
+};
+
+/** 載せ漏れの書き直しの偽の応答。足りない事実を機器として足す。 */
+const fillMissing = (previous, missing) => {
+  const out = JSON.parse(JSON.stringify(previous));
+  missing.forEach(({ detail, source }, index) => {
+    const base = 800 + index * 4;
+    const ids = [0, 1, 2, 3].map((n) => `STM-${base + n}`);
+    out.statements.push({ id: ids[0], text: '追加の機器', evidence: [source] }, { id: ids[1], text: detail.replace(/\s+/g, ' '), evidence: [source] }, { id: ids[2], text: '役割です', evidence: [source] }, { id: ids[3], text: '困ります', evidence: [source] });
+    out.devices.push({ id: `D${90 + index}`, name: ids[0], location: ids[1], purpose: ids[2], impact: ids[3], credential_location: null, caution: null });
+  });
+  return out;
 };
 
 const glossaryEdits = () => {
@@ -204,7 +218,8 @@ function pipelineClient({ verdicts }) {
     if (system.includes('模擬の担当者')) return { fact_ids: ['F-05'] };
     if (system.includes('Writer')) {
       const task = taggedIn(params, 'task');
-      // 書き直しでは、前の版をそのまま返す
+      // 書き直しでは、前の版をそのまま返す。載せ漏れがあれば足す
+      if (task.revision?.missing) return fillMissing(task.revision.previous, task.revision.missing);
       if (task.revision) return task.revision.previous;
       return task.part === 'common' ? pieces().common : pieces().page;
     }
@@ -248,8 +263,11 @@ test('通し：合格すれば HTML を作り、エージェントごとの費�
     assert.equal(summary.label, '模擬評価');
     assert.ok(existsSync(join(dir, 'manual.html')));
     assert.ok(summary.agents.verifier.calls === 1);
-    // 共通部分に1回、ページごとに1回
-    assert.equal(summary.agents.writer.calls, 2);
+    // 共通部分に1回、ページごとに1回、載せ漏れの書き直しに1回
+    assert.equal(summary.agents.writer.calls, 3);
+    assert.ok(summary.leaks[0].found > 0);
+    assert.equal(summary.leaks[0].remaining, 0);
+    assert.equal(summary.before_leaving, 0);
     assert.equal(summary.review.pages, 1);
     assert.match(summary.review.mode, /模擬/);
     const final = JSON.parse(readFileSync(join(dir, 'manual-final.json'), 'utf8'));
@@ -265,10 +283,10 @@ test('通し：不合格なら指摘を Writer に渡して差し戻す', () =>
     assert.equal(summary.status, 'passed', summary.error);
     assert.equal(summary.resends, 1);
     const writers = client.sent.filter((p) => p.system.includes('Writer'));
-    // 指摘のあった部分だけを書き直す
-    assert.equal(writers.length, 3);
+    // 指摘のあった部分だけを書き直す（載せ漏れの書き直しを含む）
+    assert.equal(writers.length, 4);
     assert.ok(!taggedIn(writers[0], 'task').revision);
-    assert.ok(taggedIn(writers[2], 'task').revision.findings.length);
+    assert.ok(taggedIn(writers[3], 'task').revision.findings.length);
     // 変わっていない文章は Verifier にかけ直さない
     const verifiers = client.sent.filter((p) => p.system.includes('Verifier'));
     assert.ok(taggedIn(verifiers[1], 'statements').statements.length < taggedIn(verifiers[0], 'statements').statements.length);
@@ -288,7 +306,7 @@ test('通し：差し戻しは最大2回で、合格しなければ HTML を作�
     const client = pipelineClient({ verdicts: ['dangerous', 'dangerous', 'dangerous', 'dangerous'] });
     const summary = await runPipeline({ set: 'okojo', setDir: SET, dir, client });
     assert.equal(summary.status, 'not_passed');
-    assert.equal(client.sent.filter((p) => p.system.includes('Writer')).length, 4);
+    assert.equal(client.sent.filter((p) => p.system.includes('Writer')).length, 5);
     assert.ok(!existsSync(join(dir, 'manual.html')));
     assert.ok(summary.unresolved.length > 0);
   }));
@@ -373,7 +391,18 @@ test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途�
     write('writer-1-T1.json', broken);
     assert.throws(() => hikitsugi('check-writer', ['1', 'T1']), /1つの操作ではありません/);
     write('writer-1-T1.json', pieces().page);
-    assert.match(hikitsugi('check-writer', ['1', 'T1']), /書きました/);
+    // 載せ漏れがあれば、共通部分だけを書き直す
+    assert.match(hikitsugi('check-writer', ['1', 'T1']), /載せ漏れがあるので、共通部分を書き直します/);
+    assert.deepEqual(nextStep(work), { step: 'writer', round: 1, part: 'common' });
+    hikitsugi('writer-task', ['1', 'common']);
+    const leakTask = JSON.parse(readFileSync(join(work, 'writer-task.json'), 'utf8'));
+    assert.ok(leakTask.revision.missing.length > 0);
+    // 直らなければ止める
+    write('writer-1-common.json', leakTask.revision.previous);
+    assert.throws(() => hikitsugi('check-writer', ['1', 'common']), /載せ漏れが残っています/);
+    write('writer-1-common.json', fillMissing(leakTask.revision.previous, leakTask.revision.missing));
+    assert.match(hikitsugi('check-writer', ['1', 'common']), /書きました/);
+    assert.ok(!JSON.parse(readFileSync(join(work, 'state.json'), 'utf8')).leaks);
     const written = JSON.parse(readFileSync(join(work, 'manual-1.json'), 'utf8'));
     assert.equal(written.company_name, 'テスト 会社');
     assert.equal(written.company, input.survey.company);
@@ -665,7 +694,9 @@ test('社内の相談先は電話番号や受付の記録がなくてよい。�
   assert.match(problemsOf(inside), /名前「架空の部署」が根拠にありません/);
   const vendor = withSteps([step('STM-001', 'LIB-001')]);
   vendor.contacts[0] = { ...vendor.contacts[0], phone: '', hours: null };
-  assert.match(problemsOf(vendor), /業者には電話番号が必要/);
+  // 番号の記録がない業者も載せる。番号があるのに受付の欄がなければ見つける
+  assert.equal(problemsOf(vendor), '');
+  vendor.contacts[0].phone = '03-0000-0102';
   assert.match(problemsOf(vendor), /hours と contract_location/);
 });
 
@@ -791,25 +822,26 @@ test('連絡先の一覧に退職する担当者が載っていれば、役割�
   assert.deepEqual(retireeFindings(manual, '田中').map((f) => f.statement), ['STM-001']);
 });
 
-test('通し：退職する担当者を連絡先にした文章は、照合で差し戻す。件数を記録する', () =>
+test('通し：後任向けの文章に退職する担当者の名前があれば、Writer の段階で直してもらう', () =>
   withTemp(async (dir) => {
     const client = pipelineClient({ verdicts: ['correct', 'correct', 'correct'] });
     const realStream = client.messages.stream;
-    let fixedOnRevision = 0;
+    let retried = 0;
     client.messages.stream = (params) => {
       const stream = realStream(params);
       if (!params.system.includes('Writer')) return stream;
       const task = taggedIn(params, 'task');
       assert.equal(task.retiree, '田中');
+      const hasProblems = JSON.stringify(params.messages).includes('structure_problems');
       return {
         finalMessage: async () => {
           const message = await stream.finalMessage();
           const body = JSON.parse(message.content[0].text);
           if (task.part === 'page') {
             const reassurance = body.statements.find((s) => s.id === body.page.reassurance);
-            if (task.revision) {
+            if (hasProblems) {
               reassurance.text = 'データは消えません。';
-              fixedOnRevision += 1;
+              retried += 1;
             } else reassurance.text = '困ったら田中さんに相談してください。';
           }
           return { ...message, content: [{ type: 'text', text: JSON.stringify(body) }] };
@@ -818,16 +850,99 @@ test('通し：退職する担当者を連絡先にした文章は、照合で�
     };
     const summary = await runPipeline({ set: 'okojo', setDir: SET, dir, client });
     assert.equal(summary.status, 'passed', summary.error);
-    assert.equal(summary.rounds[0].retiree_hits, 1);
-    assert.equal(summary.rounds[0].counts.dangerous, 1);
-    assert.equal(summary.rounds[1].retiree_hits, 0);
-    assert.equal(fixedOnRevision, 1);
+    assert.equal(retried, 1);
+    assert.equal(summary.rounds[0].retiree_hits, 0);
     const final = JSON.parse(readFileSync(join(dir, 'manual-final.json'), 'utf8'));
-    assert.ok(!final.statements.some((s) => s.text.includes('田中さんに相談')));
+    assert.ok(!final.statements.some((s) => s.text.includes('田中')));
     // Verifier にも退職する担当者を渡す
     const verifier = client.sent.find((p) => p.system.includes('Verifier'));
     assert.ok(JSON.stringify(verifier.messages).includes('<retiree>'));
   }));
+
+// ---- 載せ漏れの検査と、退職前にやること ----
+const leakSources = (answer, items = []) => ({ survey: { items }, transcript: { entries: [{ id: 'INT-001', status: 'answered', answer }] } });
+const manualWith = (...texts) => ({ statements: texts.map((text, i) => ({ id: `STM-${i + 1}`, text, evidence: ['INT-001'] })) });
+
+test('載せ漏れ：答えのあるパスワードの置き場所と機器の置き場所が、どの文章にもなければ見つける', () => {
+  const sources = leakSources('管理者のパスワードの控えは総務の鍵つき棚にあります。ルーターは倉庫の奥の棚の上にあります。');
+  const leaks = coverageLeaks(manualWith('関係のない文章です。'), sources);
+  assert.deepEqual(leaks.map((leak) => leak.kind), ['credential_location', 'device_location']);
+  assert.deepEqual(coverageLeaks(manualWith('控えは総務の鍵つき棚にあります。', 'ルーターの場所は 倉庫の奥の棚の上 です。'), sources), []);
+});
+
+test('載せ漏れ：「分からない」の回答は対象にしない', () => {
+  const sources = { survey: { items: [] }, transcript: { entries: [{ id: 'INT-001', status: 'later', answer: 'パスワードの控えは金庫にあります。' }] } };
+  assert.deepEqual(coverageLeaks(manualWith('文章です。'), sources), []);
+});
+
+test('載せ漏れ：大型更新を保留している PC があるのに載っていなければ見つける。保留がなければ見つけない', () => {
+  const item = (value) => ({ id: 'INV-001', host: 'PC-1', key: 'security.feature_update', value, status: 'ok' });
+  const held = leakSources('回答です。', [item('大型更新は保留に設定')]);
+  assert.deepEqual(coverageLeaks(manualWith('文章です。'), held).map((leak) => leak.kind), ['feature_update']);
+  assert.deepEqual(coverageLeaks(manualWith('この PC は大型更新を進めないでください。'), held), []);
+  assert.deepEqual(coverageLeaks(manualWith('文章です。'), leakSources('回答です。', [item('大型更新の保留の設定なし')])), []);
+});
+
+test('通し：載せ漏れが直らなければ止める', () =>
+  withTemp(async (dir) => {
+    const client = pipelineClient({ verdicts: ['correct'] });
+    const realStream = client.messages.stream;
+    client.messages.stream = (params) => {
+      const stream = realStream(params);
+      if (!params.system.includes('Writer') || !taggedIn(params, 'task').revision?.missing) return stream;
+      return {
+        finalMessage: async () => {
+          const message = await stream.finalMessage();
+          return { ...message, content: [{ type: 'text', text: JSON.stringify(taggedIn(params, 'task').revision.previous) }] };
+        },
+      };
+    };
+    const summary = await runPipeline({ set: 'okojo', setDir: SET, dir, client });
+    assert.equal(summary.status, 'error');
+    assert.match(summary.error, /載せ漏れが残っています/);
+    assert.ok(!existsSync(join(dir, 'manual.html')));
+  }));
+
+test('退職前にやることは後任向けの HTML に出さず、根拠のない項目と認証情報は止める', () => {
+  const manual = fixture();
+  manual.before_leaving = [{ text: '管理者の権限を社長に移してください。', evidence: ['INT-018'] }];
+  assert.deepEqual(validate(JSON.parse(readFileSync(join(ROOT, 'plugin/schemas/manual.schema.json'), 'utf8')), manual), []);
+  assert.ok(!renderManual(manual).includes('管理者の権限を社長に移して'));
+  const common = (before) => ({ ...pieces().common, before_leaving: before });
+  const unknown = input.transcript.entries.find((entry) => entry.status !== 'answered');
+  assert.deepEqual(checkCommon(common([{ text: '移してください。', evidence: ['INT-018'] }]), sources).problems, []);
+  assert.match(checkCommon(common([{ text: '移してください。', evidence: [unknown.id] }]), sources).problems.join(), /回答のある聞き取り/);
+  assert.match(checkCommon(common([{ text: 'パスワードは abcd1234 です', evidence: ['INT-018'] }]), sources).problems.join(), /認証情報/);
+});
+
+test('Editor は後任向けの文章と用語の説明に、退職する担当者の名前を入れられない', () => {
+  const manual = fixture();
+  const id = manual.statements[0].id;
+  const before = manual.statements[0].text;
+  const { manual: edited, changes } = applyEdits(manual, { rewrites: [{ id, text: '田中さんの手順です。' }], glossary: [{ term: '新しい語', text: '田中さんが管理しています。', evidence: ['INT-018'] }] }, { retiree: '田中' });
+  assert.equal(edited.statements[0].text, before);
+  assert.deepEqual(changes, [{ statement: id, missing: ['退職する担当者の名前'] }]);
+  assert.ok(!edited.glossary.some((g) => g.term === '新しい語'));
+});
+
+test('電話番号の記録がない業者は載せて、記録がないと表示する', () => {
+  const manual = fixture();
+  manual.contacts[0].phone = '';
+  const html = renderManual(manual);
+  assert.ok(html.includes('電話番号の記録がありません'));
+  assert.ok(!/href="tel:"/.test(html));
+});
+
+test('機器のパスワードの置き場所と、やってはいけないことを表示する', () => {
+  const manual = JSON.parse(readFileSync(join(ROOT, 'test/fixtures/manual-full.json'), 'utf8'));
+  const last = Math.max(...manual.statements.map((s) => Number(s.id.slice(4))));
+  const [a, b] = [`STM-${last + 1}`, `STM-${last + 2}`];
+  manual.statements.push({ id: a, text: '控えは書庫にあります。', evidence: ['INT-001'] }, { id: b, text: '大型更新を進めないでください。', evidence: ['INT-001'] });
+  manual.devices[0].credential_location = a;
+  manual.devices[0].caution = b;
+  const html = renderManual(manual);
+  for (const word of ['パスワードの保管場所', '控えは書庫にあります', 'やってはいけないこと']) assert.ok(html.includes(word), word);
+});
 
 test('/hikitsugi:start：退職する担当者を連絡先にした文章は、照合で差し戻す', () =>
   withTemp(async (dir) => {
@@ -868,7 +983,8 @@ test('Writer の形の問題は部分ごとに1回だけ伝えて直してもら
         countTokens: async () => ({ input_tokens: 1 }),
         stream: (params) => {
           sent.push(params);
-          const reply = taggedIn(params, 'task').part === 'common' ? pieces().common : pageReplies[pageCalls++];
+          const task = taggedIn(params, 'task');
+          const reply = task.revision?.missing ? fillMissing(task.revision.previous, task.revision.missing) : task.part === 'common' ? pieces().common : pageReplies[pageCalls++];
           return { finalMessage: async () => ({ id: 'msg', model: params.model, stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: 'text', text: JSON.stringify(reply) }] }) };
         },
       },
@@ -877,8 +993,8 @@ test('Writer の形の問題は部分ごとに1回だけ伝えて直してもら
   const args = { survey: input.survey, transcript: input.transcript, companyName: 'オコジョ精工' };
   const fixed = clientOf([bad, pieces().page]);
   const result = await runWriterLive({ ...args, client: fixed });
-  // 共通部分は書き直さない
-  assert.equal(fixed.sent.length, 3);
+  // 共通部分は書き直さない（最後の1回は載せ漏れの書き直し）
+  assert.equal(fixed.sent.length, 4);
   assert.ok(JSON.stringify(fixed.sent[2].messages).includes('structure_problems'));
   assert.equal(result.company_name, 'オコジョ精工');
   const stuck = clientOf([bad, bad]);
@@ -894,17 +1010,18 @@ test('Writer は書き終えた部分を保存し、再開するとその部分�
     messages: {
       stream: (params) => {
         sent.push(params);
-        const reply = taggedIn(params, 'task').part === 'common' ? pieces().common : pieces().page;
+        const task = taggedIn(params, 'task');
+        const reply = task.revision?.missing ? fillMissing(task.revision.previous, task.revision.missing) : task.part === 'common' ? pieces().common : pieces().page;
         return { finalMessage: async () => ({ id: 'msg', model: params.model, stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: 'text', text: JSON.stringify(reply) }] }) };
       },
     },
   };
   const args = { survey: input.survey, transcript: input.transcript, companyName: 'オコジョ精工', client, store };
   await runWriterLive(args);
-  assert.deepEqual([...saved.keys()].sort(), ['T1', 'common']);
-  assert.equal(sent.length, 2);
+  assert.deepEqual([...saved.keys()].sort(), ['T1', 'common', 'common-leaks']);
+  assert.equal(sent.length, 3);
   await runWriterLive(args);
-  assert.equal(sent.length, 2);
+  assert.equal(sent.length, 3);
 });
 
 test('Writer の前置きはキャッシュし、調査データと聞き取りを部分ごとに送り直さない', () => {

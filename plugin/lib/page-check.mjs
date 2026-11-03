@@ -57,10 +57,12 @@ export function parseInfoRow(text) {
   return row ? { type: 'value', label: row[1], value: row[2] } : null;
 }
 
-/** 文章そのものの問題。 */
-export function statementProblems(statements) {
+/** 文章そのものの問題。retiree があれば、本人の名前を後任向けの文章に書いていないかも確かめる。 */
+export function statementProblems(statements, retiree) {
   const problems = [];
+  const name = retiree?.trim().replace(/(さん|様|氏)$/, '').split(/\s+/)[0];
   for (const { id, text, library } of statements) {
+    if (name && !library && text.includes(name)) problems.push(`${id}: 退職する担当者の名前を、後任向けの文章に書かないでください。本人にしかできない作業は before_leaving に入れてください`);
     if (!library && !text.trim()) problems.push(`${id}: 文章が空です`);
     if (!library && /聞き取り|調査データ/.test(text)) problems.push(`${id}: 作り方の言葉（聞き取り、調査データ）を書かないでください`);
   }
@@ -100,7 +102,7 @@ export function pageProblems(manual) {
       problems.push(`${page.id}: check_first のページには、確かめたあとの連絡先（fallback）が必要です。業者の連絡先がなければ社内の相談先（INH-）にしてください`);
     }
     if (page.badge.value === 'vendor' && !page.fallback?.contact.startsWith('VEN-')) {
-      problems.push(`${page.id}: vendor のページには、使える連絡先の中の業者（VEN-）の fallback が必要です。電話番号の記録がない業者は連絡先にありません。その場合は internal にして、社内の相談先（INH-）を fallback にし、記録がないことを notes に書いてください`);
+      problems.push(`${page.id}: vendor のページには、使える連絡先の中の業者（VEN-）の fallback が必要です。電話番号の記録がない業者も連絡先に載せます`);
     }
     if (page.badge.value === 'internal' && !page.fallback?.contact.startsWith('INH-')) {
       problems.push(`${page.id}: internal のページには社内の相談先（INH-）の fallback が必要です`);
@@ -115,8 +117,8 @@ export function contactProblems(manual) {
   const problems = [];
   for (const contact of manual.contacts) {
     const vendor = contact.id.startsWith('VEN-');
-    if (vendor && !contact.phone) problems.push(`${contact.id}: 業者には電話番号が必要です`);
-    if (vendor && (!contact.hours || !contact.contract_location)) problems.push(`${contact.id}: 業者の hours と contract_location は文章の ID にしてください。記録がなければ「記録がありません」と書きます`);
+    // 電話番号の記録がない業者も載せる。画面に「電話番号の記録がありません」と出す
+    if (vendor && contact.phone && (!contact.hours || !contact.contract_location)) problems.push(`${contact.id}: 業者の hours と contract_location は文章の ID にしてください。記録がなければ「記録がありません」と書きます`);
     const role = byId.get(contact.role)?.text ?? '';
     if (role.length > ROLE_LENGTH_MAX || role.includes('。')) problems.push(`${contact.id}: role は${ROLE_LENGTH_MAX}字以内の短いラベルにしてください（「。」を付けません）`);
   }
@@ -124,8 +126,8 @@ export function contactProblems(manual) {
 }
 
 /** 取扱説明書の全体の形の問題。 */
-export function manualProblems(manual) {
-  const problems = [...statementProblems(manual.statements), ...pageProblems(manual), ...contactProblems(manual)];
+export function manualProblems(manual, retiree) {
+  const problems = [...statementProblems(manual.statements, retiree), ...pageProblems(manual), ...contactProblems(manual)];
   // 途中で書くのをやめた出力を、合格させない
   if (manual.symptom_pages.length === 0) problems.push('手順ページが1つもありません。最初から全体を書いてください');
   return problems;

@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { contactProblems, pageProblems, pageStatementIds, statementProblems } from './page-check.mjs';
 import { composeStatements, contactEvidenceProblems, loadLibrary, pageDetailProblems } from './procedures.mjs';
+import { hasCredential } from './transcript.mjs';
 
 const MANUAL_SCHEMA = JSON.parse(readFileSync(new URL('../schemas/manual.schema.json', import.meta.url), 'utf8'));
 const CATEGORY = MANUAL_SCHEMA.properties.symptom_pages.items.properties.category;
@@ -14,7 +15,7 @@ const objectOf = (properties) => ({ type: 'object', additionalProperties: false,
 
 /** 共通部分の出力の形。 */
 export const commonSchema = () => {
-  const { statements, contacts, routines, devices } = MANUAL_SCHEMA.properties;
+  const { statements, contacts, routines, devices, before_leaving: beforeLeaving } = MANUAL_SCHEMA.properties;
   return objectOf({
     page_plan: {
       $comment: '作る手順ページの一覧。symptom はページを書く担当へ渡す、症状の短い説明',
@@ -25,6 +26,7 @@ export const commonSchema = () => {
     contacts,
     routines,
     devices,
+    before_leaving: beforeLeaving,
   });
 };
 
@@ -35,11 +37,11 @@ export const pageSchema = () => objectOf({ statements: MANUAL_SCHEMA.properties.
 export const commonStatementIds = ({ contacts, routines, devices }) => [
   ...contacts.flatMap((c) => [c.role, c.hours, c.contract_location, c.what_to_tell].filter(Boolean)),
   ...routines.flatMap((r) => [r.title, ...r.steps]),
-  ...devices.flatMap((d) => [d.name, d.location, d.purpose, d.impact]),
+  ...devices.flatMap((d) => [d.name, d.location, d.purpose, d.impact, d.credential_location, d.caution].filter(Boolean)),
 ];
 
 /** 共通部分の出力を確かめる。 */
-export function checkCommon(output, sources, library = loadLibrary()) {
+export function checkCommon(output, sources, { library = loadLibrary(), retiree } = {}) {
   const { statements, problems } = composeStatements(output.statements, library);
   const known = new Set(statements.map((s) => s.id));
   const missing = commonStatementIds(output).filter((id) => !known.has(id));
@@ -48,16 +50,22 @@ export function checkCommon(output, sources, library = loadLibrary()) {
   const ids = output.page_plan.map((entry) => entry.id);
   if (new Set(ids).size !== ids.length) problems.push('page_plan の id が重複しています');
   const piece = { statements, contacts: output.contacts };
-  problems.push(...statementProblems(statements), ...contactProblems(piece), ...contactEvidenceProblems(output.contacts, sources));
+  problems.push(...statementProblems(statements, retiree), ...contactProblems(piece), ...contactEvidenceProblems(output.contacts, sources));
+  // 退職前にやることは本人に見せる一覧。根拠は実際の回答だけで、認証情報を書かない
+  const answered = new Set(sources.transcript.entries.filter((entry) => entry.status === 'answered').map((entry) => entry.id));
+  output.before_leaving.forEach(({ text, evidence }, index) => {
+    if (evidence.some((ref) => !answered.has(ref))) problems.push(`before_leaving の ${index + 1} 件目：根拠は回答のある聞き取りだけです`);
+    if (hasCredential(text)) problems.push(`before_leaving の ${index + 1} 件目：認証情報の本体を書かないでください`);
+  });
   return { output: { ...output, statements }, problems };
 }
 
 /** ページの出力を確かめる。id と category は一覧の値に固定する。連絡先の照合には共通部分を使う。 */
-export function checkPage(output, entry, contacts, sources, library = loadLibrary()) {
+export function checkPage(output, entry, contacts, sources, { library = loadLibrary(), retiree } = {}) {
   const page = { ...output.page, id: entry.id, category: entry.category };
   const { statements, problems } = composeStatements(output.statements, library);
   problems.push(
-    ...statementProblems(statements),
+    ...statementProblems(statements, retiree),
     ...pageProblems({ statements, symptom_pages: [page], contacts }),
     ...pageDetailProblems(page, statements, sources, library),
   );
@@ -112,6 +120,7 @@ export function assembleManual(common, pages, header) {
     contacts: placedCommon.rest.contacts,
     routines: placedCommon.rest.routines,
     devices: placedCommon.rest.devices,
+    before_leaving: placedCommon.rest.before_leaving,
     glossary: [],
   };
 }
@@ -136,7 +145,7 @@ export function previousPiece(manual, owner) {
   const pick = (ids) => [...new Set(ids)].map((id) => byId.get(id));
   if (owner === 'common') {
     const { contacts, routines, devices } = manual;
-    return { statements: pick(commonStatementIds(manual)), contacts, routines, devices };
+    return { statements: pick(commonStatementIds(manual)), contacts, routines, devices, before_leaving: manual.before_leaving ?? [] };
   }
   const page = manual.symptom_pages.find((candidate) => candidate.id === owner);
   return { statements: pick(pageStatementIds(page)), page };

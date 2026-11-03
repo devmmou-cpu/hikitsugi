@@ -3,6 +3,7 @@
 import { applyEdits } from '../../plugin/lib/apply-edits.mjs';
 import { plainProblems } from '../../plugin/lib/plain-check.mjs';
 import { assembleManual, checkCommon, checkPage, commonSchema, mergeRewritten, ownersOf, pageSchema, previousPiece } from '../../plugin/lib/assemble.mjs';
+import { coverageLeaks } from '../../plugin/lib/coverage-check.mjs';
 import { composeProcedures, libraryForAgents } from '../../plugin/lib/procedures.mjs';
 import { buildRequest, callAgent, clientOf, LiveFailure, loadAgent, stripUnsupported, tagged } from './adapters/live.mjs';
 
@@ -56,8 +57,9 @@ export function buildWriterRequest({ survey, transcript, retiree, task = { part:
   ]);
 }
 
-export function buildEditorRequest({ manual, survey, transcript, findings, agent = loadAgent('plugin/agents/plain-japanese-editor.md') }) {
+export function buildEditorRequest({ manual, survey, transcript, retiree, findings, agent = loadAgent('plugin/agents/plain-japanese-editor.md') }) {
   const sections = { manual, survey, transcript };
+  if (retiree) sections.retiree = retiree;
   if (findings) sections.findings = findings;
   const content = `${tagged(sections)}\n\n${findings ? 'findings の問題だけを直してください。' : 'manual の文章を直し、用語の説明を作ってください。'}`;
   return buildRequest(agent, EDITOR_SCHEMA, content);
@@ -102,7 +104,7 @@ const contactsForPages = (common) => {
  * @param revision { previous_manual, findings }
  * @param store { get(name), set(name, value) }。書き終えた部分を保存して、止まっても続きから再開するため
  */
-export async function runWriterLive({ survey, transcript, companyName, retiree, revision, client, record = () => {}, store = { get: () => undefined, set: () => {} } }) {
+export async function runWriterLive({ survey, transcript, companyName, retiree, revision, client, record = () => {}, store = { get: () => undefined, set: () => {} }, onLeaks = () => {} }) {
   const api = await clientOf(client);
   const agent = loadAgent('plugin/agents/writer.md');
   const sources = { survey, transcript };
@@ -114,16 +116,32 @@ export async function runWriterLive({ survey, transcript, companyName, retiree, 
     return output;
   };
 
+  // 載せ漏れは、共通部分を1回だけ書き直して埋める。それでも残れば止める
+  const fillLeaks = async (manual) => {
+    const found = coverageLeaks(manual, sources);
+    if (!found.length) {
+      onLeaks({ found: 0, remaining: 0, kinds: [] });
+      return finishWriter(manual, sources, retiree);
+    }
+    const piece = { ...previousPiece(manual, 'common'), page_plan: manual.symptom_pages.map(({ id, category, title }) => ({ id, category, symptom: manual.statements.find((s) => s.id === title).text })) };
+    const output = await once('common-leaks', { part: 'common', revision: { previous: piece, findings: [], missing: found } }, (raw) => checkCommon({ ...raw, page_plan: piece.page_plan }, sources, { retiree }));
+    const filled = mergeRewritten(manual, { common: output, pages: {} });
+    const remaining = coverageLeaks(filled, sources);
+    onLeaks({ found: found.length, remaining: remaining.length, kinds: found.map((leak) => leak.kind) });
+    if (remaining.length) throw new LiveFailure('coverage', `載せ漏れが残っています：${remaining.map((leak) => `${leak.kind} ${leak.source}`).join('、')}`);
+    return finishWriter(filled, sources, retiree);
+  };
+
   if (!revision) {
-    const common = await once('common', { part: 'common' }, (output) => checkCommon(output, sources));
+    const common = await once('common', { part: 'common' }, (output) => checkCommon(output, sources, { retiree }));
     const contacts = contactsForPages(common);
     const pages = {};
     await pool(common.page_plan, PAGE_CONCURRENCY, async (entry) => {
-      pages[entry.id] = await once(entry.id, { part: 'page', entry, contacts }, (output) => checkPage(output, entry, common.contacts, sources));
+      pages[entry.id] = await once(entry.id, { part: 'page', entry, contacts }, (output) => checkPage(output, entry, common.contacts, sources, { retiree }));
     });
     // 会社の情報はプログラムが付ける。モデルの出力で上書きさせない
     const manual = assembleManual(common, pages, { schema_version: 1, company: survey.company, company_name: companyName, as_of: survey.as_of });
-    return finishWriter(manual, sources);
+    return fillLeaks(manual);
   }
 
   const previous = revision.previous_manual;
@@ -134,19 +152,19 @@ export async function runWriterLive({ survey, transcript, companyName, retiree, 
     const taskRevision = { previous: previousPiece(previous, owner), findings };
     if (owner === 'common') {
       const plan = previous.symptom_pages.map(({ id, category, title }) => ({ id, category, symptom: previous.statements.find((s) => s.id === title).text }));
-      rewritten.common = await once('common', { part: 'common', revision: { ...taskRevision, previous: { ...taskRevision.previous, page_plan: plan } } }, (output) => checkCommon({ ...output, page_plan: plan }, sources));
+      rewritten.common = await once('common', { part: 'common', revision: { ...taskRevision, previous: { ...taskRevision.previous, page_plan: plan } } }, (output) => checkCommon({ ...output, page_plan: plan }, sources, { retiree }));
       return;
     }
     const page = previous.symptom_pages.find((candidate) => candidate.id === owner);
     const entry = { id: page.id, category: page.category, symptom: previous.statements.find((s) => s.id === page.title).text };
-    rewritten.pages[owner] = await once(owner, { part: 'page', entry, contacts, revision: taskRevision }, (output) => checkPage(output, entry, previous.contacts, sources));
+    rewritten.pages[owner] = await once(owner, { part: 'page', entry, contacts, revision: taskRevision }, (output) => checkPage(output, entry, previous.contacts, sources, { retiree }));
   });
-  return finishWriter(mergeRewritten(previous, rewritten), sources);
+  return fillLeaks(mergeRewritten(previous, rewritten));
 }
 
 /** 全体を確かめる。部分ごとの検査を通っているので、ここで見つかるのは組み立ての誤りだけ。 */
-function finishWriter(manual, sources) {
-  const { manual: composed, problems } = composeProcedures(manual, sources);
+function finishWriter(manual, sources, retiree) {
+  const { manual: composed, problems } = composeProcedures(manual, sources, { retiree });
   if (problems.length) throw new LiveFailure('library', problems.slice(0, 10).join(' / '));
   return composed;
 }
@@ -155,12 +173,12 @@ function finishWriter(manual, sources) {
  * Editor を実行する。
  * @param changed 差し戻しのあとに、Writer が変えた文章の ID。指定があれば、これと残った問題だけを直す
  */
-export async function runEditorLive({ manual, survey, transcript, revert = true, changed, client, record = () => {} }) {
+export async function runEditorLive({ manual, survey, transcript, retiree, revert = true, changed, client, record = () => {} }) {
   const api = await clientOf(client);
   const agent = loadAgent('plugin/agents/plain-japanese-editor.md');
   const edit = async (current, findings) => {
-    const params = buildEditorRequest({ manual: current, survey, transcript, findings, agent });
-    return applyEdits(current, await callAgent({ api, agent, params, record }), { revert });
+    const params = buildEditorRequest({ manual: current, survey, transcript, retiree, findings, agent });
+    return applyEdits(current, await callAgent({ api, agent, params, record }), { revert, retiree });
   };
   const remaining = (current) => {
     const problems = plainProblems(current);

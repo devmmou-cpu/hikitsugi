@@ -2,9 +2,14 @@
   "$comment": "引き継ぎの必須項目",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "items"],
+  "required": [
+    "schema_version",
+    "items"
+  ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": {
+      "const": 1
+    },
     "items": {
       "type": "array",
       "minItems": 40,
@@ -12,12 +17,43 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "group", "label", "done_when"],
+        "required": [
+          "id",
+          "group",
+          "label",
+          "done_when"
+        ],
         "properties": {
-          "id": { "type": "string", "pattern": "^CHK-\\d{2}$" },
-          "group": { "enum": ["network", "server", "account", "device", "security", "operation"] },
-          "label": { "type": "string", "minLength": 1 },
-          "done_when": { "type": "string", "minLength": 1 }
+          "id": {
+            "type": "string",
+            "pattern": "^CHK-\\d{2}$"
+          },
+          "group": {
+            "enum": [
+              "network",
+              "server",
+              "account",
+              "device",
+              "security",
+              "operation"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "done_when": {
+            "type": "string",
+            "minLength": 1
+          },
+          "followup": {
+            "$comment": "聞き直しの順番。障害のときに行き止まりになる項目を先にする",
+            "enum": [
+              "連絡先",
+              "置き場所",
+              "定期作業"
+            ]
+          }
         }
       }
     }

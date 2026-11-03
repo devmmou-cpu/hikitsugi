@@ -273,11 +273,11 @@ const askAll = (status = 'answered') => {
   return transcript;
 };
 
-test('聞き直してよい項目は重要度の高い順で、2回聞いた項目と「分からない」の項目を含めない', () => {
+test('聞き直しは、業者の連絡先、機器の置き場所、定期作業、そのほかの順で、2回聞いた項目と「分からない」の項目を含めない', () => {
   const transcript = askAll();
-  assert.deepEqual(reviewCandidates(reviewGaps, transcript).map((c) => c.item), ['CHK-03', 'CHK-01', 'CHK-02', 'CHK-04']);
+  assert.deepEqual(reviewCandidates(reviewGaps, transcript).map((c) => c.item), ['CHK-02', 'CHK-04', 'CHK-03', 'CHK-01']);
   const again = appendEntry(transcript, { next: { action: 'ask', gap: 'GAP-002', covers: ['CHK-03'], question: '質問' }, answer: '回答', status: 'answered', answeredAt: 'x' });
-  assert.deepEqual(reviewCandidates(reviewGaps, again).map((c) => c.item), ['CHK-01', 'CHK-02', 'CHK-04']);
+  assert.deepEqual(reviewCandidates(reviewGaps, again).map((c) => c.item), ['CHK-02', 'CHK-04', 'CHK-01']);
   const unknown = appendEntry(transcript, { next: { action: 'ask', gap: 'GAP-001', covers: ['CHK-01'], question: '質問' }, answer: '分かりません。', status: 'unknown', answeredAt: 'x' });
   assert.ok(!reviewCandidates(reviewGaps, unknown).some((c) => c.item === 'CHK-01'));
   assert.deepEqual(reviewCandidates(reviewGaps, askAll('later')), []);
@@ -291,18 +291,18 @@ test('進み具合：聞いていない項目があるうちは候補を出さ�
   const done = interviewProgress(reviewGaps, askAll());
   assert.equal(done.stage, 'review');
   assert.equal(done.remaining, QUESTION_LIMIT - 3);
-  assert.equal(done.review_candidates[0].item, 'CHK-03');
+  assert.equal(done.review_candidates[0].item, 'CHK-02');
 });
 
-test('未回収の項目があれば終えられず、重要度の高いものから聞き直す', () => {
+test('未回収の項目があれば終えられず、決まった順番で聞き直す', () => {
   const transcript = askAll();
   const finish = (unfilled) => ({ action: 'finish', gap: '', covers: [], question: '', unfilled });
   assert.deepEqual(checkNextQuestion(finish([]), allItems, transcript), []);
-  assert.match(checkNextQuestion(finish(['CHK-04', 'CHK-03']), allItems, transcript)[0], /終えられません：CHK-03/);
+  assert.match(checkNextQuestion(finish(['CHK-01', 'CHK-03']), allItems, transcript)[0], /終えられません：CHK-03/);
   const ask = (covers, unfilled, gap = 'GAP-001') => ({ action: 'ask', gap, covers, question: '質問', unfilled });
-  // 重要度の低い項目を先に聞こうとすると止める
-  assert.match(checkNextQuestion(ask(['CHK-04'], ['CHK-04', 'CHK-03'], 'GAP-003'), allItems, transcript).join(), /重要度の高いものから聞いてください：CHK-03/);
-  assert.deepEqual(checkNextQuestion(ask(['CHK-03'], ['CHK-04', 'CHK-03'], 'GAP-002'), allItems, transcript), []);
+  // 順番のあとの項目を先に聞こうとすると止める
+  assert.match(checkNextQuestion(ask(['CHK-01'], ['CHK-01', 'CHK-03'], 'GAP-001'), allItems, transcript).join(), /決まった順番.*CHK-03/);
+  assert.deepEqual(checkNextQuestion(ask(['CHK-03'], ['CHK-01', 'CHK-03'], 'GAP-002'), allItems, transcript), []);
   // 未回収と申告しないまま聞き直すことも止める
   assert.match(checkNextQuestion(ask(['CHK-03'], [], 'GAP-002'), allItems, transcript).join(), /聞き直せる未回収の項目がありません/);
   // 2回聞いた項目しか残っていなければ、終えられる
@@ -315,12 +315,14 @@ test('聞き直しを含めても、合計は20問を超えない', async () => 
   const gaps = { ...gapsOutput, gaps: items.map((item, i) => ({ id: `GAP-${String(i + 1).padStart(3, '0')}`, items: [item], why: '理由', priority: 'high', question_hint: 'ヒント' })) };
   let n = 0;
   const client = fakeClient(() => {
-    const i = n++ % items.length;
+    const i = n < items.length ? n : 1;
+    n += 1;
     return { action: 'ask', gap: gaps.gaps[i].id, covers: [items[i]], question: '質問です', unfilled: n > items.length ? items : [] };
   });
   const transcript = await runInterview({ survey: input.survey, gaps, api: client, record: () => {}, askTanaka: async () => ({ answer: '回答です', status: 'answered' }), clock: () => 'x' });
   assert.equal(transcript.entries.length, QUESTION_LIMIT);
-  assert.deepEqual(transcript.entries.at(-1).covers, ['CHK-01']);
+  // 19問で全部を聞いたあとの1問は、順番の先頭の項目
+  assert.deepEqual(transcript.entries.at(-1).covers, ['CHK-02']);
 });
 
 test('Interviewer に進み具合を渡す', () => {

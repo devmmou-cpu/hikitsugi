@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { applyEdits } from '../lib/apply-edits.mjs';
 import { assembleManual, checkCommon, checkPage, commonSchema, mergeRewritten, ownersOf, pageSchema, previousPiece } from '../lib/assemble.mjs';
 import { buildRevision, carryForward, markReviewed, mergeVerification, prepareForRender, summarizeVerification, UnapprovedPartsError, verificationScope } from '../lib/handover.mjs';
+import { coverageLeaks } from '../lib/coverage-check.mjs';
 import { bodyFields } from '../lib/page-check.mjs';
 import { plainProblems } from '../lib/plain-check.mjs';
 import { applyRetireeCheck } from '../lib/retiree-check.mjs';
@@ -152,7 +153,11 @@ function writerTask(work, [round, part]) {
   const state = readJson(join(work, 'state.json'));
   let task;
   if (Number(round) === 1) {
-    if (part === 'common') task = { part: 'common' };
+    if (part === 'common') {
+      // 載せ漏れで書き直すときは、前の出力と足りない事実を渡す
+      const saved = join(work, partFile(1, 'common-previous'));
+      task = state.leaks && existsSync(saved) ? { part: 'common', revision: { previous: readJson(saved), findings: [], missing: state.leaks } } : { part: 'common' };
+    }
     else {
       const common = readJson(join(work, partFile(1, 'common')));
       const entry = common.page_plan.find((candidate) => candidate.id === part);
@@ -163,6 +168,7 @@ function writerTask(work, [round, part]) {
     const { previous_manual: previous, findings } = readJson(join(work, `findings-${Number(round) - 1}.json`));
     const revision = { previous: previousPiece(previous, part), findings: ownersOf(previous, findings).get(part) ?? [] };
     if (state.page_fix?.page === part) revision.page_fix = state.page_fix;
+    if (state.leaks && part === 'common') revision.missing = state.leaks;
     if (part === 'common') {
       revision.previous.page_plan = planOf(previous);
       task = { part: 'common', revision };
@@ -195,13 +201,13 @@ function checkWriter(work, [round, part]) {
     const output = previous ? { ...raw, page_plan: plan } : raw;
     const schemaProblems = validate(commonSchema(), output);
     if (schemaProblems.length) throw new Problem(`形式が違います（共通部分）：\n${schemaProblems.slice(0, 10).join('\n')}`);
-    checked = checkCommon(output, sources);
+    checked = checkCommon(output, sources, { retiree: state.retiree });
   } else {
     const schemaProblems = validate(pageSchema(), raw);
     if (schemaProblems.length) throw new Problem(`形式が違います（${part}）：\n${schemaProblems.slice(0, 10).join('\n')}`);
     const entry = plan.find((candidate) => candidate.id === part);
     if (!entry) throw new Problem(`手順ページの一覧にありません：${part}`);
-    checked = checkPage(raw, entry, contacts, sources);
+    checked = checkPage(raw, entry, contacts, sources, { retiree: state.retiree });
   }
   if (checked.problems.length) throw new Problem(`手順部品の指定やページの形に問題があります：\n${checked.problems.join('\n')}`);
   writeJson(path, checked.output);
@@ -231,8 +237,24 @@ function assembleRound(work, round) {
           pages: Object.fromEntries(parts.filter((name) => name !== 'common').map((name) => [name, load(name)])),
         });
       })();
-  const { manual, problems } = composeProcedures(assembled, sources);
+  const { manual, problems } = composeProcedures(assembled, sources, { retiree: state.retiree });
   if (problems.length) throw new Problem(`手順部品の指定やページの形に問題があります：\n${problems.join('\n')}`);
+  // 載せ漏れは、共通部分を1回だけ書き直して埋める。それでも残れば止める
+  const leaks = coverageLeaks(manual, sources);
+  if (leaks.length) {
+    const list = leaks.map((leak) => `${leak.kind} ${leak.source}`).join('、');
+    if (state.leaks_retried) throw new Problem(`載せ漏れが残っています：${list}`);
+    const common = join(work, partFile(round, 'common'));
+    if (round === 1) writeJson(join(work, partFile(1, 'common-previous')), load('common'));
+    rmSync(common, { force: true });
+    const todo = round === 1 ? state.todo : [...new Set([...(state.todo ?? []), 'common'])];
+    writeJson(join(work, 'state.json'), { ...state, leaks, leaks_retried: true, todo });
+    return `載せ漏れがあるので、共通部分を書き直します：${list}`;
+  }
+  if (state.leaks) {
+    const { leaks: _done, leaks_retried: _retried, ...rest } = state;
+    writeJson(join(work, 'state.json'), rest);
+  }
   checkSchema('manual', manual);
   const path = join(work, `manual-${round}.json`);
   if (round === 1) {
@@ -268,7 +290,7 @@ function writeScope(work, round) {
 
 function mergeEdits(work, [round]) {
   const manual = readJson(join(work, `manual-${round}.json`));
-  const { manual: edited, changes } = applyEdits(manual, readJson(join(work, `editor-${round}.json`)));
+  const { manual: edited, changes } = applyEdits(manual, readJson(join(work, `editor-${round}.json`)), { retiree: readJson(join(work, 'state.json')).retiree });
   checkSchema('manual', edited);
   writeJson(join(work, `edited-${round}.json`), edited);
   writeScope(work, round);
@@ -328,7 +350,14 @@ function reviewStart(work, nameParts) {
   if (!reviewer) throw new UsageError('使い方：review-start <確認する人の名前>');
   const state = readJson(join(work, 'state.json'));
   writeJson(join(work, 'state.json'), { ...state, review: { reviewer, pages: {}, done: false } });
-  return `${reviewer} さんの確認を始めます`;
+  return `${reviewer} さんの確認を始めます\n${beforeLeaving(work)}`;
+}
+
+/** 退職する本人にしかできない作業の一覧。後任向けの取扱説明書には出さず、確認のときに本人に見せる。 */
+function beforeLeaving(work) {
+  const tasks = readJson(join(work, 'manual-final.json')).before_leaving ?? [];
+  if (!tasks.length) return '退職前にやることはありません';
+  return ['【退職前にやること】', ...tasks.map(({ text }, index) => `${index + 1}. ${text}`)].join('\n');
 }
 
 /** ページの中身を、確認しやすい文章にして返す。 */
@@ -433,6 +462,7 @@ const COMMANDS = {
   'merge-edits': mergeEdits,
   'check-verification': checkVerification,
   'review-start': reviewStart,
+  'before-leaving': beforeLeaving,
   'review-show': reviewShow,
   'review-ok': reviewOk,
   'review-fix': reviewFix,

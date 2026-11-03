@@ -115,11 +115,11 @@ export function pageDetailProblems(page, statements, sources, library = loadLibr
  * Writer の出力の、部品を使った文章を組み立て、形を確かめる。
  * @returns { manual, problems } problems は、部品の指定の誤りや、根拠にない値の一覧
  */
-export function composeProcedures(manual, sources, library = loadLibrary()) {
+export function composeProcedures(manual, sources, { library = loadLibrary(), retiree } = {}) {
   const { statements, problems } = composeStatements(manual.statements, library);
   const composed = { ...manual, statements };
   for (const page of manual.symptom_pages) problems.push(...pageDetailProblems(page, statements, sources, library));
-  problems.push(...contactEvidenceProblems(manual.contacts, sources), ...manualProblems(composed));
+  problems.push(...contactEvidenceProblems(manual.contacts, sources), ...manualProblems(composed, retiree));
   return { manual: composed, problems };
 }
 

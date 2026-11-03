@@ -97,7 +97,7 @@ Writer は1回に1つの部分だけを書きます。`status` の `round` と `
 ### review
 前任者本人に、ページごとに確認してもらいます。**全文を精読してもらう必要はありません。** 確認が終わるまで、取扱説明書には「下書き（前任者の確認前）」の帯が付き、確認の印は出ません。
 
-1. `reviewer` が `null` のときは、`state.json` の `retiree` の名前で `hikitsugi review-start <名前>` を実行します。続けて `hikitsugi render` を実行し、下書きの HTML の場所を伝えます。
+1. `reviewer` が `null` のときは、`state.json` の `retiree` の名前で `hikitsugi review-start <名前>` を実行します。表示された「退職前にやること」は、本人にしかできない作業の一覧です。後任向けの取扱説明書には載らないので、そのまま本人に見せます。あとで見るときは `hikitsugi before-leaving` です。続けて `hikitsugi render` を実行し、下書きの HTML の場所を伝えます。
 2. `status` の `page` について `hikitsugi review-show <page>` を実行し、表示された内容を見せます。
 3. AskUserQuestion で聞きます。選択肢は「このままでよい」と「直す」の2つです。何ページ目かも伝えます。
 4. 「このままでよい」なら `hikitsugi review-ok <page>` を実行します。

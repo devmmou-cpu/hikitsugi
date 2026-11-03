@@ -1929,42 +1929,54 @@
       "name": "STM-034",
       "location": "STM-035",
       "purpose": "STM-036",
-      "impact": "STM-037"
+      "impact": "STM-037",
+      "credential_location": null,
+      "caution": null
     },
     {
       "id": "D2",
       "name": "STM-038",
       "location": "STM-039",
       "purpose": "STM-040",
-      "impact": "STM-041"
+      "impact": "STM-041",
+      "credential_location": null,
+      "caution": null
     },
     {
       "id": "D3",
       "name": "STM-042",
       "location": "STM-043",
       "purpose": "STM-044",
-      "impact": "STM-045"
+      "impact": "STM-045",
+      "credential_location": null,
+      "caution": null
     },
     {
       "id": "D4",
       "name": "STM-046",
       "location": "STM-047",
       "purpose": "STM-048",
-      "impact": "STM-049"
+      "impact": "STM-049",
+      "credential_location": null,
+      "caution": null
     },
     {
       "id": "D5",
       "name": "STM-050",
       "location": "STM-051",
       "purpose": "STM-052",
-      "impact": "STM-053"
+      "impact": "STM-053",
+      "credential_location": null,
+      "caution": null
     },
     {
       "id": "D6",
       "name": "STM-054",
       "location": "STM-055",
       "purpose": "STM-056",
-      "impact": "STM-057"
+      "impact": "STM-057",
+      "credential_location": null,
+      "caution": null
     }
   ],
   "glossary": [
