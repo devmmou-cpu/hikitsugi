@@ -61,7 +61,8 @@
             "$comment": "プログラムが組む文章の用途。社員に返す文に付け、Verifier が定型文を見分ける",
             "enum": [
               "reply_to_staff",
-              "call_script"
+              "call_script",
+              "pc_note"
             ]
           },
           "library": {

@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { withReplies } from '../plugin/lib/reply.mjs';
+import { withReplies, withWindows10Note } from '../plugin/lib/reply.mjs';
 import { clientOf, runVerifierLive } from './lib/adapters/live.mjs';
 import { loadInput } from './lib/load-set.mjs';
 
@@ -29,7 +29,7 @@ async function main() {
   if (!values.dir || !values.set) throw new Error('使い方：--dir <通しの結果のフォルダ> --set <会社>');
   const { survey } = loadInput(join(ROOT, 'eval/sets', values.set));
   const transcript = JSON.parse(readFileSync(join(values.dir, 'transcript.json'), 'utf8'));
-  const manual = withReplies(JSON.parse(readFileSync(join(values.dir, values.source), 'utf8')));
+  const manual = withReplies(withWindows10Note(JSON.parse(readFileSync(join(values.dir, values.source), 'utf8')), survey));
   const statements = replyStatements(manual);
   const calls = [];
   const fresh = await runVerifierLive({

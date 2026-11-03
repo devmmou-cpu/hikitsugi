@@ -6,9 +6,10 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { pageSchema } from '../plugin/lib/assemble.mjs';
+import { buildRevision } from '../plugin/lib/handover.mjs';
 import { plainProblems } from '../plugin/lib/plain-check.mjs';
 import { loadLibrary } from '../plugin/lib/procedures.mjs';
-import { callScriptProblems, composeCallScript, composeReply, REPLY_LINES_MAX, replyProblems, withoutReplies, withReplies } from '../plugin/lib/reply.mjs';
+import { callScriptProblems, composeCallScript, composeReply, REPLY_LINES_MAX, replyProblems, withoutReplies, withReplies, withWindows10Note } from '../plugin/lib/reply.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { summarizeReplies } from '../eval/reply-verify.mjs';
 
@@ -237,4 +238,41 @@ test('社員に返す文がない入力や、決まりに合わない入力か�
 test('前任者の確認の画面に、社員に返す文も見せる', () => {
   const source = readFileSync(join(ROOT, 'plugin/scripts/hikitsugi.mjs'), 'utf8');
   assert.match(source, /section\('社員に返す文', \[page\.reply_to_staff\]\)/);
+});
+
+// ---- Windows 10 の分岐（中-4） ----
+const surveyWith = (...rows) => ({ items: rows.map(([host, value, status = 'ok'], index) => ({ id: `INV-${String(index + 1).padStart(3, '0')}`, host, key: 'os.caption', value, status })) });
+const withBranch = () => {
+  const manual = withoutReplies(fixture());
+  assert.ok(manual.statements.some((s) => s.library === 'LIB-021'), '見本に分岐がありません');
+  return manual;
+};
+const pageWithBranch = (manual) => manual.symptom_pages.find((p) => p.branches.some((id) => statementOf(manual, id)?.library === 'LIB-021'));
+
+test('Windows 10 の分岐：調査データの該当する PC 名を、分岐の直後に根拠つきで出す', () => {
+  const manual = withWindows10Note(withBranch(), surveyWith(['OKJ-CAD-01', 'Windows 10 Pro'], ['OKJ-SOUMU-01', 'Windows 11 Pro'], ['OKJ-X-01', 'Windows 10 Pro', 'denied']));
+  const page = pageWithBranch(manual);
+  const at = page.branches.findIndex((id) => statementOf(manual, id).library === 'LIB-021');
+  const note = statementOf(manual, page.branches[at + 1]);
+  assert.equal(note.text, '該当する PC：OKJ-CAD-01。');
+  assert.deepEqual(note.evidence, ['INV-001']);
+  assert.equal(note.usage, 'pc_note');
+});
+
+test('Windows 10 の分岐：該当がなければ、分岐そのものを出さず、「ありません」とも書かない', () => {
+  const manual = withWindows10Note(withBranch(), surveyWith(['OKJ-SOUMU-01', 'Windows 11 Pro']));
+  assert.equal(pageWithBranch(manual), undefined);
+  assert.ok(!manual.statements.some((s) => s.library === 'LIB-021'));
+  assert.ok(!manual.statements.some((s) => /Windows 10 の PC は(?:あり|、手順)/.test(s.text)));
+  assert.doesNotThrow(() => renderManual(withReplies({ ...manual, statements: manual.statements })));
+});
+
+test('Windows 10 の分岐：何度組んでも増えず、Writer には渡さない', () => {
+  const survey = surveyWith(['OKJ-CAD-01', 'Windows 10 Pro']);
+  const once = withWindows10Note(withBranch(), survey);
+  assert.deepEqual(withWindows10Note(once, survey), once);
+  const revision = buildRevision(withReplies(once), []);
+  assert.ok(!revision.previous_manual.statements.some((s) => s.usage));
+  assert.ok(revision.previous_manual.symptom_pages.every((p) => !p.branches.some((id) => !revision.previous_manual.statements.some((s) => s.id === id))));
+  assert.match(renderManual(withReplies(once)).replace(/<[^>]+>/g, ''), /該当する PC：OKJ-CAD-01。/);
 });

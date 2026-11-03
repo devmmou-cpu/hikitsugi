@@ -12,7 +12,7 @@ import { applyRetireeCheck } from '../plugin/lib/retiree-check.mjs';
 import { withSearchIndex } from '../plugin/lib/search-index.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
-import { withReplies } from '../plugin/lib/reply.mjs';
+import { withReplies, withWindows10Note } from '../plugin/lib/reply.mjs';
 import { locationWarnings } from '../plugin/lib/coverage-check.mjs';
 import { writePhoneBundle } from '../plugin/renderer/phone.mjs';
 import { PC_FILE_LIMIT, writeWithinLimit } from '../plugin/lib/limits.mjs';
@@ -120,7 +120,7 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
         return runEditorLive({ manual: base.manual, survey, transcript, retiree: RETIREE, changed: base.changed, client: api, record });
       });
       // 社員に返す文は Editor のあとにプログラムで組み、Verifier にはかける
-      const manual = schemaCheck('manual', withReplies(edited.manual));
+      const manual = schemaCheck('manual', withReplies(withWindows10Note(edited.manual, survey)));
       // 差し戻しのあとは、変わった文章だけをかけ直す。合格済みの文章のばらつきで止まらないように
       const scope = previousManual ? verificationScope(previousManual, previousVerification, manual) : manual.statements.map((statement) => statement.id);
       const inScope = new Set(scope);

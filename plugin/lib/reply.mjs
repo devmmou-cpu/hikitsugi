@@ -2,11 +2,14 @@
 // - 社員に返す文（reply_to_staff）：後任が社員にそのまま返す文
 // - 業者に伝える文（call_script）：連絡先に読み上げ、貼り付けもできる文。fallback.message に置く
 
+import { pageStatementIds } from './page-check.mjs';
 import { loadLibrary } from './procedures.mjs';
 
 export const REPLY_LINES_MAX = 5;
 export const REPLY_USAGE = 'reply_to_staff';
 export const CALL_USAGE = 'call_script';
+export const PC_NOTE_USAGE = 'pc_note';
+const WINDOWS_10_PART = 'LIB-021';
 
 const CHECKING = 'いま確認しています。';
 const TRY_THESE = '次を試してみてください。';
@@ -98,9 +101,49 @@ export function composeCallScript(page, manual) {
   return { text: lines.join('\n'), evidence: [...new Set([title, ...steps, ...(place ? [place] : [])].flatMap((statement) => (statement.library ? [statement.library] : statement.evidence)))] };
 }
 
+/** 該当する PC の行を外す。Writer と Editor には渡さない。 */
+export function withoutPcNotes(manual) {
+  const notes = new Set(manual.statements.filter((statement) => statement.usage === PC_NOTE_USAGE).map((statement) => statement.id));
+  return {
+    ...manual,
+    statements: manual.statements.filter((statement) => !notes.has(statement.id)),
+    symptom_pages: manual.symptom_pages.map((page) => ({ ...page, branches: page.branches.filter((id) => !notes.has(id)) })),
+  };
+}
+
+/**
+ * 「Windows 10 の PC は手順が違う」の分岐に、調査データから該当する PC 名を足す。
+ * 該当する PC がなければ、分岐そのものを出さない。
+ */
+export function withWindows10Note(manual, survey) {
+  const base = withoutPcNotes(manual);
+  const os = survey.items.filter((item) => item.key === 'os.caption' && item.status === 'ok' && String(item.value).includes('Windows 10'));
+  const hosts = [...new Set(os.map((item) => item.host))];
+  const parts = new Set(base.statements.filter((statement) => statement.library === WINDOWS_10_PART).map((statement) => statement.id));
+  if (!hosts.length) {
+    const pages = base.symptom_pages.map((page) => ({ ...page, branches: page.branches.filter((id) => !parts.has(id)) }));
+    const used = new Set(pages.flatMap(pageStatementIds));
+    return { ...base, statements: base.statements.filter((statement) => !parts.has(statement.id) || used.has(statement.id)), symptom_pages: pages };
+  }
+  let next = Math.max(0, ...base.statements.map((statement) => Number(statement.id.slice(4))));
+  const added = [];
+  const pages = base.symptom_pages.map((page) => {
+    if (!page.branches.some((id) => parts.has(id))) return page;
+    const branches = page.branches.flatMap((id) => {
+      if (!parts.has(id)) return [id];
+      next += 1;
+      const note = `STM-${String(next).padStart(3, '0')}`;
+      added.push({ id: note, text: `該当する PC：${hosts.join('、')}。`, evidence: os.map((item) => item.id), library: null, usage: PC_NOTE_USAGE });
+      return [id, note];
+    });
+    return { ...page, branches };
+  });
+  return { ...base, statements: [...base.statements, ...added], symptom_pages: pages };
+}
+
 /** プログラムが組む文を外した形に戻す。Writer と Editor には渡さない。 */
 export function withoutReplies(manual) {
-  const composed = new Set(manual.statements.filter((statement) => statement.usage).map((statement) => statement.id));
+  const composed = new Set(manual.statements.filter((statement) => statement.usage === REPLY_USAGE || statement.usage === CALL_USAGE).map((statement) => statement.id));
   for (const page of manual.symptom_pages) {
     if (page.reply_to_staff) composed.add(page.reply_to_staff);
     if (page.fallback?.message) composed.add(page.fallback.message);
