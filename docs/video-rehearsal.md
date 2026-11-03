@@ -2,7 +2,20 @@
 
 `/hikitsugi:start` を、架空のオコジョ精工で最初から最後まで通すための手順です。答える人は「田中さん」の役です。**会社も回答もすべて架空なので、動画では「模擬評価」「架空の会社」と必ず出します。**
 
-時間はまだ測っていません。録画の前に1回、通しで測ってください。Writer はページごとに動くので、聞き取りのあとに待ち時間があります。待ち時間は編集で詰めます。
+**実測の時間（11/3、1回。詳しくは `docs/night/real-run-report.md`）**
+
+| 段階 | 時間 |
+|---|---|
+| 通しの合計 | 約52分（道具の不具合と待ちを除く。そのままだと66分） |
+| 聞き取り | 1問あたり約42秒（20問で14分24秒。回答を貼り付けた場合） |
+| Writer | 共通の部分 4分30秒、手順ページ 9分59秒（13ページ、1ページ約46秒） |
+| Editor | 5分32秒 |
+| Verifier | 1回目 5分18秒（287文）。差し戻しの回 2分30秒と 25秒 |
+| phrases | 53秒 |
+| review | 1ページ約23秒（読まずに押した場合。13ページで約5分） |
+| render | 4秒 |
+
+Writer、Editor、Verifier の待ちが長いので、編集で詰めます。形式の直しの行が画面に出ることがあります。
 
 ## 準備
 リポジトリの中で実行すると `hikitsugi-work/` ができて散らかるので、別のフォルダで行います。
@@ -10,6 +23,7 @@
 ```bash
 mkdir -p ~/hikitsugi-rehearsal && cd ~/hikitsugi-rehearsal
 env -u ANTHROPIC_API_KEY claude --plugin-dir ~/Developer/hikitsugi-live/plugin
+# 初めてのフォルダでは信頼の確認が出ます。「Yes, I trust this folder」を選びます
 ```
 
 Claude Code が開いたら、`/hikitsugi:start` と入力します。
@@ -23,7 +37,7 @@ Claude Code が開いたら、`/hikitsugi:start` と入力します。
 | writer | ページごとに書く | 待つ |
 | editor、verifier | やさしく直し、照合する | 待つ。不合格なら指摘の部分だけ書き直す |
 | phrases | 普段の言い方を作る | 待つ |
-| review | 「退職前にやること」と、ページごとの内容が出る | 全ページ「このままでよい」を選ぶ |
+| review | 「退職前にやること」と、ページごとの内容が出る | 全ページ「このままでよい」を選ぶ。ふつうの回答は「Type something.」を選んで入力する |
 | render | HTML と `phone` フォルダの場所が出る | ブラウザーで開く |
 
 **init の答え**
@@ -61,6 +75,8 @@ Claude Code が開いたら、`/hikitsugi:start` と入力します。
 
 ## 差し戻しの場面について
 Verifier の差し戻しは、録画の回に起きるとは限りません。起きなければ、保存してある実行の結果を見せます。無理に起こしません。
+
+実物の通しの実例もあります（`night-logs/real-run/verification-1.json` の STM-155）。感染のページの「することだけと決まっています」の「だけ」が、INT-010 で裏づけられないという指摘です。
 
 **見せる1件（模擬評価、オコジョ精工、`eval/results/20261103T033317-okojo-pipeline/`）**
 - **ファイル：** 判定は `verification-1.json`、直したあとの全文は `manual-final.json`
