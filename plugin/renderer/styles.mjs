@@ -1601,8 +1601,7 @@ details[open] .plus-v {
     top: 0;
     z-index: 5;
     display: grid;
-    grid-template-columns: minmax(0, auto) auto minmax(0, auto);
-    justify-content: space-between;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     grid-template-rows: 64px;
     align-items: center;
     gap: var(--s3);
@@ -1671,6 +1670,7 @@ details[open] .plus-v {
     justify-content: flex-end;
     gap: var(--s2);
     min-width: 0;
+    max-width: 150px;
     line-height: 1.3;
   }
 
@@ -1977,11 +1977,14 @@ details[open] .plus-v {
 @media (min-width: 1024px) {
   .topbar {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    justify-content: normal;
   }
 
   .topnav a {
     padding: 0 var(--s3);
+  }
+
+  .top-status {
+    max-width: none;
   }
 
   .symptom-body .info-table {
