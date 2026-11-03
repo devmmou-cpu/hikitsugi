@@ -17,7 +17,7 @@
 
 ## 架空のルール
 - 使える名前はこれだけ：オコジョ精工、クズリ運輸、キノドテン建設、ラーテル商事、ケナガ印刷、田中さん、佐藤さん、社長、クロテン通信、カワウソシステムサービス、イタチ事務機、イイズナソフト、フェレット企画。新しい人物名や会社名を足さない
-- 実在の製品名で書いてよいのは Windows、Microsoft 365、Teams、OneDrive、Outlook、Excel、PowerShell だけ。機器やソフトのメーカー名、型番は `架空メーカーA`、`MODEL-A1` のように書く
+- 実在の製品名で書いてよいのは Windows、Microsoft 365、Teams、OneDrive、Outlook、Excel、PowerShell、BitLocker だけ。機器やソフトのメーカー名、型番は `架空メーカーA`、`MODEL-A1` のように書く
 - 電話番号は `03-0000-01xx`（市内局番が0で始まる、実在しえない形）、ドメインは `okojo-seiko.example` のように会社ごとの `<名前>.example`、IP は `192.168.10.x`
 - 評価データの語は `eval/lib/integrity.mjs` の許可リストで検査する。実在名の禁止リストはリポジトリに置かない
 
