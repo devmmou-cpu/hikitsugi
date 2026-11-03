@@ -1315,6 +1315,16 @@ kbd {
   color: var(--ink-2);
 }
 
+/* 語の途中で折り返さない。入らない長さの語だけ、はみ出さないよう最後の手段で折り返す */
+.nb {
+  white-space: nowrap;
+}
+
+code.path,
+.info-target {
+  word-break: keep-all;
+}
+
 code.path {
   display: inline-block;
   padding: 1px 6px;

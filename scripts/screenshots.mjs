@@ -150,6 +150,8 @@ const MEASURE = `(() => {
     const ratio = textContrast(parent);
     if (ratio !== null && ratio < 4.5) lowContrast.push(describe(parent) + ' ' + ratio.toFixed(2));
   }
+  // 語の途中で折り返していないこと
+  const brokenWords = [...document.querySelectorAll('.nb')].filter(visible).filter((el) => new Set([...el.getClientRects()].map((r) => Math.round(r.top))).size > 1).map(describe);
   const low = [...document.querySelectorAll('.tap')].filter(visible).filter((el) => el.getBoundingClientRect().height < 44).map((el) => describe(el) + ' ' + Math.round(el.getBoundingClientRect().height) + 'px');
   // 手順の配置：番号とチェック欄が重ならず、手順の左端が本文の左端とそろっていること
   const layout = [];
@@ -172,7 +174,7 @@ const MEASURE = `(() => {
       layout.push('手順の一覧の左端が、本文の左端とそろっていません（' + Math.round(first.getBoundingClientRect().left - para.getBoundingClientRect().left) + 'px）');
     }
   }
-  return JSON.stringify({ overflow, wide, layout: [...new Set(layout)], small: [...new Set(small)].slice(0, 10), lowContrast: [...new Set(lowContrast)].slice(0, 10), low: [...new Set(low)].slice(0, 10), height: Math.ceil(Math.max(root.scrollHeight, document.body.scrollHeight)) });
+  return JSON.stringify({ overflow, wide, layout: [...new Set(layout)], small: [...new Set(small)].slice(0, 10), lowContrast: [...new Set(lowContrast)].slice(0, 10), brokenWords: [...new Set(brokenWords)].slice(0, 10), low: [...new Set(low)].slice(0, 10), height: Math.ceil(Math.max(root.scrollHeight, document.body.scrollHeight)) });
 })()`;
 
 async function main([inputArg, outputArg]) {
@@ -247,6 +249,7 @@ async function main([inputArg, outputArg]) {
       if (metrics.overflow > 0) problems.push(`${label}：横にはみ出しています（${metrics.overflow}px）${metrics.wide.join('、')}`);
       if (metrics.small.length) problems.push(`${label}：小さすぎる文字があります ${metrics.small.join('、')}`);
       if (metrics.lowContrast.length) problems.push(`${label}：コントラスト比が 4.5 未満の文字があります ${metrics.lowContrast.join('、')}`);
+      if (metrics.brokenWords.length) problems.push(`${label}：語の途中で折り返しています ${metrics.brokenWords.join('、')}`);
       if (metrics.low.length) problems.push(`${label}：高さ 44px 未満の押す部品があります ${metrics.low.join('、')}`);
       for (const issue of metrics.layout) problems.push(`${label}：${issue}`);
       await fullPage(name);
@@ -377,8 +380,16 @@ async function main([inputArg, outputArg]) {
 
     // 印刷の見え方
     await go('');
-    const { data: pdf } = await page('Page.printToPDF', { printBackground: false, paperWidth: 8.27, paperHeight: 11.69 });
-    writeFileSync(join(output, 'print.pdf'), Buffer.from(pdf, 'base64'));
+    // PDF は分割で受け取る。1回の応答には上限（4MiB）があり、超えると返事が来ないため
+    const { stream } = await page('Page.printToPDF', { printBackground: false, paperWidth: 8.27, paperHeight: 11.69, transferMode: 'ReturnAsStream' });
+    const chunks = [];
+    for (;;) {
+      const { data, base64Encoded, eof } = await page('IO.read', { handle: stream, size: 1024 * 1024 });
+      chunks.push(Buffer.from(data, base64Encoded ? 'base64' : 'utf8'));
+      if (eof) break;
+    }
+    await page('IO.close', { handle: stream });
+    writeFileSync(join(output, 'print.pdf'), Buffer.concat(chunks));
     browser.close();
   } finally {
     await stop();

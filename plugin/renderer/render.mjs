@@ -93,12 +93,36 @@ function formatDate(isoDate) {
  * 文章を HTML にする。\\ で始まる接続先は、見ながら入力する値なので、コードの形で示す。
  * 文字は変えない（タグを除けば元の文章のまま。コピーする文面も変わらない）。
  */
-function statementHtml(text) {
-  return esc(text).replace(/\\\\[^\s、。，．）」』]+/g, (path) => `<code class="path">${path}</code>`);
+function statementHtml(text, words) {
+  return wrapWords(pathsHtml(esc(text)), words);
+}
+
+/** 接続先をコードの形にする。 */
+const pathsHtml = (escaped) => escaped.replace(/\\\\[^\s、。，．）」』]+/g, (path) => `<code class="path">${valueHtml(path)}</code>`);
+
+/** 値は語の途中で折り返さない。区切りの記号の直後でだけ折り返せるようにする。文字は変えない。 */
+const valueHtml = (escaped) => escaped.replace(/(?<=[^\\][\\/_.-])(?=[^\\/_.-])/g, '<wbr>');
+
+// 語の途中で折り返さない語の長さの上限。これより長い語を固定すると、スマホの幅からはみ出すため
+const WORD_LENGTH_MAX = 16;
+
+/** 語の途中で折り返さない語の探し方を作る。用語集の語と、カタカナの語（続く短い漢字まで）。 */
+function wordPattern(glossary) {
+  const terms = glossary.map((entry) => entry.term).filter((term) => term.length <= WORD_LENGTH_MAX).sort((a, b) => b.length - a.length);
+  const escaped = terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  return new RegExp([...escaped, '[ァ-ヶー]{2,}(?: [ァ-ヶー]{2,})*[一-龠々]{0,2}'].join('|'), 'g');
+}
+
+/** 語を折り返さない印で包む。接続先とキーの中は変えない。文字は変えない。 */
+function wrapWords(html, words) {
+  return html
+    .split(/(<(?:code|kbd)\b[^>]*>[\s\S]*?<\/(?:code|kbd)>)/)
+    .map((part, index) => (index % 2 ? part : part.replace(words, (word) => (word.length <= WORD_LENGTH_MAX ? `<span class="nb">${word}</span>` : word))))
+    .join('');
 }
 
 /** 操作の文の中のキーの名前を kbd で囲む。文字は変えない。 */
-const actionHtml = (text) => statementHtml(text).replace(/(?<![A-Za-z0-9-])([A-Z][A-Za-z0-9]*) (のキー|キー)/g, (_, key, rest) => `<kbd>${key}</kbd> ${rest}`);
+const actionHtml = (text, words) => wrapWords(pathsHtml(esc(text)).replace(/(?<![A-Za-z0-9-])([A-Z][A-Za-z0-9]*) (のキー|キー)/g, (_, key, rest) => `<kbd>${key}</kbd> ${rest}`), words);
 
 /** 語が使われているか。英数字の語は単語の境界で判定する（NAS が別の英単語の一部に当たらないように）。 */
 function usesTerm(text, term) {
@@ -366,7 +390,7 @@ function firstHtml(ctx, page, number) {
     '<section class="first">',
     `<h3 class="first-kicker">${number} まずこれだけ <span class="eta">1分</span></h3>`,
     `<div class="first-steps${many ? ' is-many' : ''}">`,
-    page.first_steps.map((id) => `<p class="first-body"><span>${actionHtml(ctx.raw(id))}</span></p>`).join('\n'),
+    page.first_steps.map((id) => `<p class="first-body"><span>${actionHtml(ctx.raw(id), ctx.words)}</span></p>`).join('\n'),
     '</div>',
     goalHtml(ctx, page.first_goal),
     '</section>',
@@ -384,10 +408,10 @@ function infoTables(ctx, page) {
   const drives = rows.filter((row) => row.type === 'drive');
   const values = rows.filter((row) => row.type === 'value');
   const driveTable = drives.length
-    ? `<table class="info-table info-drives">\n<thead><tr><th scope="col">PC</th><th scope="col">ドライブ</th><th scope="col">接続先</th></tr></thead>\n<tbody>\n${drives.map((row) => `<tr><td class="info-target">${esc(row.target ?? '全員')}</td><td class="info-drive">${esc(row.drive)}</td><td class="info-path"><code class="path">${esc(row.path)}</code></td></tr>`).join('\n')}\n</tbody>\n</table>`
+    ? `<table class="info-table info-drives">\n<thead><tr><th scope="col">PC</th><th scope="col">ドライブ</th><th scope="col">接続先</th></tr></thead>\n<tbody>\n${drives.map((row) => `<tr><td class="info-target">${valueHtml(esc(row.target ?? '全員'))}</td><td class="info-drive">${esc(row.drive)}</td><td class="info-path"><code class="path">${valueHtml(esc(row.path))}</code></td></tr>`).join('\n')}\n</tbody>\n</table>`
     : '';
   const valueTable = values.length
-    ? `<table class="info-table info-values">\n<thead><tr><th scope="col">項目</th><th scope="col">値</th></tr></thead>\n<tbody>\n${values.map((row) => `<tr><td class="info-target">${esc(row.label)}</td><td class="info-path"><code class="path">${esc(row.value)}</code></td></tr>`).join('\n')}\n</tbody>\n</table>`
+    ? `<table class="info-table info-values">\n<thead><tr><th scope="col">項目</th><th scope="col">値</th></tr></thead>\n<tbody>\n${values.map((row) => `<tr><td class="info-target">${esc(row.label)}</td><td class="info-path"><code class="path">${valueHtml(esc(row.value))}</code></td></tr>`).join('\n')}\n</tbody>\n</table>`
     : '';
   return [driveTable, valueTable].filter(Boolean).join('\n');
 }
@@ -408,7 +432,7 @@ function stepsHtml(ctx, page, stepTerms, heading) {
     const [body, note] = stepParts(ctx.raw(id));
     // 短い手順だけ文節で折り返す。長い文を文節で切ると、かえって行の長さがばらつくため
     const bodyClass = body.length <= SHORT_STEP_LENGTH ? 'step-body is-short' : 'step-body';
-    const noteHtml = note ? `<p class="step-note">${statementHtml(note)}</p>` : '';
+    const noteHtml = note ? `<p class="step-note">${statementHtml(note, ctx.words)}</p>` : '';
     const terms = stepTerms[index].length
       ? `<p class="step-terms">${stepTerms[index].map((term) => `<a class="tap" href="#${esc(termAnchor(ctx, page, term))}">${esc(term.term)}とは？</a>`).join('')}</p>`
       : '';
@@ -416,7 +440,7 @@ function stepsHtml(ctx, page, stepTerms, heading) {
       '<li class="step">',
       `<label class="tap"><input type="checkbox" data-check="${esc(page.id)}:${esc(id)}">`,
       `<span class="step-n">${index + 1}</span>`,
-      `<span class="${bodyClass}">${actionHtml(body)}</span>`,
+      `<span class="${bodyClass}">${actionHtml(body, ctx.words)}</span>`,
       `<span class="step-box">${icon('check')}</span>`,
       '</label>',
       noteHtml,
@@ -446,7 +470,7 @@ function contactPartHtml(ctx, page, contact, heading, leading) {
     `<div class="part part-contact${leading ? ' is-lead' : ''}">`,
     `<h3 class="part-title">${heading}</h3>`,
     '<div class="contact-box">',
-    `<h4 class="contact-name">${esc(contact.name)}<span class="contact-role">${ctx.text(contact.role)}</span></h4>`,
+    `<h4 class="contact-name">${esc(contact.name)}<span class="contact-role">${esc(ctx.raw(contact.role))}</span></h4>`,
     contact.phone ? `<div class="call-row">${callHtml(contact.phone)}${copyNumberHtml(contact.phone, statusId)}</div>` : '',
     contact.hours ? hoursHtml(ctx, contact.hours) : '',
     `<p class="say-label">${internal ? '相談のときに伝える文面' : '業者に送る文面'}</p>`,
@@ -550,7 +574,7 @@ function contactCard(ctx, contact) {
   const statusId = `copy-status-c-${esc(contact.id)}`;
   return [
     '<div class="card contact-box">',
-    `<h3 class="contact-name">${esc(contact.name)}<span class="contact-role">${ctx.text(contact.role)}</span></h3>`,
+    `<h3 class="contact-name">${esc(contact.name)}<span class="contact-role">${esc(ctx.raw(contact.role))}</span></h3>`,
     contact.phone ? `<div class="call-row">${callHtml(contact.phone)}${copyNumberHtml(contact.phone, statusId)}</div>` : '',
     contact.phone ? copyStatusHtml(statusId) : '',
     contact.hours ? hoursHtml(ctx, contact.hours) : '',
@@ -675,7 +699,8 @@ export function renderManual(manual) {
     statements,
     contacts: new Map(manual.contacts.map((c) => [c.id, c])),
     raw: (id) => statements.get(id).text,
-    text: (id) => statementHtml(statements.get(id).text),
+    words: wordPattern(manual.glossary),
+    text: (id) => statementHtml(statements.get(id).text, wordPattern(manual.glossary)),
   };
 
   const company = esc(manual.company_name);

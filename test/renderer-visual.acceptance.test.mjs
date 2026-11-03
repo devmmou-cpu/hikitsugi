@@ -345,11 +345,43 @@ test('印刷：ナビとボタンを隠し、details を開き、手順ページ
 // ---- 実際の画面 ----
 const CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
+test('用語とカタカナの語は語の途中で折り返さず、値は区切りでだけ折り返す。文字は変えない', () => {
+  assert.match(html, /<span class="nb">ドライブ文字<\/span>/);
+  assert.match(html, /<span class="nb">ネットワーク ドライブ<\/span>/);
+  assert.match(css, /\.nb\s*\{[^}]*white-space\s*:\s*nowrap/);
+  for (const term of manual.glossary.filter((g) => g.term.length <= 16)) {
+    const uses = manual.statements.find((s) => s.text.includes(term.term) && !s.library);
+    if (uses) assert.ok(html.includes(`<span class="nb">${term.term.replace(/&/g, '&amp;')}</span>`) || html.includes(`>${term.term}`), term.term);
+  }
+  // 接続先の中の区切りのあとに wbr があり、文字は同じ
+  assert.match(html, /<code class="path">\\\\OKOJO-<wbr>NAS\\<wbr>/);
+  assert.ok(strip(html).includes('\\\\OKOJO-NAS\\'));
+  // キーの印は残る
+  assert.match(html, /<kbd>Windows<\/kbd>/);
+});
+
+// 表に長い値があっても、スマホの幅からはみ出さないことも、実際の画面で確かめる
+function withLongValues() {
+  const m = fixture();
+  const page = m.symptom_pages.find((p) => p.info_rows.length);
+  const texts = [
+    `Q ドライブは \\\\OKOJO-NAS\\${'とても長いフォルダの名前'.repeat(5)} です。`,
+    `${'とても長い項目の名前'.repeat(4)}は ${'LONG-VALUE-'.repeat(8)} です。`,
+    `区切りのない値は ${'A'.repeat(90)} です。`,
+  ];
+  for (const [index, text] of texts.entries()) {
+    const id = `STM-${900 + index}`;
+    m.statements.push({ id, text, evidence: ['INT-001'] });
+    page.info_rows.push(id);
+  }
+  return renderManual(m);
+}
+
 test('実際の画面（375px、1024px、1440px）で、全画面の検査と仕様の値に合格し、撮影できる', { skip: existsSync(CHROME) ? false : 'Chrome がありません' }, () => {
   const dir = mkdtempSync(join(tmpdir(), 'hikitsugi-visual-'));
   try {
     const input = join(dir, 'manual.html');
-    writeFileSync(input, html);
+    writeFileSync(input, withLongValues());
     const output = join(dir, 'shots');
     const result = spawnSync(process.execPath, [join(ROOT, 'scripts/screenshots.mjs'), input, output], { encoding: 'utf8', timeout: 1200000 });
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
