@@ -5,6 +5,9 @@ export const QUESTION_LIMIT = 20;
 export const REVIEW_GAP = 'GAP-000';
 export const REVIEW_ITEM = 'CHK-00';
 export const QUESTION_CHARS = 150;
+// 同じ項目を聞くのは2回まで。答えが得られない項目で、質問を使い切らないため
+const MAX_ASKS_PER_ITEM = 2;
+const PRIORITY_RANK = { high: 0, mid: 1, low: 2 };
 
 // パスワードや認証情報の本体を書いた形。保管場所の文には当たらない。
 const CREDENTIAL = /(?:パスワード|暗証番号|認証コード|password|passcode)(?:は|:|：|=|＝)\s*[「"']?[!-~]{4,}/iu;
@@ -30,6 +33,48 @@ export function unaskedItems(gaps, transcript) {
   return gaps.gaps.flatMap((gap) => gap.items).filter((item) => !asked.has(item));
 }
 
+/** 申告された未回収の項目のうち、次に聞き直す項目を返す。 */
+function reviewTarget(next, gaps, transcript) {
+  const unfilled = new Set(next.unfilled ?? []);
+  return reviewCandidates(gaps, transcript).find(({ item }) => unfilled.has(item))?.item ?? null;
+}
+
+/**
+ * 聞き直してよい項目を、重要度の高い順に返す。
+ * 「分からない」「あとで」と答えた項目と、すでに2回聞いた項目は含めない。埋まったかどうかは Interviewer が記録を読んで判断する。
+ */
+export function reviewCandidates(gaps, transcript) {
+  const entries = transcript.entries;
+  const order = gaps.gaps
+    .map((gap, index) => ({ gap, index }))
+    .sort((a, b) => (PRIORITY_RANK[a.gap.priority] ?? 3) - (PRIORITY_RANK[b.gap.priority] ?? 3) || a.index - b.index);
+  const seen = new Set();
+  const candidates = [];
+  for (const { gap } of order) {
+    for (const item of gap.items) {
+      if (seen.has(item)) continue;
+      seen.add(item);
+      const asked = entries.filter((entry) => entry.covers.includes(item));
+      if (asked.length >= MAX_ASKS_PER_ITEM || asked.some((entry) => entry.status !== 'answered')) continue;
+      candidates.push({ item, gap: gap.id, priority: gap.priority, asked: asked.length });
+    }
+  }
+  return candidates;
+}
+
+/** Interviewer に渡す進み具合。聞き直しの段階では、聞き直してよい項目を重要度の順に示す。 */
+export function interviewProgress(gaps, transcript) {
+  const unasked = unaskedItems(gaps, transcript);
+  const asked = transcript.entries.length;
+  return {
+    asked,
+    remaining: QUESTION_LIMIT - asked,
+    stage: unasked.length ? 'first_pass' : 'review',
+    unasked_items: unasked,
+    review_candidates: unasked.length ? [] : reviewCandidates(gaps, transcript),
+  };
+}
+
 /**
  * 次の質問が記録できる形かを確かめる。問題の一覧を返す。
  * @param transcript 指定があれば、聞いていない項目を残して終えようとしていないかも確かめる
@@ -38,7 +83,9 @@ export function checkNextQuestion(next, gaps, transcript) {
   if (next.action !== 'ask') {
     if (!transcript || transcript.entries.length >= QUESTION_LIMIT) return [];
     const unasked = unaskedItems(gaps, transcript);
-    return unasked.length ? [`まだ聞いていない項目があるので、終えられません：${unasked.join('、')}`] : [];
+    if (unasked.length) return [`まだ聞いていない項目があるので、終えられません：${unasked.join('、')}`];
+    const target = reviewTarget(next, gaps, transcript);
+    return target ? [`質問が余っていて未回収の項目があるので、終えられません：${target} を聞き直してください`] : [];
   }
   const problems = [];
   const known = new Set(gaps.gaps.map((gap) => gap.id));
@@ -48,6 +95,12 @@ export function checkNextQuestion(next, gaps, transcript) {
   problems.push(...questionProblems(next.question));
   if (next.covers.length === 0) problems.push('埋める項目がありません');
   for (const item of next.covers) if (!items.has(item)) problems.push(`存在しない必須項目です: ${item}`);
+  // 全部聞き終えたあとは聞き直しの段階。未回収の項目を、重要度の高いものから聞く
+  if (transcript && unaskedItems(gaps, transcript).length === 0) {
+    const target = reviewTarget(next, gaps, transcript);
+    if (!target) problems.push('聞き直せる未回収の項目がありません。unfilled に項目を挙げるか、終えてください');
+    else if (!next.covers.includes(target)) problems.push(`未回収の項目は、重要度の高いものから聞いてください：${target} を covers に入れます`);
+  }
   return problems;
 }
 

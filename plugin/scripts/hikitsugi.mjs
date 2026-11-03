@@ -13,7 +13,7 @@ import { bodyFields } from '../lib/page-check.mjs';
 import { plainProblems } from '../lib/plain-check.mjs';
 import { applyRetireeCheck } from '../lib/retiree-check.mjs';
 import { composeProcedures, libraryForAgents } from '../lib/procedures.mjs';
-import { appendEntry, appendReviewEntry, checkNextQuestion, emptyTranscript, QUESTION_LIMIT } from '../lib/transcript.mjs';
+import { appendEntry, appendReviewEntry, checkNextQuestion, emptyTranscript, interviewProgress, QUESTION_LIMIT } from '../lib/transcript.mjs';
 import { validate } from '../lib/validate.mjs';
 import { renderManual } from '../renderer/render.mjs';
 
@@ -99,6 +99,7 @@ function checkGaps(work) {
   const dropped = gaps.coverage.filter((entry) => entry.state !== 'filled' && !inGap.has(entry.item)).map((entry) => entry.item);
   if (dropped.length) throw new Problem(`聞き取りの対象から漏れた必須項目があります：${dropped.join(', ')}`);
   writeJson(join(work, 'gaps.json'), gaps);
+  writeJson(join(work, 'interview-progress.json'), interviewProgress(gaps, readJson(join(work, 'transcript.json'))));
   const count = gaps.coverage.filter((entry) => entry.state === 'filled').length;
   return `調査データで埋まった項目 ${count} 件、聞き取りの空白 ${gaps.gaps.length} 件`;
 }
@@ -134,6 +135,7 @@ function record(work, [status], stdin) {
   }
   checkSchema('transcript', updated);
   writeJson(transcriptPath, updated);
+  writeJson(join(work, 'interview-progress.json'), interviewProgress(readJson(join(work, 'gaps.json')), updated));
   rmNext(work);
   return `記録しました（${updated.entries.length} / ${QUESTION_LIMIT} 問）`;
 }

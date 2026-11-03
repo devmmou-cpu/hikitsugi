@@ -13,7 +13,7 @@ import { buildMockRequest, composeAnswer } from '../eval/lib/mock-tanaka.mjs';
 import { costOf } from '../eval/lib/pricing.mjs';
 import { score as scoreInterview, summarize as summarizeInterview } from '../eval/lib/scorers/interview.mjs';
 import { runEval, UsageError } from '../eval/lib/runner.mjs';
-import { appendEntry, checkNextQuestion, emptyTranscript, hasCredential, QUESTION_CHARS, QUESTION_LIMIT, questionProblems, unaskedItems } from '../plugin/lib/transcript.mjs';
+import { appendEntry, checkNextQuestion, emptyTranscript, hasCredential, interviewProgress, QUESTION_CHARS, QUESTION_LIMIT, questionProblems, reviewCandidates, unaskedItems } from '../plugin/lib/transcript.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SET = join(ROOT, 'eval/sets/okojo');
@@ -117,10 +117,13 @@ test('模擬の田中さんの回答は隠し設定の文そのもので、回�
 
 test('聞き取りは20問で止まり、ID はプログラムが振る', async () => {
   let asked = 0;
-  const client = fakeClient(() => ({ action: 'ask', gap: 'GAP-001', covers: ['CHK-01'], question: '質問です' }));
+  const items = Array.from({ length: 25 }, (_, i) => `CHK-${String(i + 1).padStart(2, '0')}`);
+  const many = { ...gapsOutput, gaps: [{ id: 'GAP-001', items, why: '理由', priority: 'high', question_hint: 'ヒント' }] };
+  let next = 0;
+  const client = fakeClient(() => ({ action: 'ask', gap: 'GAP-001', covers: [items[next++]], question: '質問です', unfilled: [] }));
   const transcript = await runInterview({
     survey: input.survey,
-    gaps: gapsOutput,
+    gaps: many,
     api: client,
     record: () => {},
     askTanaka: async () => {
@@ -250,6 +253,80 @@ test('live の聞き取りは --from がなければ指定の誤りになる', a
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ---- 聞き直し ----
+const reviewGaps = {
+  ...gapsOutput,
+  gaps: [
+    { id: 'GAP-001', items: ['CHK-01', 'CHK-02'], why: '理由', priority: 'mid', question_hint: 'ヒント' },
+    { id: 'GAP-002', items: ['CHK-03'], why: '理由', priority: 'high', question_hint: 'ヒント' },
+    { id: 'GAP-003', items: ['CHK-04'], why: '理由', priority: 'low', question_hint: 'ヒント' },
+  ],
+};
+const allItems = { ...reviewGaps, coverage: ['CHK-01', 'CHK-02', 'CHK-03', 'CHK-04'].map((item) => ({ item, state: 'gap', evidence: [] })) };
+const askAll = (status = 'answered') => {
+  let transcript = emptyTranscript('okojo');
+  for (const gap of reviewGaps.gaps) {
+    transcript = appendEntry(transcript, { next: { action: 'ask', gap: gap.id, covers: gap.items, question: '質問' }, answer: '回答', status, answeredAt: 'x' });
+  }
+  return transcript;
+};
+
+test('聞き直してよい項目は重要度の高い順で、2回聞いた項目と「分からない」の項目を含めない', () => {
+  const transcript = askAll();
+  assert.deepEqual(reviewCandidates(reviewGaps, transcript).map((c) => c.item), ['CHK-03', 'CHK-01', 'CHK-02', 'CHK-04']);
+  const again = appendEntry(transcript, { next: { action: 'ask', gap: 'GAP-002', covers: ['CHK-03'], question: '質問' }, answer: '回答', status: 'answered', answeredAt: 'x' });
+  assert.deepEqual(reviewCandidates(reviewGaps, again).map((c) => c.item), ['CHK-01', 'CHK-02', 'CHK-04']);
+  const unknown = appendEntry(transcript, { next: { action: 'ask', gap: 'GAP-001', covers: ['CHK-01'], question: '質問' }, answer: '分かりません。', status: 'unknown', answeredAt: 'x' });
+  assert.ok(!reviewCandidates(reviewGaps, unknown).some((c) => c.item === 'CHK-01'));
+  assert.deepEqual(reviewCandidates(reviewGaps, askAll('later')), []);
+});
+
+test('進み具合：聞いていない項目があるうちは候補を出さず、聞き終えたら聞き直しの段階にする', () => {
+  const none = interviewProgress(reviewGaps, emptyTranscript('okojo'));
+  assert.equal(none.stage, 'first_pass');
+  assert.equal(none.remaining, QUESTION_LIMIT);
+  assert.deepEqual(none.review_candidates, []);
+  const done = interviewProgress(reviewGaps, askAll());
+  assert.equal(done.stage, 'review');
+  assert.equal(done.remaining, QUESTION_LIMIT - 3);
+  assert.equal(done.review_candidates[0].item, 'CHK-03');
+});
+
+test('未回収の項目があれば終えられず、重要度の高いものから聞き直す', () => {
+  const transcript = askAll();
+  const finish = (unfilled) => ({ action: 'finish', gap: '', covers: [], question: '', unfilled });
+  assert.deepEqual(checkNextQuestion(finish([]), allItems, transcript), []);
+  assert.match(checkNextQuestion(finish(['CHK-04', 'CHK-03']), allItems, transcript)[0], /終えられません：CHK-03/);
+  const ask = (covers, unfilled, gap = 'GAP-001') => ({ action: 'ask', gap, covers, question: '質問', unfilled });
+  // 重要度の低い項目を先に聞こうとすると止める
+  assert.match(checkNextQuestion(ask(['CHK-04'], ['CHK-04', 'CHK-03'], 'GAP-003'), allItems, transcript).join(), /重要度の高いものから聞いてください：CHK-03/);
+  assert.deepEqual(checkNextQuestion(ask(['CHK-03'], ['CHK-04', 'CHK-03'], 'GAP-002'), allItems, transcript), []);
+  // 未回収と申告しないまま聞き直すことも止める
+  assert.match(checkNextQuestion(ask(['CHK-03'], [], 'GAP-002'), allItems, transcript).join(), /聞き直せる未回収の項目がありません/);
+  // 2回聞いた項目しか残っていなければ、終えられる
+  const again = appendEntry(transcript, { next: { action: 'ask', gap: 'GAP-002', covers: ['CHK-03'], question: '質問' }, answer: '回答', status: 'answered', answeredAt: 'x' });
+  assert.deepEqual(checkNextQuestion(finish(['CHK-03']), allItems, again), []);
+});
+
+test('聞き直しを含めても、合計は20問を超えない', async () => {
+  const items = Array.from({ length: 19 }, (_, i) => `CHK-${String(i + 1).padStart(2, '0')}`);
+  const gaps = { ...gapsOutput, gaps: items.map((item, i) => ({ id: `GAP-${String(i + 1).padStart(3, '0')}`, items: [item], why: '理由', priority: 'high', question_hint: 'ヒント' })) };
+  let n = 0;
+  const client = fakeClient(() => {
+    const i = n++ % items.length;
+    return { action: 'ask', gap: gaps.gaps[i].id, covers: [items[i]], question: '質問です', unfilled: n > items.length ? items : [] };
+  });
+  const transcript = await runInterview({ survey: input.survey, gaps, api: client, record: () => {}, askTanaka: async () => ({ answer: '回答です', status: 'answered' }), clock: () => 'x' });
+  assert.equal(transcript.entries.length, QUESTION_LIMIT);
+  assert.deepEqual(transcript.entries.at(-1).covers, ['CHK-01']);
+});
+
+test('Interviewer に進み具合を渡す', () => {
+  const body = JSON.stringify(buildInterviewerRequest({ survey: input.survey, gaps: reviewGaps, transcript: askAll() }).messages);
+  assert.ok(body.includes('<progress>'));
+  assert.ok(body.includes('review_candidates'));
 });
 
 test('聞き取りを通しで実行すると、形式の検査を通って採点され、呼び出しの費用が残る', async () => {

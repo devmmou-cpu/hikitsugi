@@ -338,7 +338,7 @@ test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途�
     hikitsugi('check-gaps');
     assert.equal(nextStep(work).step, 'interview');
 
-    write('next.json', { action: 'ask', gap: 'GAP-001', covers: ['CHK-01'], question: '契約先を教えてください' });
+    write('next.json', { action: 'ask', gap: 'GAP-001', covers: ['CHK-01'], question: '契約先を教えてください', unfilled: [] });
     assert.equal(hikitsugi('check-next'), '契約先を教えてください');
     assert.equal(nextStep(work).pending_question, true);
     assert.throws(() => hikitsugi('record', ['answered'], 'パスワードは abcd1234 です'), /保管場所/);
@@ -346,14 +346,14 @@ test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途�
     assert.equal(nextStep(work).asked, 1);
     assert.equal(nextStep(work).pending_question, false);
 
-    write('next.json', { action: 'ask', gap: 'GAP-001', covers: ['CHK-02'], question: '次の質問' });
+    write('next.json', { action: 'ask', gap: 'GAP-001', covers: ['CHK-02'], question: '次の質問', unfilled: [] });
     hikitsugi('record', ['unknown'], '');
     const transcript = JSON.parse(readFileSync(join(work, 'transcript.json'), 'utf8'));
     assert.equal(transcript.entries[1].status, 'unknown');
     assert.equal(transcript.entries[1].answer, '分かりません。');
 
     // 聞いていない項目を残して終えることはできない
-    write('next.json', { action: 'finish', gap: '', covers: [], question: '' });
+    write('next.json', { action: 'finish', gap: '', covers: [], question: '', unfilled: [] });
     assert.throws(() => hikitsugi('check-next'), /まだ聞いていない/);
     write('gaps.json', { schema_version: 1, company: input.survey.company, coverage, gaps: [{ id: 'GAP-001', items: ['CHK-01', 'CHK-02'], why: '理由', priority: 'high', question_hint: 'ヒント' }] });
     assert.match(hikitsugi('check-next'), /終えました/);

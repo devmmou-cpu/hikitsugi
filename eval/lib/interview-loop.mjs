@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { appendEntry, checkNextQuestion, emptyTranscript, QUESTION_CHARS, QUESTION_LIMIT } from '../../plugin/lib/transcript.mjs';
+import { appendEntry, checkNextQuestion, emptyTranscript, interviewProgress, QUESTION_CHARS, QUESTION_LIMIT } from '../../plugin/lib/transcript.mjs';
 import { buildRequest, callAgent, clientOf, LiveFailure, loadAgent, loadChecklist, tagged } from './adapters/live.mjs';
 import { createMockTanaka } from './mock-tanaka.mjs';
 
@@ -26,7 +26,7 @@ const NEXT_SCHEMA = (() => {
 export function buildInterviewerRequest({ survey, gaps, checklist = loadChecklist(), transcript, agent = loadAgent('plugin/agents/interviewer.md') }) {
   const stable = tagged({ survey, gaps, checklist });
   const remaining = QUESTION_LIMIT - transcript.entries.length;
-  const dynamic = `${tagged({ transcript })}\n\nここまでに ${transcript.entries.length} 問聞きました。残りは ${remaining} 問です。次の1問を決めてください。`;
+  const dynamic = `${tagged({ transcript, progress: interviewProgress(gaps, transcript) })}\n\nここまでに ${transcript.entries.length} 問聞きました。残りは ${remaining} 問です。次の1問を決めてください。`;
   return buildRequest(agent, NEXT_SCHEMA, [
     { type: 'text', text: stable, cache_control: { type: 'ephemeral' } },
     { type: 'text', text: dynamic },
