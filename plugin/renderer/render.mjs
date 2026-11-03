@@ -421,15 +421,35 @@ function helpPanel(ctx) {
 }
 
 /** 2列以上で、まだ症状を選んでいないときに中央の列に出す案内。 */
+/** 開いた直後の右の列。社内の相談先の先頭を「まず誰に言うか」として1枚だけ置く。 */
+function firstContactHtml(ctx) {
+  const first = ctx.manual.contacts.find((contact) => contact.id.startsWith('INH-'));
+  if (!first) return '';
+  return [
+    '<aside class="pick-rail" aria-label="まず誰に言うか">',
+    '<div class="rail-block">',
+    '<h3 class="label">まず誰に言うか</h3>',
+    `<p class="rail-name">${esc(first.name)}</p>`,
+    `<p class="rail-hours">${esc(ctx.raw(first.role))}</p>`,
+    first.hours ? `<p class="rail-hours">${ctx.text(first.hours)}</p>` : '',
+    first.phone ? callHtml(first.phone, true) : '',
+    '</div>',
+    '</aside>',
+  ].filter(Boolean).join('\n');
+}
+
 function pickPromptHtml(ctx) {
   const groups = CATEGORY_LABELS.map(([category, label]) => [label, ctx.manual.symptom_pages.filter((p) => p.category === category)]).filter(([, pages]) => pages.length);
   return [
     '<div class="js-only pick-prompt" id="pick-home">',
+    firstContactHtml(ctx),
+    '<div class="pick-main">',
     '<p class="pick-lead">いま困っていることを押してください。</p>',
     '<p class="pick-note">開いて読むだけなら、PC や機器には何も起きません。</p>',
     '<p class="label pick-label">判定の見かた</p>',
     legendHtml(),
     ...groups.flatMap(([label, pages]) => [`<h3 class="group-title">${esc(label)}</h3>`, `<ul class="sym-group" role="list">\n${pages.map((page) => symHtml(ctx, page)).join('\n')}\n</ul>`]),
+    '</div>',
     '</div>',
   ].join('\n');
 }

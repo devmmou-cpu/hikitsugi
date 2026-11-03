@@ -421,6 +421,11 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   margin-left: .3em;
 }
 
+/* 「まず誰に言うか」は3列の幅でだけ出す。同じ相手は連絡先の画面にある */
+.js .pick-rail {
+  display: none;
+}
+
 /* ---- 普段の言葉で探す（JavaScript があるときだけ） ---- */
 .js .search-box {
   display: block;
@@ -2217,6 +2222,30 @@ details[open] .plus-v {
 
   .rail .btn-copy {
     width: 100%;
+  }
+
+  /* 開いた直後：右の列に「まず誰に言うか」を置く。手順ページの右の列と同じ幅と位置 */
+  .js[data-view="help"] .pick-prompt {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    column-gap: var(--s5);
+    width: calc(100% + 324px);
+    align-items: start;
+  }
+
+  .pick-main {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .js .pick-rail {
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: 88px;
+    width: 300px;
   }
 
   .company-layout {
