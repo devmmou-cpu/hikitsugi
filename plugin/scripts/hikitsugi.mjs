@@ -36,6 +36,12 @@ const readJson = (path) => {
 };
 const writeJson = (path, value) => writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
 
+/** Gap Finder の出力の形。schema_version と company は check-gaps が付けるので含めない。スキーマから作るので、検査とずれない。 */
+export function gapsFormat() {
+  const { coverage, gaps } = readJson(join(PLUGIN, 'schemas', 'gaps.schema.json')).properties;
+  return { $comment: 'gaps.json の形。この項目の名前と値のとおりに保存する', type: 'object', additionalProperties: false, required: ['coverage', 'gaps'], properties: { coverage, gaps } };
+}
+
 const checkSchema = (name, value) => {
   const problems = validate(readJson(join(PLUGIN, 'schemas', `${name}.schema.json`)), value);
   if (problems.length) throw new Problem(`形式が違います（${name}）：\n${problems.slice(0, 10).join('\n')}`);
@@ -87,6 +93,7 @@ function init(work, [surveyPath, retiree, ...nameParts]) {
   writeJson(join(work, 'survey.json'), survey);
   writeJson(join(work, 'checklist.json'), readJson(join(PLUGIN, 'checklist/handover-items.json')));
   writeJson(join(work, 'library.json'), libraryForAgents());
+  writeJson(join(work, 'gaps-format.json'), gapsFormat());
   writeJson(join(work, 'transcript.json'), emptyTranscript(survey.company));
   writeJson(join(work, 'state.json'), { company: survey.company, company_name: companyName, retiree, round: 1, interview_done: false, passed: false });
   return `準備ができました（調査データ ${survey.items.length} 件）`;

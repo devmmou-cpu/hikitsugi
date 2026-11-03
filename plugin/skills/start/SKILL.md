@@ -50,9 +50,9 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/hikitsugi.mjs" <コマンド>
 
 ### gap-finder
 `hikitsugi:gap-finder` に次を依頼します。
-> `hikitsugi-work/survey.json` と `hikitsugi-work/checklist.json` を読み、結果の JSON（`coverage` と `gaps`）を `hikitsugi-work/gaps.json` に保存してください。
+> `hikitsugi-work/survey.json` と `hikitsugi-work/checklist.json` を読み、結果の JSON を `hikitsugi-work/gaps.json` に保存してください。保存する形は `hikitsugi-work/gaps-format.json` です。項目の名前と値は、このとおりにしてください。
 
-終わったら `hikitsugi check-gaps` を実行します。
+終わったら `hikitsugi check-gaps` を実行します。問題が表示されたら、その内容を伝えて直してもらいます。
 
 ### interview
 1問ずつ、次を繰り返します。`status` の `pending_question` が `true` のときは、質問が保存されたまま止まっています。手順 2 から再開します。

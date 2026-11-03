@@ -24,7 +24,7 @@ import { composeProcedures, libraryForAgents, loadLibrary, unapprovedParts } fro
 import { validate } from '../plugin/lib/validate.mjs';
 import { pageStatementIds, parseInfoRow } from '../plugin/lib/page-check.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
-import { nextStep, run } from '../plugin/scripts/hikitsugi.mjs';
+import { gapsFormat, nextStep, run } from '../plugin/scripts/hikitsugi.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SET = join(ROOT, 'eval/sets/okojo');
@@ -524,6 +524,36 @@ test('/hikitsugi:start：差し戻しの上限に達すると not_passed で止�
     assert.match(hikitsugi('check-verification', ['3']), /上限/);
     assert.equal(nextStep(work).step, 'not_passed');
     assert.throws(() => hikitsugi('render'), /合格していない/);
+  }));
+
+test('Gap Finder の形：init が書き出し、スキルが渡し、検査と同じ名前と値を持つ', () =>
+  withTemp(async (dir) => {
+    const work = join(dir, 'work');
+    const surveyPath = join(dir, 'survey.json');
+    writeFileSync(surveyPath, JSON.stringify(input.survey));
+    run('init', [surveyPath, '田中', '会社'], { work });
+    const format = JSON.parse(readFileSync(join(work, 'gaps-format.json'), 'utf8'));
+    assert.deepEqual(format, gapsFormat());
+    const schema = JSON.parse(readFileSync(join(ROOT, 'plugin/schemas/gaps.schema.json'), 'utf8'));
+    // 調べる側と同じ定義で、プログラムが付ける項目だけを除く
+    assert.deepEqual(format.properties.coverage, schema.properties.coverage);
+    assert.deepEqual(format.properties.gaps, schema.properties.gaps);
+    assert.deepEqual(format.required, ['coverage', 'gaps']);
+
+    // この形で保存したものは検査に通り、名前を変えたものは形で止まる
+    const coverage = gold.gaps.items.map((item) => ({ item: item.item, state: item.state, evidence: item.evidence }));
+    const items = gold.gaps.items.filter((item) => item.state !== 'filled').map((item) => item.item);
+    const output = { coverage, gaps: [{ id: 'GAP-001', items, why: '理由', priority: 'high', question_hint: 'ヒント' }] };
+    assert.deepEqual(validate(format, output), []);
+    writeFileSync(join(work, 'gaps.json'), JSON.stringify(output));
+    assert.match(run('check-gaps', [], { work }), /聞き取りの空白 1 件/);
+    const renamed = { ...output, coverage: coverage.map(({ item, ...rest }) => ({ id: item, ...rest })) };
+    assert.ok(validate(format, renamed).length > 0);
+    writeFileSync(join(work, 'gaps.json'), JSON.stringify(renamed));
+    assert.throws(() => run('check-gaps', [], { work }), /形式が違います/);
+
+    const skill = readFileSync(join(ROOT, 'plugin/skills/start/SKILL.md'), 'utf8');
+    assert.ok(skill.includes('hikitsugi-work/gaps-format.json'));
   }));
 
 test('スキルとプラグインの定義がそろっている', () => {
