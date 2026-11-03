@@ -1,0 +1,31 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/pre-push-test.mjs\"",
+            "timeout": 600,
+            "onFailure": "block",
+            "statusMessage": "git push の前のテストを確認しています"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/check-manual-html.mjs\"",
+            "timeout": 60,
+            "statusMessage": "取扱説明書の HTML を検査しています"
+          }
+        ]
+      }
+    ]
+  }
+}
