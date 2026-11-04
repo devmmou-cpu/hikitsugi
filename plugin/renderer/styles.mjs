@@ -1442,6 +1442,11 @@ kbd {
   margin-top: var(--s4);
 }
 
+/* 連絡先の枠と違い、ここには行の間の余白がない。見出しが文面に重ならないようにする */
+.reply-box .say-label {
+  margin-bottom: var(--s1);
+}
+
 .reply-box .btn-copy {
   margin-top: var(--s2);
 }

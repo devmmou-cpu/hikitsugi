@@ -66,3 +66,8 @@ test('印刷では「はじめに」を中央に寄せない', async () => {
   assert.match(rule, /max-width: none/);
   assert.match(rule, /margin: 0/);
 });
+
+test('社員に返す文の見出しは文面に重ならない', async () => {
+  const { STYLES } = await import('../plugin/renderer/styles.mjs');
+  assert.match(STYLES, /\.reply-box \.say-label \{\s*margin-bottom: var\(--s1\);/);
+});
