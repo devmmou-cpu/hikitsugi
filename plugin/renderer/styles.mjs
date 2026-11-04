@@ -607,9 +607,15 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   white-space: nowrap;
 }
 
-.update-log .update-date,
-.update-log .update-kind {
+.update-log .update-date {
   white-space: nowrap;
+}
+
+/* 種類は広い幅でだけ1行にする。狭い幅では折り返さないと横にはみ出す */
+@media (min-width: 700px) {
+  .update-log .update-kind {
+    white-space: nowrap;
+  }
 }
 
 .seal {
