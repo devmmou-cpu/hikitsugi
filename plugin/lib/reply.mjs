@@ -12,6 +12,8 @@ export const PC_NOTE_USAGE = 'pc_note';
 const WINDOWS_10_PART = 'LIB-021';
 
 const CHECKING = 'いま確認しています。';
+const AGAIN_OPEN = '開かなければ、もう一度知らせてください。';
+const AGAIN_FIX = '直らなければ、もう一度知らせてください。';
 const TRY_THESE = '次を試してみてください。';
 const willContact = (name) => `${name}に連絡します。`;
 const willConsult = (name) => `${name}に相談します。`;
@@ -37,8 +39,15 @@ function selfLines(page, byId, library) {
   if (!steps) return null;
   const lines = [TRY_THESE, ...steps.map((statement) => statement.text)];
   const goal = page.first_goal ? byId.get(page.first_goal) : null;
-  return { lines: goal && lines.length < REPLY_LINES_MAX ? [...lines, goal.text] : lines, used: goal && lines.length < REPLY_LINES_MAX ? [...steps, goal] : steps };
+  // 最後は「もう一度知らせて」。5行を超えるなら、ゴールの文より優先する
+  const again = goal?.text.startsWith('開けば') ? AGAIN_OPEN : AGAIN_FIX;
+  const withGoal = goal && lines.length + 2 <= REPLY_LINES_MAX;
+  const withAgain = lines.length + 1 <= REPLY_LINES_MAX;
+  return { lines: [...lines, ...(withGoal ? [goal.text] : []), ...(withAgain ? [again] : [])], used: withGoal ? [...steps, goal] : steps };
 }
+
+/** ① の手順を社員に返す文に入れるページか。 */
+export const isSelfReplyPage = (page, manual, library = loadLibrary()) => page.badge.value === 'self' && Boolean(usableFirstSteps(page, mapById(manual), library));
 
 /** ページの社員に返す文を作る。{ text, evidence } を返す。 */
 export function composeReply(page, manual, library = loadLibrary()) {
@@ -260,7 +269,7 @@ export function replyProblems(manual, library = loadLibrary()) {
       const built = selfLines(page, byId, library);
       if (!built) same(CHECKING, '① が手順部品だけでないページの社員に返す文は「いま確認しています。」だけです');
       else if (lines[0] !== TRY_THESE) problems.push(`${page.id}: 社員に返す文は「${TRY_THESE}」で始めます`);
-      else if (statement.text !== built.lines.join('\n')) problems.push(`${page.id}: 社員に返す文は、① の手順部品の文面を順番どおりに写し、① のゴール文で終えます`);
+      else if (statement.text !== built.lines.join('\n')) problems.push(`${page.id}: 社員に返す文は、① の手順部品の文面を順番どおりに写し、「もう一度知らせて」の定型で終えます`);
     }
   }
   return problems;

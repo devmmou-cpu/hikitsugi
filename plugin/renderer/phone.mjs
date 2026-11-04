@@ -12,7 +12,7 @@
 //
 // 使い方：node plugin/renderer/phone.mjs <入力.json> <出力フォルダ>
 
-import { withPcInBranch } from '../lib/reply.mjs';
+import { forDisplay } from '../lib/display.mjs';
 import { mkdirSync, readdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -175,7 +175,7 @@ function symptomHtml(ctx, page, fileTitle) {
   const leading = contactLeads ? contactPart() : '';
   const figures = firstStepFigures(page, ctx.manual);
   const first = hasFirst
-    ? `<section class="part first">\n<h2>${number()} まずこれだけ</h2>\n${page.first_steps.map((id) => `<p class="first-body">${actionHtml(ctx.raw(id), ctx.words)}${figures.get(id) ?? ''}</p>`).join('\n')}\n${goal(page.first_goal)}\n</section>`
+    ? `<section class="part first">\n<h2>${number()} まずこれだけ</h2>\n${page.first_lead ? `<p class="note">${esc(page.first_lead)}</p>\n` : ''}${page.first_steps.map((id) => `<p class="first-body">${actionHtml(ctx.raw(id), ctx.words)}${figures.get(id) ?? ''}</p>`).join('\n')}\n${goal(page.first_goal)}\n</section>`
     : '';
   const reply = `<section class="part">\n<h2>社員に返す文</h2>\n${copyBoxHtml(ctx.text(page.reply_to_staff))}\n</section>`;
   const notes = page.notes.length ? `<section class="part">\n<h2>先に知っておくこと</h2>\n<ul class="notes">\n${page.notes.map((id) => `<li>${ctx.text(id)}</li>`).join('\n')}\n</ul>\n</section>` : '';
@@ -253,14 +253,14 @@ export function phoneFileProblems(html) {
  * 入力か出力に問題があれば、例外を投げて1つも作らない。
  */
 export function renderPhoneBundle(input) {
-  const manual = withPcInBranch(input);
-  checkInput(manual);
-  const shape = [...pageProblems(manual), ...contactProblems(manual)];
+  checkInput(input);
+  const shape = [...pageProblems(input), ...contactProblems(input)];
+  const manual = forDisplay(input);
   if (shape.length) throw new Error(`手順ページの形に問題があります:\n${shape.map((p) => `- ${p}`).join('\n')}`);
   const pages = orderedPages(manual);
   if (pages.length >= LAST_NUMBER) throw new Error(`症状が多すぎて、番号が 99 に届きます（${pages.length} ページ）`);
 
-  const ctx = makeContext(manual);
+  const ctx = makeContext(manual, { links: false });
   const bundle = [
     { name: '00_連絡先.html', html: contactsHtml(ctx, '連絡先', '困ったときに連絡する相手です。', '連絡先', contactGuide(manual.contacts)) },
     ...pages.map((page, index) => {

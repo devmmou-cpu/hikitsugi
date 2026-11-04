@@ -13,7 +13,7 @@ const compact = (text) => text.normalize('NFKC').replace(/\s+/g, '');
  * manual.json の中身を作る。OneDrive に置くので、説明書が引用している調査と聞き取りだけを入れる。
  * 連絡先の名前と番号の照合に使う回答も入れる。「分からない」の回答と、退職する本人向けの一覧は入れない。
  */
-export function bundleOf({ manual, survey, transcript, state }) {
+export function bundleOf({ manual, survey, transcript, state, unknowns: unknownsOf }) {
   const { before_leaving: _private, ...shared } = manual;
   const cited = new Set(manual.statements.flatMap((statement) => statement.evidence));
   const contactWords = manual.contacts.flatMap((contact) => [contact.name, contact.phone]).filter(Boolean).map(compact);
@@ -29,6 +29,8 @@ export function bundleOf({ manual, survey, transcript, state }) {
     round_base: state.round_base ?? 0,
     manual: shared,
     sources: { survey: { ...survey, items }, transcript: { ...transcript, entries } },
+    // 質問の短い文だけを残す。「分からない」の回答そのものは入れない。作業フォルダを作り直しても表紙の欄が消えないように
+    unknowns: unknownsOf ?? [],
   };
 }
 

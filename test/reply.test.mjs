@@ -33,7 +33,8 @@ test('自分で直せる：定型、① の部品、① のゴールの順', () 
   const page = selfPage(manual);
   assert.ok(page, '見本に該当のページがありません');
   const reply = replyOf(manual, page);
-  assert.deepEqual(reply.text.split('\n'), ['次を試してみてください。', ...page.first_steps.map((id) => statementOf(manual, id).text), statementOf(manual, page.first_goal).text]);
+  // 3手順なら5行に収めるため、ゴールの文より「もう一度知らせて」を優先する
+  assert.deepEqual(reply.text.split('\n'), ['次を試してみてください。', ...page.first_steps.map((id) => statementOf(manual, id).text), '開かなければ、もう一度知らせてください。']);
   assert.equal(reply.usage, 'reply_to_staff');
   assert.ok(reply.text.split('\n').length <= REPLY_LINES_MAX);
 });

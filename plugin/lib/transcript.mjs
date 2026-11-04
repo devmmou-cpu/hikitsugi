@@ -155,3 +155,10 @@ export function appendReviewEntry(transcript, { pageId, title, comment, answered
   };
   return { transcript: { ...transcript, entries: [...transcript.entries, entry] }, entry };
 }
+
+/** 文の根拠のうち、聞き取りの記録にない INT を返す。 */
+export function missingInterviewEvidence(manual, transcript) {
+  const known = new Set(transcript.entries.map((entry) => entry.id));
+  return [...new Set(manual.statements.flatMap((statement) => statement.evidence ?? []).filter((id) => id.startsWith('INT-') && !known.has(id)))];
+}
+

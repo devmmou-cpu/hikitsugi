@@ -10,6 +10,7 @@
 // - 機器は <article class="device"> の形で書き、「置き場所」「役割」「止まると」の見出しを付ける
 // - 色、文字、列の値は renderer-visual.acceptance.test.mjs で確かめる
 
+import { forDisplay } from '../plugin/lib/display.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -76,7 +77,12 @@ test('見本は5ページ以上で、全タブの内容を持つ', () => {
 test('JavaScript なしで、すべての記述が読める', () => {
   // 会社の情報の表の文章は検証用で、画面には表の形で出す（値は下のテストで確かめる）
   const inTable = new Set(manual.symptom_pages.flatMap((p) => p.info_rows));
-  for (const statement of manual.statements) {
+  // 表示の変換（相手の名前の置き換え、同じ内容の説明を落とす）のあとの文で確かめる
+  const shown = forDisplay(manual);
+  const onPage = new Set(shown.symptom_pages.flatMap((p) => [...p.notes, ...p.branches, ...p.exceptions]));
+  const dropped = new Set(manual.symptom_pages.flatMap((p) => [...p.notes, ...p.branches, ...p.exceptions]).filter((id) => !onPage.has(id)));
+  for (const statement of shown.statements) {
+    if (dropped.has(statement.id)) continue;
     // 部品の補足は手順の下に分けて出す。文は1文ずつ確かめる
     if (inTable.has(statement.id)) continue;
     for (const sentence of statement.text.split('。').filter(Boolean)) assert.ok(visibleText.includes(sentence), statement.id);

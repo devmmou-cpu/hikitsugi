@@ -1038,6 +1038,26 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   color: var(--accent);
 }
 
+.first-lead {
+  margin-bottom: var(--s3);
+  color: var(--ink-2);
+  font-size: 15px;
+}
+
+.info-note {
+  margin-top: var(--s3);
+  font-size: 15px;
+  color: var(--ink-2);
+}
+
+.unknowns {
+  margin-top: var(--s6);
+}
+
+.unknowns li {
+  padding: var(--s1) 0;
+}
+
 .first-steps {
   display: grid;
   gap: var(--s3);

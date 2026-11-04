@@ -462,6 +462,11 @@ test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途�
     assert.deepEqual(nextStep(work), { step: 'review', reviewer: null, page: 'T1', pages: 1 });
     assert.throws(() => hikitsugi('review-ok', ['T1']), /確認を始められる段階ではありません/);
     hikitsugi('review-start', ['田中']);
+    // 見本の文の根拠は、この流れの聞き取りの記録より多い。根拠の検査に通るように足す
+    const recorded = JSON.parse(readFileSync(join(work, 'transcript.json'), 'utf8'));
+    const finalManual = JSON.parse(readFileSync(join(work, 'manual-final.json'), 'utf8'));
+    const citedIds = [...new Set(finalManual.statements.flatMap((statement) => statement.evidence).filter((id) => id.startsWith('INT-') && !recorded.entries.some((item) => item.id === id)))];
+    writeFileSync(join(work, 'transcript.json'), JSON.stringify({ ...recorded, entries: [...recorded.entries, ...citedIds.map((id) => ({ id, gap: 'GAP-001', covers: ['CHK-01'], question: '質問', answer: '記録です。', status: 'answered', answered_at: '2026-11-03T00:00:00Z' }))] }));
     assert.match(hikitsugi('render'), /下書きを作りました/);
     const draft = readFileSync(join(work, 'manual.html'), 'utf8');
     assert.ok(draft.includes('下書き（前任者の確認前）'));

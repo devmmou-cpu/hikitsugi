@@ -3,7 +3,9 @@
 // AI を使わず、外部への送信もしない。作業の結果は ./hikitsugi-work/ に保存するので、途中で止めても続きから再開できる。
 // 終了コード：0＝成功、1＝内容の問題（理由を表示）、2＝使い方の誤り
 
-import { deadEndFixProblems, deadEnds, unknownSentence } from '../lib/dead-end.mjs';
+import { missingInterviewEvidence } from '../lib/transcript.mjs';
+import { deadEndFixProblems, deadEnds, firstInternal, unknownSentence } from '../lib/dead-end.mjs';
+import { unknownItems } from '../lib/display.mjs';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -679,7 +681,9 @@ const sameKey = ({ kinds, contact_id: contactId }) => (kinds.includes('no_means'
 function withContactMeans(manual, answers) {
   const seen = new Map();
   for (const answer of answers) if (answer.answer && answer.means_for && !seen.has(answer.means_for)) seen.set(answer.means_for, answer);
-  if (!seen.size) return manual;
+  const telling = new Map();
+  for (const answer of answers) if (answer.tell_for && !telling.has(answer.tell_for)) telling.set(answer.tell_for, answer);
+  if (!seen.size && !telling.size) return manual;
   let next = Math.max(0, ...manual.statements.map((statement) => Number(statement.id.slice(4))));
   const added = [];
   const replaced = new Set();
@@ -692,7 +696,13 @@ function withContactMeans(manual, answers) {
     added.push({ id, text: answer.answer, evidence: [answer.evidence], library: null });
     return { ...contact, hours: id };
   });
-  return { ...manual, contacts, statements: [...manual.statements.filter((statement) => !replaced.has(statement.id)), ...added] };
+  // 「分からない」で相手に指定した社内の相談先は、伝えることにも足す。ページの文と食い違わないように
+  const tellIds = new Map(contacts.filter((contact) => telling.has(contact.id) && contact.what_to_tell).map((contact) => [contact.what_to_tell, telling.get(contact.id)]));
+  const statements = [...manual.statements.filter((statement) => !replaced.has(statement.id)), ...added].map((statement) => {
+    const answer = tellIds.get(statement.id);
+    return answer ? { ...statement, text: `${statement.text}相談先が分からないときも、伝えてください。`, evidence: [...new Set([...statement.evidence, answer.evidence])] } : statement;
+  });
+  return { ...manual, contacts, statements };
 }
 
 /** 同じ相手のページで答えを打ち直さなくて済むように、前の答えを添える。 */
@@ -723,7 +733,7 @@ function startDeadEndRound(work, state, manual) {
 }
 
 /** 行き止まりの答えを聞き取りの記録にする。全部聞き終えたら書き直しに進む。 */
-function recordDeadEnd(work, pageId, { answer, recorded, comment, mustInclude }) {
+function recordDeadEnd(work, pageId, { answer, recorded, comment, mustInclude, tellFor }) {
   const state = readJson(join(work, 'state.json'));
   if (!state.passed || state.update) throw new Problem('行き止まりを聞ける段階ではありません');
   const manual = readJson(join(work, 'manual-final.json'));
@@ -738,7 +748,7 @@ function recordDeadEnd(work, pageId, { answer, recorded, comment, mustInclude })
   }
   checkSchema('transcript', added.transcript);
   writeJson(transcriptPath, added.transcript);
-  const dead_ends = { ...state.dead_ends, [pageId]: { contact_id: found.contact_id, same_key: sameKey(found), ...(found.kinds.includes('no_means') ? { means_for: found.contact_id } : {}), ...(answer ? { answer } : {}), comment: comment(added.entry.id), evidence: added.entry.id, ...(mustInclude ? { must_include: mustInclude } : {}) } };
+  const dead_ends = { ...state.dead_ends, [pageId]: { contact_id: found.contact_id, same_key: sameKey(found), ...(found.kinds.includes('no_means') ? { means_for: found.contact_id } : {}), ...(answer ? { answer } : {}), ...(tellFor ? { tell_for: tellFor } : {}), comment: comment(added.entry.id), evidence: added.entry.id, ...(mustInclude ? { must_include: mustInclude } : {}) } };
   const next = { ...state, dead_ends };
   writeJson(join(work, 'state.json'), next);
   const left = pendingDeadEnds(manual, next).length;
@@ -759,10 +769,12 @@ function deadEndAnswer(work, [pageId], stdin) {
 function deadEndUnknown(work, [pageId]) {
   const manual = readJson(join(work, 'manual-final.json'));
   const sentence = unknownSentence(manual, deadEnds(manual).find(({ page }) => page === pageId)?.kinds);
+  const person = firstInternal(manual);
   return recordDeadEnd(work, pageId, {
     recorded: `分からない。決まりにより、次の文を載せます：${sentence}`,
     comment: () => `このページは行き止まりで、前任者は「分からない」と答えました。notes の先頭に、次の文をそのまま書いてください：${sentence}`,
     mustInclude: sentence,
+    tellFor: person?.id,
   });
 }
 
@@ -781,6 +793,7 @@ function restoreFromBundle(work) {
   writeJson(join(work, 'checklist.json'), readJson(join(PLUGIN, 'checklist/handover-items.json')));
   writeJson(join(work, 'library.json'), libraryForAgents());
   writeJson(join(work, 'gaps.json'), { schema_version: 1, company: bundle.company, coverage: [], gaps: [] });
+  writeJson(join(work, 'unknowns.json'), bundle.unknowns ?? []);
   writeJson(join(work, 'manual-final.json'), manual);
   writeJson(join(work, `manual-${round}.json`), manual);
   writeJson(join(work, `edited-${round}.json`), manual);
@@ -950,6 +963,13 @@ function memoNext(work, [action]) {
   return JSON.stringify({ left: left.length, next: left[0] ?? null });
 }
 
+/** 「まだ分かっていないこと」の項目。manual.json から戻した作業フォルダでは、保存した一覧を使う。 */
+function unknownsOf(work, state) {
+  const saved = join(work, 'unknowns.json');
+  if (existsSync(saved)) return readJson(saved);
+  return existsSync(join(work, 'transcript.json')) ? unknownItems(readJson(join(work, 'transcript.json')), state.retiree) : [];
+}
+
 function render(work, [outPath]) {
   const state = readJson(join(work, 'state.json'));
   if (!state.passed) throw new Problem('Verifier が合格していないので、取扱説明書を作れません');
@@ -962,7 +982,14 @@ function render(work, [outPath]) {
   }
   const { manual, omitted, updatedParts, rebuiltCount } = prepared;
   const target = resolve(outPath ?? (state.output_dir ? join(state.output_dir, 'manual.html') : join(work, 'manual.html')));
-  const html = renderManual(manual);
+  const transcriptPath = join(work, 'transcript.json');
+  // 文の根拠の聞き取りが記録にないまま完成させない
+  if (existsSync(transcriptPath)) {
+    const missing = missingInterviewEvidence(manual, readJson(transcriptPath));
+    if (missing.length) throw new Problem(`聞き取りの記録にない根拠があります：${missing.slice(0, 5).join('、')}`);
+  }
+  const unknowns = unknownsOf(work, state);
+  const html = renderManual(manual, { unknowns });
   if (writeWithinLimit(target, html, PC_FILE_LIMIT)) throw new Problem(oversizeMessage(target, html, PC_FILE_LIMIT));
   if (target !== resolve(join(work, 'manual.html'))) writeWithinLimit(join(work, 'manual.html'), html, PC_FILE_LIMIT);
   const phoneDir = join(dirname(target), 'phone');
@@ -970,7 +997,7 @@ function render(work, [outPath]) {
   if (bundle.blocked.length) throw new Problem(bundle.blocked.join('\n'));
   // 更新に使うデータを隣に置く。下書きは更新の対象にならないので、確認が済んでから置く
   if (manual.review && existsSync(join(work, 'survey.json')) && existsSync(join(work, 'transcript.json'))) {
-    const data = JSON.stringify(bundleOf({ manual, survey: readJson(join(work, 'survey.json')), transcript: readJson(join(work, 'transcript.json')), state }), null, 2) + '\n';
+    const data = JSON.stringify(bundleOf({ manual, unknowns, survey: readJson(join(work, 'survey.json')), transcript: readJson(join(work, 'transcript.json')), state }), null, 2) + '\n';
     for (const dir of new Set([dirname(target), work])) writeFileSync(join(dir, BUNDLE_NAME), data);
   }
   if (state.needs_render) {

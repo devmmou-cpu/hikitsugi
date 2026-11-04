@@ -21,7 +21,10 @@ const NEW_PHONE = '03-0000-0199';
 
 const finishedManual = () => {
   const base = withoutReplies(JSON.parse(readFileSync(join(ROOT, 'test/fixtures/manual-t1.json'), 'utf8')));
-  const manual = withReplies({ ...base, company_name: '会社', review: { reviewer: '田中', confirmed_on: '2026-11-05' } });
+  // 見本の根拠は、この流れの聞き取りの記録より多い。根拠の検査に通るように、記録のある番号へ寄せる
+  const known = new Set(['INT-001', 'INT-002', 'INT-003']);
+  const statements = base.statements.map((statement) => ({ ...statement, evidence: [...new Set(statement.evidence.map((id) => (id.startsWith('INT-') && !known.has(id) ? 'INT-001' : id)))] }));
+  const manual = withReplies({ ...base, statements, company_name: '会社', review: { reviewer: '田中', confirmed_on: '2026-11-05' } });
   return { ...manual, search_index: manual.symptom_pages.map((page) => ({ page: page.id, phrases: Array.from({ length: 15 }, (_, i) => `${page.id} の言い方 ${i}`) })) };
 };
 

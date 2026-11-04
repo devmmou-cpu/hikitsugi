@@ -226,6 +226,11 @@ test('確認の前に行き止まりを聞き、答えを記録して、答え�
     assert.equal(hours.text, '工場事務所の内線 201 で聞きます。');
     assert.deepEqual(hours.evidence, ['INT-002']);
     assert.ok(read('verify-scope-2.json').statements.includes(contact.hours), '連絡先の欄の文も照合にかける');
+    // 「分からない」で相手にした社内の相談先は、伝えることにも足す
+    const tell = after.statements.find(({ id }) => id === contact.what_to_tell);
+    assert.match(tell.text, /相談先が分からないときも、伝えてください。$/);
+    assert.ok(tell.evidence.includes('INT-003'));
+    assert.ok(read('verify-scope-2.json').statements.includes(contact.what_to_tell));
   }));
 
 test('退職する本人を答えにはできない', () =>

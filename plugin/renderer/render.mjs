@@ -13,7 +13,8 @@ import { validate } from '../lib/validate.mjs';
 import { CLIENT_HEAD_SCRIPT, CLIENT_SCRIPT } from './client.mjs';
 import { STYLES } from './styles.mjs';
 import { oversizeMessage, PC_FILE_LIMIT, writeWithinLimit } from '../lib/limits.mjs';
-import { callScriptProblems, replyProblems, withPcInBranch } from '../lib/reply.mjs';
+import { forDisplay } from '../lib/display.mjs';
+import { callScriptProblems, replyProblems } from '../lib/reply.mjs';
 import { firstStepFigures } from '../lib/figures.mjs';
 import { latestUpdateOf, UPDATE_KIND_LABELS } from '../lib/update.mjs';
 
@@ -406,7 +407,7 @@ function introPanel(ctx) {
   const { review } = manual;
   const cans = [
     ['check', '症状を選ぶと、やることが順に出ます。'],
-    ['phone', '直せないときは、電話と、伝える文面があります。'],
+    ['phone', '直せないときは、連絡先と、伝える文面があります。'],
     ...(review ? [['stamp', `この取扱説明書は、AIがもとの情報と照らし合わせ、前任の${esc(review.reviewer)}さんが全ページを確認したものです。`]] : []),
   ];
   return [
@@ -528,6 +529,7 @@ function firstHtml(ctx, page, number) {
   return [
     '<section class="first">',
     `<h3 class="first-kicker">${number} まずこれだけ <span class="eta">1分</span></h3>`,
+    page.first_lead ? `<p class="first-lead">${esc(page.first_lead)}</p>` : '',
     `<div class="first-steps${many ? ' is-many' : ''}">`,
     page.first_steps.map((id) => `<p class="first-body"><span>${actionHtml(ctx.raw(id), ctx.words)}${figures.get(id) ?? ''}</span></p>`).join('\n'),
     '</div>',
@@ -552,7 +554,7 @@ export function infoTables(ctx, page) {
   const valueTable = values.length
     ? `<table class="info-table info-values">\n<thead><tr><th scope="col">項目</th><th scope="col">値</th></tr></thead>\n<tbody>\n${values.map((row) => `<tr><td class="info-target">${esc(row.label)}</td><td class="info-path"><code class="path">${valueHtml(esc(row.value))}</code></td></tr>`).join('\n')}\n</tbody>\n</table>`
     : '';
-  return [driveTable, valueTable].filter(Boolean).join('\n');
+  return [driveTable, valueTable, page.info_note ? `<p class="info-note">${esc(page.info_note)}</p>` : ''].filter(Boolean).join('\n');
 }
 
 function infoHtml(ctx, page) {
@@ -763,7 +765,7 @@ function contactsPanel(ctx) {
     ? [
         '<p class="lead">困ったときに連絡する相手です。</p>',
         `<p class="note">${contactGuide(ctx.manual.contacts)}</p>`,
-        '<p class="note">PC では、番号を見て会社の電話からかけます。スマホでは、電話のボタンを押すと、電話をかける画面が開きます。</p>',
+        '<p class="note">スマホでは電話をかける画面が開きます。</p>',
         MEMO_NO_JS,
         ...(inside.length ? ['<h3 class="section-title">まず社内に相談</h3>', grid(inside)] : []),
         ...(vendors.length ? [inside.length ? '<h3 class="section-title">業者</h3>' : '', grid(vendors)] : []),
@@ -790,6 +792,9 @@ function routineHtml(ctx, routine) {
   const month = `<p class="routine-month">${showMonth ? `${esc(routine.month)}月` : ''}</p>`;
   return `<article class="routine routine-year" data-frequency="yearly">${month}<div class="routine-main">${title}${details}</div></article>`;
 }
+
+/** まだ分かっていないこと。聞き取りで「分からない」「あとで」になった質問を短くして並べる。 */
+const unknownsHtml = (ctx) => (ctx.unknowns?.length ? `<section class="unknowns" id="company-unknowns"><h3 class="section-title">まだ分かっていないこと</h3>\n<ul role="list">\n${ctx.unknowns.map((item) => `<li>${esc(item)}</li>`).join('\n')}\n</ul></section>` : '');
 
 function routinesPanel(ctx) {
   const { routines, as_of: asOf, glossary } = ctx.manual;
@@ -839,7 +844,7 @@ function companyPanel(ctx) {
     ? `<div class="company-terms"><h3 class="section-title" id="company-terms" tabindex="-1">ことばの説明</h3>\n<p class="note">押すと説明が開きます。</p>\n<div class="terms">\n${glossary.map((g, index) => termHtml(ctx, g, `g-all-${index}`)).join('\n')}\n</div></div>`
     : '';
   const jump = glossary.length && devices.length ? '<p class="tab-link company-jump"><a class="tap text-link" href="#company-terms">ことばの説明へ移る</a></p>\n' : '';
-  return `<section id="tab-company" class="panel screen">\n<h2 tabindex="-1">会社のIT</h2>\n<p class="lead">会社にある機器と、ことばの説明です。</p>\n${jump}<div class="company-layout">\n${list}\n${terms}\n</div>\n</section>`;
+  return `<section id="tab-company" class="panel screen">\n<h2 tabindex="-1">会社のIT</h2>\n<p class="lead">会社にある機器と、ことばの説明です。</p>\n${jump}<div class="company-layout">\n${list}\n${terms}\n</div>\n${unknownsHtml(ctx)}\n</section>`;
 }
 
 // ---- フッターと下部タブ ----
@@ -874,24 +879,30 @@ function searchIndexHtml({ search_index: index, statements, symptom_pages: pages
 }
 
 /** 画面を組み立てるときに使う、文章と連絡先の引き方。 */
-export function makeContext(manual) {
+export function makeContext(manual, { links = true } = {}) {
   const statements = new Map(manual.statements.map((s) => [s.id, s]));
   const words = wordPattern(manual.glossary);
+  // 束はページの外へ飛べないので、リンクの代わりに行き先の名前を文字で出す
+  const linkHtml = (link) => {
+    if (link.contacts) return links ? ' <a class="tap text-link" href="#tab-contacts">連絡先を見る</a>' : '';
+    return links ? ` <a class="tap text-link" href="#symptom-${esc(link.page)}">「${esc(link.title)}」へ</a>` : `（「${esc(link.title)}」のファイル）`;
+  };
+  const contactWord = (html) => (links ? html.replaceAll('（連絡先）', '（<a class="tap text-link" href="#tab-contacts">連絡先</a>）') : html);
   return {
     manual,
     statements,
     contacts: new Map(manual.contacts.map((c) => [c.id, c])),
     raw: (id) => statements.get(id).text,
     words,
-    text: (id) => statementHtml(statements.get(id).text, words),
+    text: (id) => contactWord(statementHtml(statements.get(id).text, words)) + (manual.display_links?.[id] ?? []).map(linkHtml).join(''),
   };
 }
 
 /** 取扱説明書の中身から HTML の文字列を作る。入力に異常があれば例外を投げる。 */
-export function renderManual(input) {
+export function renderManual(input, { unknowns = [] } = {}) {
   checkInput(input);
-  const manual = withPcInBranch(input);
-  const ctx = makeContext(manual);
+  const manual = forDisplay(input);
+  const ctx = { ...makeContext(manual), unknowns };
   const company = esc(manual.company_name);
   return `<!doctype html>
 <html lang="ja" class="no-js" data-company="${esc(manual.company)}">
