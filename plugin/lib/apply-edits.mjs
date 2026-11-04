@@ -1,7 +1,7 @@
 // Editor の出力を取扱説明書に反映する。事実が変わっていないかは、AI ではなくプログラムが確かめる。
 // /hikitsugi:start と評価の両方で使う。
 
-import { isActionText } from './page-check.mjs';
+import { GUARANTEE, isActionText } from './page-check.mjs';
 import { plainTextProblem } from './plain-check.mjs';
 import { hasCredential } from './transcript.mjs';
 
@@ -39,6 +39,8 @@ export function applyEdits(manual, edits, { revert = true, retiree } = {}) {
   const tableStatements = new Set(manual.symptom_pages.flatMap((page) => page.info_rows));
   // 手順は「〜してください」で終わる1文。やさしく直して2文に分けると、チェックの意味が変わるので受け付けない
   const stepStatements = new Set(manual.symptom_pages.flatMap((page) => [...page.first_steps, ...page.steps]));
+  // 安心帯の保証の言い切りは Writer で止めている。Editor の直しで戻らないようにする
+  const reassurances = new Set(manual.symptom_pages.map((page) => page.reassurance));
   const changes = [];
   const statements = manual.statements.map((statement) => {
     const text = rewrites.get(statement.id);
@@ -54,6 +56,10 @@ export function applyEdits(manual, edits, { revert = true, retiree } = {}) {
     }
     if (tableStatements.has(statement.id)) {
       if (text !== statement.text) changes.push({ statement: statement.id, missing: ['表の文章'] });
+      return statement;
+    }
+    if (reassurances.has(statement.id) && GUARANTEE.test(text) && !GUARANTEE.test(statement.text)) {
+      changes.push({ statement: statement.id, missing: ['保証の言い切り'] });
       return statement;
     }
     if (stepStatements.has(statement.id) && !isActionText(text)) {

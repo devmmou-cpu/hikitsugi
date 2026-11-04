@@ -3,7 +3,7 @@
 // 差し戻しや前任者の直しでは、問題のあった部分だけを書き直す。
 
 import { readFileSync } from 'node:fs';
-import { contactProblems, pageProblems, pageStatementIds, statementProblems } from './page-check.mjs';
+import { contactProblems, pageProblems, pageStatementIds, statementProblems, reassuranceProblems } from './page-check.mjs';
 import { composeStatements, contactEvidenceProblems, loadLibrary, pageDetailProblems } from './procedures.mjs';
 import { hasCredential } from './transcript.mjs';
 
@@ -146,6 +146,7 @@ export function checkPage(output, entry, contacts, sources, { library = loadLibr
     ...statementProblems(statements, retiree),
     ...pageProblems({ statements, symptom_pages: [page], contacts }),
     ...pageDetailProblems(page, statements, sources, library),
+    ...reassuranceProblems(page, statements),
   );
   return { output: { statements, page }, problems };
 }

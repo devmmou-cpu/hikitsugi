@@ -70,6 +70,16 @@ export function statementProblems(statements, retiree) {
   return problems;
 }
 
+// 安心帯に書かない保証の言い切り。裏づけのある事実か、聞き取りにある決まりだけを書く
+export const GUARANTEE = /大丈夫|安心して|問題ありません|心配いりません/;
+
+/** 安心帯に保証の言い切りがあれば、Writer に伝える文で返す。 */
+export function reassuranceProblems(page, statements) {
+  const text = statements.find((statement) => statement.id === page.reassurance)?.text ?? '';
+  const found = text.match(GUARANTEE);
+  return found ? [`${page.id}: reassurance に保証の言い切り（${found[0]}）を書かないでください。調査か聞き取りで裏づけられる事実か、聞き取りにある決まりだけを書いてください`] : [];
+}
+
 /** ページの形の問題を、Writer に伝えられる文で返す。contacts は連絡先の照合に使う。 */
 export function pageProblems(manual) {
   const byId = new Map(manual.statements.map((statement) => [statement.id, statement]));
