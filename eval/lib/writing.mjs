@@ -2,7 +2,7 @@
 
 import { applyEdits } from '../../plugin/lib/apply-edits.mjs';
 import { plainProblems } from '../../plugin/lib/plain-check.mjs';
-import { assembleManual, checkCommon, checkPage, commonSchema, droppedFromCommon, mergeRewritten, ownersOf, pageSchema, previousPiece, symptomSchema } from '../../plugin/lib/assemble.mjs';
+import { assembleManual, checkCommon, checkPage, commonSchema, contactSchema, droppedFromCommon, mergeRewritten, ownersOf, pageSchema, previousPiece, symptomSchema } from '../../plugin/lib/assemble.mjs';
 import { additionProblems, applySymptomAnswer, basisProblems, symptomGaps } from '../../plugin/lib/symptom-check.mjs';
 import { coverageLeaks } from '../../plugin/lib/coverage-check.mjs';
 import { pagesForPhrases, phraseProblems } from '../../plugin/lib/search-index.mjs';
@@ -54,16 +54,16 @@ export function buildWriterRequest({ survey, transcript, retiree, task = { part:
   const stable = tagged({ survey, transcript, library: libraryForAgents() });
   const dynamic = { task: JSON.stringify(retiree ? { ...task, retiree } : task) };
   if (structure) dynamic.structure_problems = structure;
-  const what = task.part === 'common' ? '共通部分' : task.part === 'symptoms' ? '手順ページのない困りごとの判断' : `手順ページ ${task.entry.id}`;
-  const schema = stripUnsupported(task.part === 'common' ? commonSchema() : task.part === 'symptoms' ? symptomSchema() : pageSchema());
+  const what = task.part === 'common' ? '共通部分' : task.part === 'symptoms' ? '手順ページのない困りごとの判断' : task.part === 'contact' ? '連絡先' : `手順ページ ${task.entry.id}`;
+  const schema = stripUnsupported(task.part === 'common' ? commonSchema() : task.part === 'symptoms' ? symptomSchema() : task.part === 'contact' ? contactSchema() : pageSchema());
   return buildRequest(agent, schema, [
     { type: 'text', text: stable, cache_control: { type: 'ephemeral' } },
     { type: 'text', text: `${tagged(dynamic)}\n\n${structure || task.revision ? `${what}の問題を直して、この部分の全体を返してください。` : `${what}を書いてください。`}` },
   ]);
 }
 
-export function buildPhraseRequest({ manual, structure, agent = loadAgent('plugin/agents/phrase-writer.md') }) {
-  const sections = { pages: pagesForPhrases(manual) };
+export function buildPhraseRequest({ manual, pages, structure, agent = loadAgent('plugin/agents/phrase-writer.md') }) {
+  const sections = { pages: pages ?? pagesForPhrases(manual) };
   if (structure) sections.structure_problems = structure;
   return buildRequest(agent, responseSchema('search-index', ['pages']), `${tagged(sections)}\n\n${structure ? '問題を直して、全部のページを返してください。' : '全部のページの言い方を作ってください。'}`);
 }

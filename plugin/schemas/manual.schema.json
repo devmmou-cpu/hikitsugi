@@ -47,7 +47,7 @@
       }
     },
     "symptom_exclusions": {
-      "$comment": "聞き取りに困りごとの答えがあるが、Writer が理由を付けて手順ページにしなかったもの。後任向けの画面には出さない",
+      "$comment": "聞き取りに困りごとの答えがあるが、Writer が理由を付けて手順ページにしなかったもの。後任向けの画面には出さない。pages は理由に書かれた受け皿のページで、普段の言い方の索引に足す",
       "type": "array",
       "items": {
         "type": "object",
@@ -56,7 +56,8 @@
         "properties": {
           "source": { "type": "string", "pattern": "^INT-\\d{3}$" },
           "detail": { "type": "string", "minLength": 1 },
-          "reason": { "type": "string", "minLength": 1 }
+          "reason": { "type": "string", "minLength": 1 },
+          "pages": { "type": "array", "items": { "type": "string", "pattern": "^T\\d+$" } }
         }
       }
     },

@@ -6,15 +6,24 @@ export const PHRASES_MIN = 15;
 export const PHRASES_MAX = 30;
 const PHRASE_CHARS_MAX = 60;
 
-/** Writer に渡す症状の一覧。題名と判定の文と、最初の操作だけで十分なので、会社の値は渡さない。 */
+const PHONE_NUMBER = /\s*0\d{1,4}-\d{1,4}-\d{3,4}\s*/g;
+
+/**
+ * Writer に渡す症状の一覧。題名と判定の文と、最初の操作だけで十分なので、会社の値は渡さない。
+ * ページにせず外した困りごとは、受け皿のページの also_handles に入れる。電話番号は渡さない。
+ */
 export function pagesForPhrases(manual) {
   const text = new Map(manual.statements.map((statement) => [statement.id, statement.text]));
-  return manual.symptom_pages.map((page) => ({
-    id: page.id,
-    title: text.get(page.title),
-    what_to_do: text.get(page.badge.statement),
-    first_steps: page.first_steps.map((id) => text.get(id)),
-  }));
+  return manual.symptom_pages.map((page) => {
+    const also = (manual.symptom_exclusions ?? []).filter((exclusion) => exclusion.pages?.includes(page.id)).map((exclusion) => exclusion.detail.replace(PHONE_NUMBER, ''));
+    return {
+      id: page.id,
+      title: text.get(page.title),
+      what_to_do: text.get(page.badge.statement),
+      first_steps: page.first_steps.map((id) => text.get(id)),
+      ...(also.length ? { also_handles: also } : {}),
+    };
+  });
 }
 
 /** 言い方の問題の一覧。索引は検証の対象ではないので、出してはいけないものをプログラムで止める。 */

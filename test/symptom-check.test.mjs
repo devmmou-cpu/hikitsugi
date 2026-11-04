@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { additionProblems, applySymptomAnswer, basisProblems, symptomGaps } from '../plugin/lib/symptom-check.mjs';
+import { pagesForPhrases } from '../plugin/lib/search-index.mjs';
 
 const KUZURI_PAGES = ['共有フォルダが見えない', '営業所だけ社内につながらない', '車庫の Wi-Fi が切れる', '配車システムの画面が動かない', 'ウイルス感染が疑われる PC がある', '怪しいメールが来た', '回線が止まってネットが使えない', '社員がパスワードを忘れた', '営業所の NAS が満杯に近い', '停電のあと、配車システムが使えない', '複合機が故障した'];
 
@@ -69,7 +70,7 @@ test('答えを、足すページと外す理由に分ける。同じ症状は1�
   assert.equal(additions.length, 1);
   assert.equal(additions[0].id, 'T12');
   assert.deepEqual(additions[0].sources, ['INT-004', 'INT-005']);
-  assert.deepEqual(exclusions, [{ source: 'INT-006', detail: '関係のない文です', reason: '困りごとの話ではありません' }]);
+  assert.deepEqual(exclusions, [{ source: 'INT-006', detail: '関係のない文です', reason: '困りごとの話ではありません', pages: [] }]);
 });
 
 test('答えのない件、理由のない除外、症状のないページ、一覧にない件を問題にする', () => {
@@ -88,4 +89,20 @@ test('足したページがなければ問題にする。ページの根拠に�
   assert.deepEqual(additionProblems({ symptom_pages: [{ id: 'T12' }] }, [addition]), []);
   assert.equal(basisProblems([{ evidence: ['INT-001'] }], addition).length, 1);
   assert.deepEqual(basisProblems([{ evidence: ['INT-012'] }], addition), []);
+});
+
+test('外す理由に書かれた今あるページを受け皿にし、そのページの言い方の入力にだけヒントを渡す', () => {
+  const decisions = [
+    { gap: 'SYM-1', decision: 'exclude', reason: 'T1「共有」が扱っています。Ｔ１１も同じです。T99 はありません', category: null, symptom: null },
+    { gap: 'SYM-2', decision: 'page', reason: '', category: 'other', symptom: '別の症状' },
+    { gap: 'SYM-3', decision: 'exclude', reason: 'T11 が扱っています', category: null, symptom: null },
+  ];
+  const gaps = [GAPS[0], GAPS[1], { id: 'SYM-3', sources: ['INT-003'], detail: '障害は故障窓口 03-0000-0101 に電話します' }];
+  const { exclusions } = applySymptomAnswer({ decisions }, gaps, PLAN);
+  assert.deepEqual(exclusions.map((exclusion) => exclusion.pages), [['T1', 'T11'], ['T11']]);
+  const manual = { statements: [{ id: 'STM-001', text: '題名' }, { id: 'STM-002', text: '判定' }], symptom_pages: ['T1', 'T5', 'T11'].map((id) => ({ id, title: 'STM-001', badge: { statement: 'STM-002' }, first_steps: [] })), symptom_exclusions: exclusions };
+  const [t1, t5, t11] = pagesForPhrases(manual);
+  assert.deepEqual(t1.also_handles, ['ディスクの交換もそこに頼みます']);
+  assert.ok(!('also_handles' in t5));
+  assert.deepEqual(t11.also_handles, ['ディスクの交換もそこに頼みます', '障害は故障窓口に電話します'], '電話番号は渡さない');
 });

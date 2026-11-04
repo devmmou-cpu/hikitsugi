@@ -53,7 +53,7 @@ const STATEMENTS_BEFORE_COMPOSE = {
 };
 
 /** 更新で連絡先1件を書く形。ほかの文が変わらないよう、その連絡先の文だけを書く。 */
-const contactSchema = () => objectOf({ statements: WRITER_STATEMENTS, contact: MANUAL_SCHEMA.properties.contacts.items });
+export const contactSchema = () => objectOf({ statements: WRITER_STATEMENTS, contact: MANUAL_SCHEMA.properties.contacts.items });
 
 /** 手順ページのない困りごとへの答えの形。 */
 export const symptomSchema = () => objectOf({

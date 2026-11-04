@@ -55,12 +55,16 @@ export function symptomGaps(manual, transcript, retiree = '') {
   }));
 }
 
+/** 外す理由に書かれた、今あるページの ID。 */
+const receivingPages = (reason, plan) => [...new Set(reason.normalize('NFKC').match(/T\d+/g) ?? [])].filter((id) => plan.some((entry) => entry.id === id));
+
 const nextPageNumber = (plan) => Math.max(0, ...plan.map((entry) => Number(entry.id.slice(1)))) + 1;
 
 /**
  * Writer の答えを確かめて、足すページと外す理由に分ける。
  * 同じ symptom の件は1ページにまとめる。
- * @returns { problems, additions: { id, category, symptom, sources, detail }[], exclusions: { source, detail, reason }[] }
+ * 外す理由にページの ID があれば、受け皿のページとして残す。普段の言い方の索引に、その症状の言い方を足すため。
+ * @returns { problems, additions: { id, category, symptom, sources, detail }[], exclusions: { source, detail, reason, pages }[] }
  */
 export function applySymptomAnswer(output, gaps, plan) {
   const problems = [];
@@ -76,7 +80,7 @@ export function applySymptomAnswer(output, gaps, plan) {
     } else if (decision.decision === 'exclude') {
       if (!decision.reason?.trim()) problems.push(`${gap.id}：外す理由を書いてください`);
       else if (hasCredential(decision.reason)) problems.push(`${gap.id}：認証情報の本体を書かないでください`);
-      else exclusions.push({ source: gap.sources[0], detail: gap.detail, reason: decision.reason.trim() });
+      else exclusions.push({ source: gap.sources[0], detail: gap.detail, reason: decision.reason.trim(), pages: receivingPages(decision.reason, plan) });
     } else if (!decision.symptom?.trim() || !decision.category) {
       problems.push(`${gap.id}：ページにするときは symptom と category を書いてください`);
     } else {

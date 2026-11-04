@@ -1305,7 +1305,7 @@ test('/hikitsugi:start：手順ページのない困りごとを Writer に聞�
 
     const manual = read('manual-1.json');
     assert.deepEqual(manual.symptom_pages.map((entry) => entry.id), ['T1', 'T2']);
-    assert.deepEqual(manual.symptom_exclusions, [{ source: 'INT-001', detail: 'ルーターの故障はカワウソシステムサービスに電話します', reason: 'T1 と同じ窓口で足ります' }]);
+    assert.deepEqual(manual.symptom_exclusions, [{ source: 'INT-001', detail: 'ルーターの故障はカワウソシステムサービスに電話します', reason: 'T1 と同じ窓口で足ります', pages: ['T1'] }]);
     assert.equal(nextStep(work).step, 'editor');
     // 後任向けの文章には出ない
     assert.ok(!manual.statements.some((statement) => statement.text.includes('同じ窓口で足ります')));

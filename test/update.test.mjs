@@ -332,3 +332,10 @@ test('更新の記録：内容の一言は先頭30字。確認した人が複数
   // ページ末尾は作成と更新の2段
   assert.match(html, /<span>作成：[^<]* 田中 確認<\/span><span>更新：[^<]* 佐藤 確認<\/span>/);
 });
+
+test('費用の測定：3種類を測り、費用の上限を超えたら担当を呼ばずに止まる', async () => {
+  const { CASES, driveUpdate } = await import('../eval/update-cost.mjs');
+  assert.deepEqual(CASES.map((item) => item.name), ['contact', 'page', 'add']);
+  const stopped = await driveUpdate({ work: '/存在しないフォルダ', api: null, overBudget: () => true }).catch((error) => error.message);
+  assert.match(stopped, /費用の上限/);
+});
