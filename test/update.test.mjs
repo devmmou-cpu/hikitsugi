@@ -134,7 +134,8 @@ test('連絡先の電話番号の変更：その連絡先の番号だけが変�
     assert.deepEqual(after.search_index, before.search_index, '言い方は作り直さない');
     assert.equal(after.contacts.find((c) => c.id === 'VEN-02').phone, NEW_PHONE);
     assert.deepEqual(after.updates.map(({ target, pages, by }) => [target, pages, by]), [['VEN-02', ['T1'], '佐藤']]);
-    assert.ok(after.updates[0].summary.includes(NEW_PHONE) || after.updates[0].summary.length === 30, '本人の答えの先頭30字を残す');
+    assert.equal(after.updates[0].summary, `電話番号が ${NEW_PHONE} に変わりました。`);
+    assert.equal(after.updates[0].kind, 'contact');
     assert.equal(after.review.reviewer, '田中');
     assert.equal(after.review.updated_by, '佐藤');
 
@@ -144,7 +145,7 @@ test('連絡先の電話番号の変更：その連絡先の番号だけが変�
     assert.ok(html.includes('前任の田中さんが全ページを確認'), '前任者の確認の文は残す');
     assert.match(html, /作成：[^<]* 田中 確認/);
     assert.match(html, /<p class="label intro-label">更新の記録<\/p>/);
-    assert.ok(html.includes(`<td>佐藤</td><td>${after.contacts.find((contact) => contact.id === 'VEN-02').name}</td>`), '更新の記録に確認した人と相手を出す');
+    assert.ok(html.includes(`<td>連絡先の変更</td><td>佐藤</td><td>${after.contacts.find((contact) => contact.id === 'VEN-02').name}</td>`), '更新の記録に種類、確認した人、相手を出す');
     assert.match(html, /更新：[^<]* 佐藤 確認/);
     assert.ok(existsSync(join(out, 'phone')));
     assert.equal(JSON.parse(readFileSync(join(out, 'manual.json'), 'utf8')).manual.review.updated_by, '佐藤');
@@ -314,19 +315,27 @@ test('スキルの案内：update の4択と、更新に Claude Code が要る�
   assert.ok(readFileSync(join(ROOT, 'plugin/agents/writer.md'), 'utf8').includes('task.revision.update'));
 });
 
-test('更新の記録：内容の一言は先頭30字。確認した人が複数なら角印の名前を「・」でつなぐ', () => {
+test('更新の記録：内容は60字までで文の切れ目で切り、種類を出す。確認した人が複数なら角印の名前を「・」でつなぐ', () => {
   const manual = finishedManual();
-  assert.equal(updateSummary(`  あ\nい${'う'.repeat(40)}`), `あ い${'う'.repeat(27)}`);
-  const first = withUpdateMark(manual, { target: 'T1', by: '佐藤', date: '2026-12-01', summary: '受付を直す' });
+  assert.equal(updateSummary(`  あ\nい${'う'.repeat(40)}`), `あ い${'う'.repeat(40)}`, '60字までは切らない');
+  const sixty = 'あ'.repeat(40);
+  assert.equal(updateSummary(`${sixty}。${'い'.repeat(40)}`), `${sixty}…`, '「。」で切る');
+  assert.equal(updateSummary(`${sixty}、${'い'.repeat(10)}。${'う'.repeat(40)}`), `${sixty}、${'い'.repeat(10)}…`, '60字の中の最後の切れ目で切る');
+  assert.equal(updateSummary(`${'あ'.repeat(30)}、${'い'.repeat(40)}`), `${'あ'.repeat(30)}…`, '「、」でも切る');
+  assert.equal(updateSummary('あ'.repeat(70)), `${'あ'.repeat(60)}…`, '切れ目がなければ60字で切る');
+  const first = withUpdateMark(manual, { target: 'T1', by: '佐藤', date: '2026-12-01', summary: '受付を直す', kind: 'page' });
   assert.equal(first.review.updated_by, '佐藤');
-  assert.deepEqual(first.updates[0], { target: 'T1', pages: ['T1'], by: '佐藤', date: '2026-12-01', summary: '受付を直す' });
-  const second = withUpdateMark(first, { target: 'T1', by: '社長', date: '2027-01-10', summary: '番号を直す' });
+  assert.deepEqual(first.updates[0], { target: 'T1', pages: ['T1'], by: '佐藤', date: '2026-12-01', kind: 'page', summary: '受付を直す' });
+  const second = withUpdateMark(first, { target: 'T1', by: '社長', date: '2027-01-10', summary: '番号を直す', kind: 'memo' });
   assert.equal(second.review.updated_by, '佐藤・社長');
   assert.equal(second.review.updated_on, '2027-01-10');
   const third = withUpdateMark(second, { target: 'T1', by: '佐藤', date: '2027-02-01', summary: 'もう一度' });
   assert.equal(third.review.updated_by, '佐藤・社長', '同じ人は1回だけ');
   const html = renderManual(third);
   assert.match(html, /aria-label="佐藤・社長 確認/);
+  assert.match(html, /<th>日付<\/th><th>種類<\/th><th>確認した人<\/th>/);
+  assert.ok(html.includes('<td>メモの取り込み</td><td>社長</td>'));
+  assert.ok(html.includes('<td>手順の修正</td><td>佐藤</td>'));
   // 表は新しい順
   assert.ok(html.indexOf('もう一度') < html.indexOf('番号を直す') && html.indexOf('番号を直す') < html.indexOf('受付を直す'));
   // ページ末尾は作成と更新の2段
@@ -447,4 +456,18 @@ test('症状を足す：差し戻しの回には足した行を二重にせず�
     write('writer-3-T2.json', pageTask.revision.previous);
     hikitsugi('check-writer', ['3', 'T2']);
     assert.deepEqual(read('manual-3.json').symptom_pages.map((candidate) => candidate.id), ['T1', 'T2']);
+  }));
+
+test('メモから始めた更新は、種類を「メモの取り込み」として記録する', () =>
+  finished(({ work, hikitsugi, write, read }) => {
+    hikitsugi('update-start', ['佐藤']);
+    const title = read('manual-final.json').statements.find((statement) => statement.id === read('manual-final.json').symptom_pages[0].title).text;
+    hikitsugi('update-memo', [], `${title}：再接続の前に、社内 LAN につないでください。`);
+    hikitsugi('update-fix', ['T1'], '再接続の前に、社内 LAN につないでください。');
+    assert.equal(read('state.json').update.from_memo, true);
+    hikitsugi('update-cancel');
+    hikitsugi('memo-next', ['done']);
+    hikitsugi('update-fix', ['T1'], '別の直しです。');
+    assert.equal(read('state.json').update.from_memo, undefined);
+    assert.equal(nextStep(work).step, 'writer');
   }));

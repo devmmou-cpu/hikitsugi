@@ -65,14 +65,28 @@ function pagesWithContact(manual, id) {
   return manual.symptom_pages.map((page) => page.id).filter((pageId) => pagesOfContact(manual, id).includes(pageId) || named.includes(pageId));
 }
 
-/** 更新の記録に残す、内容の一言。本人の答えの先頭30字。 */
-export const updateSummary = (answer) => [...answer.replace(/\s+/g, ' ').trim()].slice(0, 30).join('');
+const SUMMARY_MAX = 60;
+
+/** 更新の記録の種類の名前。機器は「手順を直す」から直すので、手順の修正に入れる。 */
+export const UPDATE_KIND_LABELS = { contact: '連絡先の変更', page: '手順の修正', device: '手順の修正', add: '症状の追加', memo: 'メモの取り込み' };
+
+/**
+ * 更新の記録に残す、内容の一言。本人の答えが60字に収まればそのまま。
+ * 超えるときは、60字の中で最後の「。」か「、」で切って「…」を付ける。切れ目がなければ60字で切る。
+ */
+export function updateSummary(answer) {
+  const chars = [...answer.replace(/\s+/g, ' ').trim()];
+  if (chars.length <= SUMMARY_MAX) return chars.join('');
+  const head = chars.slice(0, SUMMARY_MAX);
+  const breakAt = Math.max(head.lastIndexOf('。'), head.lastIndexOf('、'));
+  return `${head.slice(0, breakAt > 0 ? breakAt : SUMMARY_MAX).join('')}…`;
+}
 
 /** 更新の印を付ける。角印は更新で確認した人と最新の確認日を出し、前任者の確認の記録は残す。 */
-export function withUpdateMark(manual, { target, by, date, summary }) {
+export function withUpdateMark(manual, { target, by, date, summary, kind: updateKind }) {
   const kind = targetKind(manual, target);
   const pages = kind === 'page' ? [target] : kind === 'contact' ? pagesWithContact(manual, target) : [];
-  const updates = [...(manual.updates ?? []), { target, pages, by, date, ...(summary ? { summary } : {}) }];
+  const updates = [...(manual.updates ?? []), { target, pages, by, date, ...(updateKind ? { kind: updateKind } : {}), ...(summary ? { summary } : {}) }];
   return {
     ...manual,
     review: { ...manual.review, updated_by: [...new Set(updates.map((update) => update.by))].join('・'), updated_on: date },

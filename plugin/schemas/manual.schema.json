@@ -31,7 +31,7 @@
       "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
     },
     "updates": {
-      "$comment": "完成後の更新の記録。target は直した相手、pages は更新の行を出すページ、summary は本人の答えの先頭30字",
+      "$comment": "完成後の更新の記録。target は直した相手、pages は更新の行を出すページ、kind は種類、summary は本人の答えの一言（60字まで）",
       "type": "array",
       "items": {
         "type": "object",
@@ -42,6 +42,7 @@
           "pages": { "type": "array", "items": { "type": "string", "pattern": "^T\\d+$" } },
           "by": { "type": "string", "minLength": 1 },
           "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "kind": { "type": "string", "enum": ["contact", "page", "device", "add", "memo"] },
           "summary": { "type": "string", "minLength": 1 }
         }
       }

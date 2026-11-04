@@ -15,7 +15,7 @@ import { STYLES } from './styles.mjs';
 import { oversizeMessage, PC_FILE_LIMIT, writeWithinLimit } from '../lib/limits.mjs';
 import { callScriptProblems, replyProblems } from '../lib/reply.mjs';
 import { firstStepFigures } from '../lib/figures.mjs';
-import { latestUpdateOf } from '../lib/update.mjs';
+import { latestUpdateOf, UPDATE_KIND_LABELS } from '../lib/update.mjs';
 
 const SCHEMA = JSON.parse(readFileSync(new URL('../schemas/manual.schema.json', import.meta.url), 'utf8'));
 
@@ -381,10 +381,10 @@ function updateLogHtml({ manual, text }) {
     const device = manual.devices.find((candidate) => candidate.id === target);
     return device ? text(device.name) : esc(target);
   };
-  const rows = [...manual.updates].reverse().map(({ target, by, date, summary }) => `<tr><td class="update-date">${esc(formatDate(date))}</td><td>${esc(by)}</td><td>${nameOf(target)}</td><td>${esc(summary ?? '')}</td></tr>`);
+  const rows = [...manual.updates].reverse().map(({ target, by, date, kind, summary }) => `<tr><td class="update-date">${esc(formatDate(date))}</td><td>${esc(UPDATE_KIND_LABELS[kind] ?? '')}</td><td>${esc(by)}</td><td>${nameOf(target)}</td><td>${esc(summary ?? '')}</td></tr>`);
   return [
     '<p class="label intro-label">更新の記録</p>',
-    '<table class="update-log"><thead><tr><th>日付</th><th>確認した人</th><th>ページ</th><th>内容</th></tr></thead>',
+    '<table class="update-log"><thead><tr><th>日付</th><th>種類</th><th>確認した人</th><th>ページ</th><th>内容</th></tr></thead>',
     `<tbody>${rows.join('')}</tbody></table>`,
   ].join('\n');
 }

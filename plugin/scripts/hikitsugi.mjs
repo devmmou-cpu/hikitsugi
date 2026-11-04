@@ -725,6 +725,12 @@ function updateTargets(work) {
 }
 
 /** 更新の対象を決めて、聞き取りの記録に足し、その部分だけを書き直す段階へ進める。 */
+/** いま確認しているメモから始めた更新か。メモの列の先頭が同じ相手なら、メモの取り込みとして記録する。 */
+function fromMemo(work, target) {
+  const path = join(work, MEMO_QUEUE);
+  return existsSync(path) && readJson(path).items[0]?.target === target;
+}
+
 function beginUpdate(work, { kind, target, title, comment, question, todo, extra = {} }) {
   const state = readJson(join(work, 'state.json'));
   if (!state.updater) throw new Problem('先に update-start で更新する人の名前を記録してください');
@@ -751,7 +757,7 @@ function beginUpdate(work, { kind, target, title, comment, question, todo, extra
     round_base: round,
     todo,
     page_fix: { page: todo.at(-1), comment: added.entry.answer, evidence: added.entry.id },
-    update: { kind, target, by: state.updater, summary: updateSummary(added.entry.answer), ...extra },
+    update: { kind, target, by: state.updater, summary: updateSummary(added.entry.answer), ...(fromMemo(work, target) ? { from_memo: true } : {}), ...extra },
     review: { ...state.review, done: false },
   });
   return `記録しました（${added.entry.id}）。${target} を書き直します`;
@@ -806,7 +812,7 @@ function updateCancel(work) {
 /** 更新者の「このままでよい」。更新の印を付け、作り直す段階へ進める。 */
 function finishUpdate(work, state, manual, pageId) {
   if (pageId !== state.update.target) throw new Problem(`確認するのは ${state.update.target} です`);
-  writeJson(join(work, 'manual-final.json'), checkSchema('manual', withUpdateMark(manual, { target: pageId, by: state.update.by, date: today(), summary: state.update.summary })));
+  writeJson(join(work, 'manual-final.json'), checkSchema('manual', withUpdateMark(manual, { target: pageId, by: state.update.by, date: today(), summary: state.update.summary, kind: state.update.from_memo ? 'memo' : state.update.kind })));
   const pages = Object.fromEntries(manual.symptom_pages.map((page) => [page.id, 'ok']));
   rmSync(join(work, 'manual.html'), { force: true });
   rmSync(join(work, BEFORE_UPDATE), { force: true });
