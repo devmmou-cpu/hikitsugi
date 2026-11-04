@@ -175,6 +175,9 @@ const pieces = () => {
   };
 };
 
+/** 手順ページのない困りごとへの偽の応答。すべて外す。 */
+const excludeAll = (task) => ({ decisions: task.gaps.map(({ id }) => ({ gap: id, decision: 'exclude', reason: 'テストの理由', category: null, symptom: null })) });
+
 /** 載せ漏れの書き直しの偽の応答。足りない事実を機器として足す。 */
 const fillMissing = (previous, missing) => {
   const out = JSON.parse(JSON.stringify(previous));
@@ -1076,7 +1079,7 @@ test('Writer の形の問題は部分ごとに1回だけ伝えて直してもら
         stream: (params) => {
           sent.push(params);
           const task = taggedIn(params, 'task');
-          const reply = task.revision?.missing ? fillMissing(task.revision.previous, task.revision.missing) : task.part === 'common' ? pieces().common : pageReplies[pageCalls++];
+          const reply = task.part === 'symptoms' ? excludeAll(task) : task.revision?.missing ? fillMissing(task.revision.previous, task.revision.missing) : task.part === 'common' ? pieces().common : pageReplies[pageCalls++];
           return { finalMessage: async () => ({ id: 'msg', model: params.model, stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: 'text', text: JSON.stringify(reply) }] }) };
         },
       },
@@ -1085,8 +1088,8 @@ test('Writer の形の問題は部分ごとに1回だけ伝えて直してもら
   const args = { survey: input.survey, transcript: input.transcript, companyName: 'オコジョ精工' };
   const fixed = clientOf([bad, pieces().page]);
   const result = await runWriterLive({ ...args, client: fixed });
-  // 共通部分は書き直さない（最後の1回は載せ漏れの書き直し）
-  assert.equal(fixed.sent.length, 4);
+  // 共通部分は書き直さない（最後の2回は載せ漏れの書き直しと、手順ページのない困りごとの判断）
+  assert.equal(fixed.sent.length, 5);
   assert.ok(JSON.stringify(fixed.sent[2].messages).includes('structure_problems'));
   assert.equal(result.company_name, 'オコジョ精工');
   const stuck = clientOf([bad, bad]);
@@ -1103,17 +1106,17 @@ test('Writer は書き終えた部分を保存し、再開するとその部分�
       stream: (params) => {
         sent.push(params);
         const task = taggedIn(params, 'task');
-        const reply = task.revision?.missing ? fillMissing(task.revision.previous, task.revision.missing) : task.part === 'common' ? pieces().common : pieces().page;
+        const reply = task.part === 'symptoms' ? excludeAll(task) : task.revision?.missing ? fillMissing(task.revision.previous, task.revision.missing) : task.part === 'common' ? pieces().common : pieces().page;
         return { finalMessage: async () => ({ id: 'msg', model: params.model, stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: 'text', text: JSON.stringify(reply) }] }) };
       },
     },
   };
   const args = { survey: input.survey, transcript: input.transcript, companyName: 'オコジョ精工', client, store };
   await runWriterLive(args);
-  assert.deepEqual([...saved.keys()].sort(), ['T1', 'common', 'common-leaks']);
-  assert.equal(sent.length, 3);
+  assert.deepEqual([...saved.keys()].sort(), ['T1', 'common', 'common-leaks', 'symptoms']);
+  assert.equal(sent.length, 4);
   await runWriterLive(args);
-  assert.equal(sent.length, 3);
+  assert.equal(sent.length, 4);
 });
 
 test('Writer の前置きはキャッシュし、調査データと聞き取りを部分ごとに送り直さない', () => {
@@ -1228,3 +1231,120 @@ test('保留の会社の構造の検査は、件数だけを返し、文章も�
     assert.ok(!text.includes(secretWord));
     assert.ok(!text.includes('covered') && !text.includes('correct'));
   }));
+
+test('/hikitsugi:start：手順ページのない困りごとを Writer に聞き、ページを足すか理由を残して外す', () =>
+  withTemp(async (dir) => {
+    const work = join(dir, 'work');
+    const hikitsugi = (command, args = [], stdin = '') => run(command, args, { work, stdin });
+    const write = (name, value) => writeFileSync(join(work, name), JSON.stringify(value));
+    const read = (name) => JSON.parse(readFileSync(join(work, name), 'utf8'));
+    const surveyPath = join(dir, 'survey.json');
+    writeFileSync(surveyPath, JSON.stringify(input.survey));
+    hikitsugi('init', [surveyPath, '田中', 'テスト', '会社']);
+    const coverage = gold.gaps.items.map((item) => ({ item: item.item, state: item.state, evidence: item.evidence }));
+    write('gaps.json', { coverage, gaps: [{ id: 'GAP-001', items: gold.gaps.items.filter((i) => i.state !== 'filled').map((i) => i.item), why: '理由', priority: 'high', question_hint: 'ヒント' }] });
+    hikitsugi('check-gaps');
+    write('next.json', { action: 'ask', gap: 'GAP-001', covers: ['CHK-37'], question: 'よくある問い合わせを教えてください', unfilled: [] });
+    hikitsugi('check-next');
+    hikitsugi('record', ['answered'], '保守はカワウソシステムサービスで、連絡先は 03-0000-0102 です。ディスクの交換はカワウソシステムサービスに頼みます。ルーターの故障はカワウソシステムサービスに電話します。');
+    write('gaps.json', { schema_version: 1, company: input.survey.company, coverage, gaps: [{ id: 'GAP-001', items: ['CHK-37'], why: '理由', priority: 'high', question_hint: 'ヒント' }] });
+    write('next.json', { action: 'finish', gap: '', covers: [], question: '', unfilled: [] });
+    hikitsugi('check-next');
+
+    write('writer-1-common.json', pieces().common);
+    hikitsugi('check-writer', ['1', 'common']);
+    write('writer-1-T1.json', pieces().page);
+    hikitsugi('check-writer', ['1', 'T1']);
+    hikitsugi('writer-task', ['1', 'common']);
+    const leakTask = read('writer-task.json');
+    write('writer-1-common.json', fillMissing(leakTask.revision.previous, leakTask.revision.missing));
+    assert.match(hikitsugi('check-writer', ['1', 'common']), /困りごとが 2 件あります/);
+
+    assert.deepEqual(nextStep(work), { step: 'writer', round: 1, part: 'symptoms' });
+    hikitsugi('writer-task', ['1', 'symptoms']);
+    const task = read('writer-task.json');
+    assert.deepEqual(task.gaps.map((gap) => gap.detail), ['ディスクの交換はカワウソシステムサービスに頼みます', 'ルーターの故障はカワウソシステムサービスに電話します']);
+    assert.equal(task.pages[0].id, 'T1');
+    assert.ok(read('writer-format.json').properties.decisions);
+
+    // 理由のない除外は受け付けない
+    write('writer-1-symptoms.json', { decisions: task.gaps.map(({ id }) => ({ gap: id, decision: 'exclude', reason: '', category: null, symptom: null })) });
+    assert.throws(() => hikitsugi('check-writer', ['1', 'symptoms']), /外す理由/);
+    assert.equal(nextStep(work).part, 'symptoms');
+
+    write('writer-1-symptoms.json', { decisions: [
+      { gap: 'SYM-1', decision: 'page', reason: '', category: 'other', symptom: 'NAS のディスクが壊れた' },
+      { gap: 'SYM-2', decision: 'exclude', reason: 'T1 と同じ窓口で足ります', category: null, symptom: null },
+    ] });
+    assert.match(hikitsugi('check-writer', ['1', 'symptoms']), /ページにする 1 件、外す 1 件.*T2/);
+
+    // 共通部分は足すだけ。行はプログラムが入れる
+    assert.deepEqual(nextStep(work), { step: 'writer', round: 1, part: 'common' });
+    hikitsugi('writer-task', ['1', 'common']);
+    const commonTask = read('writer-task.json');
+    assert.deepEqual(commonTask.revision.add_symptoms, [{ id: 'T2', category: 'other', symptom: 'NAS のディスクが壊れた' }]);
+    const { previous } = commonTask.revision;
+    write('writer-1-common.json', { ...previous, statements: previous.statements.slice(1) });
+    assert.throws(() => hikitsugi('check-writer', ['1', 'common']), /消さないでください|参照/);
+    write('writer-1-common.json', previous);
+    hikitsugi('check-writer', ['1', 'common']);
+    assert.deepEqual(read('writer-1-common.json').page_plan.map((entry) => entry.id), ['T1', 'T2']);
+
+    // 新しいページだけを書く。挙がった答えを根拠にしないと通らない
+    assert.deepEqual(nextStep(work), { step: 'writer', round: 1, part: 'T2' });
+    hikitsugi('writer-task', ['1', 'T2']);
+    const pageTask = read('writer-task.json');
+    assert.deepEqual(pageTask.basis.sources, ['INT-001']);
+    assert.match(pageTask.basis.detail, /ディスクの交換/);
+    const page = pieces().page;
+    write('writer-1-T2.json', page);
+    assert.throws(() => hikitsugi('check-writer', ['1', 'T2']), /根拠に INT-001/);
+    page.statements[0].evidence = [...page.statements[0].evidence, 'INT-001'];
+    write('writer-1-T2.json', page);
+    assert.match(hikitsugi('check-writer', ['1', 'T2']), /書きました/);
+
+    const manual = read('manual-1.json');
+    assert.deepEqual(manual.symptom_pages.map((entry) => entry.id), ['T1', 'T2']);
+    assert.deepEqual(manual.symptom_exclusions, [{ source: 'INT-001', detail: 'ルーターの故障はカワウソシステムサービスに電話します', reason: 'T1 と同じ窓口で足ります' }]);
+    assert.equal(nextStep(work).step, 'editor');
+    // 後任向けの文章には出ない
+    assert.ok(!manual.statements.some((statement) => statement.text.includes('同じ窓口で足ります')));
+  }));
+
+test('評価の Writer：手順ページのない困りごとからページを足し、外す理由を残す', async () => {
+  const transcript = { ...input.transcript, entries: [...input.transcript.entries, { id: 'INT-099', gap: 'GAP-001', covers: ['CHK-37'], question: '質問', answer: 'ソフトの入れ替えはカワウソシステムサービスに頼みます。', status: 'answered', answered_at: '2026-11-04T00:00:00Z' }] };
+  const reported = [];
+  const sent = [];
+  const client = {
+    messages: {
+      stream: (params) => {
+        sent.push(params);
+        const task = taggedIn(params, 'task');
+        const newPage = () => {
+          const page = pieces().page;
+          page.statements[0].evidence = [...page.statements[0].evidence, ...task.basis.sources];
+          return page;
+        };
+        const decide = ({ id, detail }) => (detail.includes('入れ替え')
+          ? { gap: id, decision: 'page', reason: '', category: 'other', symptom: 'ソフトの入れ替えが要る' }
+          : { gap: id, decision: 'exclude', reason: '困りごとではありません', category: null, symptom: null });
+        const reply = task.part === 'symptoms' ? { decisions: task.gaps.map(decide) }
+          : task.revision?.add_symptoms ? task.revision.previous
+          : task.revision?.missing ? fillMissing(task.revision.previous, task.revision.missing)
+          : task.part === 'common' ? pieces().common
+          : task.basis ? newPage() : pieces().page;
+        return { finalMessage: async () => ({ id: 'msg', model: params.model, stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: 'text', text: JSON.stringify(reply) }] }) };
+      },
+    },
+  };
+  const manual = await runWriterLive({ survey: input.survey, transcript, companyName: 'オコジョ精工', client, onSymptoms: (found) => reported.push(found) });
+  assert.deepEqual(manual.symptom_pages.map((page) => page.id), ['T1', 'T2']);
+  assert.ok(reported[0].found >= 1);
+  assert.deepEqual(reported[0].pages, [{ id: 'T2', symptom: 'ソフトの入れ替えが要る' }]);
+  assert.equal(manual.symptom_exclusions?.length ?? 0, reported[0].excluded);
+  const parts = sent.map((params) => taggedIn(params, 'task').part);
+  assert.equal(parts.filter((part) => part === 'symptoms').length, 1);
+  // 判断の出力の形を API に渡している
+  const decide = sent.find((params) => taggedIn(params, 'task').part === 'symptoms');
+  assert.match(JSON.stringify(decide.output_config ?? decide), /decisions/);
+});

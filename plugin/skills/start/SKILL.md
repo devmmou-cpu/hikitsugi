@@ -72,7 +72,7 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/hikitsugi.mjs" <コマンド>
    「分からない」は `hikitsugi record unknown < /dev/null`、「あとで調べる」は `hikitsugi record later < /dev/null` です。
 
 ### writer
-Writer は1回に1つの部分だけを書きます。`status` の `round` と `part` を使います。`part` は `common`（連絡先や手順ページの一覧など）か、手順ページの ID（`T1` など）です。
+Writer は1回に1つの部分だけを書きます。`status` の `round` と `part` を使います。`part` は `common`（連絡先や手順ページの一覧など）か、手順ページの ID（`T1` など）か、`symptoms`（手順ページのない困りごとを、ページにするか外すかの判断）です。
 
 1. `hikitsugi writer-task <round> <part>` を実行します。
 2. `hikitsugi:writer` に次を依頼します。

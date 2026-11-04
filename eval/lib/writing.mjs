@@ -2,7 +2,8 @@
 
 import { applyEdits } from '../../plugin/lib/apply-edits.mjs';
 import { plainProblems } from '../../plugin/lib/plain-check.mjs';
-import { assembleManual, checkCommon, checkPage, commonSchema, droppedFromCommon, mergeRewritten, ownersOf, pageSchema, previousPiece } from '../../plugin/lib/assemble.mjs';
+import { assembleManual, checkCommon, checkPage, commonSchema, droppedFromCommon, mergeRewritten, ownersOf, pageSchema, previousPiece, symptomSchema } from '../../plugin/lib/assemble.mjs';
+import { additionProblems, applySymptomAnswer, basisProblems, symptomGaps } from '../../plugin/lib/symptom-check.mjs';
 import { coverageLeaks } from '../../plugin/lib/coverage-check.mjs';
 import { pagesForPhrases, phraseProblems } from '../../plugin/lib/search-index.mjs';
 import { composeProcedures, libraryForAgents } from '../../plugin/lib/procedures.mjs';
@@ -53,8 +54,8 @@ export function buildWriterRequest({ survey, transcript, retiree, task = { part:
   const stable = tagged({ survey, transcript, library: libraryForAgents() });
   const dynamic = { task: JSON.stringify(retiree ? { ...task, retiree } : task) };
   if (structure) dynamic.structure_problems = structure;
-  const what = task.part === 'common' ? '共通部分' : `手順ページ ${task.entry.id}`;
-  const schema = stripUnsupported(task.part === 'common' ? commonSchema() : pageSchema());
+  const what = task.part === 'common' ? '共通部分' : task.part === 'symptoms' ? '手順ページのない困りごとの判断' : `手順ページ ${task.entry.id}`;
+  const schema = stripUnsupported(task.part === 'common' ? commonSchema() : task.part === 'symptoms' ? symptomSchema() : pageSchema());
   return buildRequest(agent, schema, [
     { type: 'text', text: stable, cache_control: { type: 'ephemeral' } },
     { type: 'text', text: `${tagged(dynamic)}\n\n${structure || task.revision ? `${what}の問題を直して、この部分の全体を返してください。` : `${what}を書いてください。`}` },
@@ -129,7 +130,7 @@ const contactsForPages = (common) => {
  * @param revision { previous_manual, findings }
  * @param store { get(name), set(name, value) }。書き終えた部分を保存して、止まっても続きから再開するため
  */
-export async function runWriterLive({ survey, transcript, companyName, retiree, revision, client, record = () => {}, store = { get: () => undefined, set: () => {} }, onLeaks = () => {} }) {
+export async function runWriterLive({ survey, transcript, companyName, retiree, revision, client, record = () => {}, store = { get: () => undefined, set: () => {} }, onLeaks = () => {}, onSymptoms = () => {} }) {
   const api = await clientOf(client);
   const agent = loadAgent('plugin/agents/writer.md');
   const sources = { survey, transcript };
@@ -160,6 +161,41 @@ export async function runWriterLive({ survey, transcript, companyName, retiree, 
     return finishWriter(filled, sources, retiree);
   };
 
+  // 手順ページのない困りごとは、最初の版で1回だけ Writer に判断してもらう。足したページがなければ止める
+  const fillSymptoms = async (manual) => {
+    const gaps = symptomGaps(manual, transcript, retiree);
+    if (!gaps.length) {
+      onSymptoms({ found: 0, pages: [], excluded: 0 });
+      return manual;
+    }
+    const plan = manual.symptom_pages.map(({ id, category, title }) => ({ id, category, symptom: manual.statements.find((s) => s.id === title).text }));
+    const applied = (raw) => applySymptomAnswer(raw, gaps, plan);
+    const answer = await once('symptoms', { part: 'symptoms', gaps, pages: plan.map(({ id, symptom }) => ({ id, symptom })) }, (raw) => ({ output: raw, problems: applied(raw).problems }));
+    const { additions, exclusions } = applied(answer);
+    onSymptoms({ found: gaps.length, pages: additions.map(({ id, symptom }) => ({ id, symptom })), excluded: exclusions.length });
+    const withExclusions = (target) => (exclusions.length ? { ...target, symptom_exclusions: exclusions } : target);
+    if (!additions.length) return withExclusions(manual);
+    const rows = additions.map(({ id, category, symptom }) => ({ id, category, symptom }));
+    const piece = { ...previousPiece(manual, 'common'), page_plan: plan };
+    const common = await once('common-symptoms', { part: 'common', revision: { previous: piece, findings: [], add_symptoms: rows } }, (raw) => {
+      const checked = checkCommon({ ...raw, page_plan: [...plan, ...rows] }, sources, { retiree });
+      return { ...checked, problems: [...checked.problems, ...droppedFromCommon(piece, raw)] };
+    });
+    const contacts = contactsForPages(common);
+    const pages = {};
+    await pool(additions, PAGE_CONCURRENCY, async (addition) => {
+      const entry = rows.find((row) => row.id === addition.id);
+      pages[entry.id] = await once(entry.id, { part: 'page', entry, contacts, basis: { sources: addition.sources, detail: addition.detail } }, (output) => {
+        const checked = checkPage(output, entry, common.contacts, sources, { retiree });
+        return { ...checked, problems: [...checked.problems, ...basisProblems(checked.output.statements, addition)] };
+      });
+    });
+    const filled = finishWriter(mergeRewritten(manual, { common, pages }), sources, retiree);
+    const left = additionProblems(filled, additions);
+    if (left.length) throw new LiveFailure('coverage', `手順ページのない困りごとが残っています：${left.join(' / ')}`);
+    return withExclusions(filled);
+  };
+
   if (!revision) {
     const common = await once('common', { part: 'common' }, (output) => checkCommon(output, sources, { retiree }));
     const contacts = contactsForPages(common);
@@ -169,7 +205,7 @@ export async function runWriterLive({ survey, transcript, companyName, retiree, 
     });
     // 会社の情報はプログラムが付ける。モデルの出力で上書きさせない
     const manual = assembleManual(common, pages, { schema_version: 1, company: survey.company, company_name: companyName, as_of: survey.as_of });
-    return fillLeaks(manual);
+    return fillSymptoms(await fillLeaks(manual));
   }
 
   const previous = revision.previous_manual;

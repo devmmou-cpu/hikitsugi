@@ -45,6 +45,20 @@
         }
       }
     },
+    "symptom_exclusions": {
+      "$comment": "聞き取りに困りごとの答えがあるが、Writer が理由を付けて手順ページにしなかったもの。後任向けの画面には出さない",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "detail", "reason"],
+        "properties": {
+          "source": { "type": "string", "pattern": "^INT-\\d{3}$" },
+          "detail": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "call_without_place": {
       "$comment": "業者に伝える文から機器の場所の行を外すページ。Verifier の指摘を受けてプログラムが入れる",
       "type": "array",

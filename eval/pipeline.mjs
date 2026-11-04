@@ -78,7 +78,7 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
     return save(name, schema ? schemaCheck(schema, value) : value);
   };
 
-  const summary = { set, split: info.split, label: '模擬評価', stages: {}, rounds: [], leaks: [], status: 'running' };
+  const summary = { set, split: info.split, label: '模擬評価', stages: {}, rounds: [], leaks: [], symptoms: [], status: 'running' };
   const finish = (status, extra = {}) => {
     const agents = {};
     for (const call of calls) {
@@ -112,7 +112,7 @@ export async function runPipeline({ set, setDir, dir, client, final = false }) {
         set: (name, value) => save(`writer-${round}-${name}`, value),
       };
       const written = await once(`manual-${round}-writer`, 'manual', () =>
-        runWriterLive({ survey, transcript, companyName: info.name, retiree: RETIREE, revision, client: api, record, store: pieces, onLeaks: (leaks) => { summary.leaks.push({ round, ...leaks }); } }),
+        runWriterLive({ survey, transcript, companyName: info.name, retiree: RETIREE, revision, client: api, record, store: pieces, onLeaks: (leaks) => { summary.leaks.push({ round, ...leaks }); }, onSymptoms: (symptoms) => { summary.symptoms.push({ round, ...symptoms }); } }),
       );
       const edited = await once(`manual-${round}-editor`, null, () => {
         // 差し戻しでは合格済みの用語の説明を引き継ぎ、変わった文章だけを直す

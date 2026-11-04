@@ -11,6 +11,7 @@ import { applyEdits } from '../lib/apply-edits.mjs';
 import { assembleManual, checkCommon, checkContact, checkPage, droppedFromCommon, mergeRewritten, ownersOf, previousPiece, writerFormat } from '../lib/assemble.mjs';
 import { buildRevision, carryForward, markReviewed, mergeVerification, prepareForRender, summarizeVerification, UnapprovedPartsError, verificationScope } from '../lib/handover.mjs';
 import { coverageLeaks, locationWarnings } from '../lib/coverage-check.mjs';
+import { additionProblems, applySymptomAnswer, basisProblems, symptomGaps } from '../lib/symptom-check.mjs';
 import { bodyFields } from '../lib/page-check.mjs';
 import { plainProblems } from '../lib/plain-check.mjs';
 import { pagesForPhrases, phraseProblems, withSearchIndex } from '../lib/search-index.mjs';
@@ -102,7 +103,7 @@ const BEFORE_UPDATE = 'before-update.json';
 function writerParts(work, state, round) {
   if (Number(round) > 1) return state.todo ?? [];
   const common = join(work, partFile(1, 'common'));
-  return ['common', ...(existsSync(common) ? readJson(common).page_plan.map((entry) => entry.id) : [])];
+  return ['common', ...(existsSync(common) ? readJson(common).page_plan.map((entry) => entry.id) : []), ...(state.symptom_gaps ? ['symptoms'] : [])];
 }
 
 function init(work, [surveyPath, retiree, ...nameParts]) {
@@ -189,13 +190,18 @@ function writerTask(work, [round, part]) {
     if (part === 'common') {
       // 載せ漏れで書き直すときは、前の出力と足りない事実を渡す
       const saved = join(work, partFile(1, 'common-previous'));
-      task = state.leaks && existsSync(saved) ? { part: 'common', revision: { previous: readJson(saved), findings: [], missing: state.leaks } } : { part: 'common' };
-    }
-    else {
+      if (state.leaks && existsSync(saved)) task = { part: 'common', revision: { previous: readJson(saved), findings: [], missing: state.leaks } };
+      else if (state.symptom_add?.length && existsSync(saved)) task = { part: 'common', revision: { previous: readJson(saved), findings: [], add_symptoms: state.symptom_add.map(({ id, category, symptom }) => ({ id, category, symptom })) } };
+      else task = { part: 'common' };
+    } else if (part === 'symptoms') {
+      if (!state.symptom_gaps) throw new Problem('手順ページのない困りごとは挙がっていません');
+      task = { part: 'symptoms', gaps: state.symptom_gaps, pages: readJson(join(work, partFile(1, 'common'))).page_plan.map(({ id, symptom }) => ({ id, symptom })) };
+    } else {
       const common = readJson(join(work, partFile(1, 'common')));
       const entry = common.page_plan.find((candidate) => candidate.id === part);
       if (!entry) throw new Problem(`手順ページの一覧にありません：${part}`);
-      task = { part: 'page', entry, contacts: contactsForPages(common.statements, common.contacts) };
+      const addition = state.symptom_add?.find((candidate) => candidate.id === part);
+      task = { part: 'page', entry, contacts: contactsForPages(common.statements, common.contacts), ...(addition ? { basis: { sources: addition.sources, detail: addition.detail } } : {}) };
     }
   } else {
     const { previous_manual: previous, findings } = readJson(join(work, `findings-${Number(round) - 1}.json`));
@@ -247,6 +253,7 @@ function checkWriter(work, [round, part]) {
   const sources = { survey: readJson(join(work, 'survey.json')), transcript: readJson(join(work, 'transcript.json')) };
   const path = join(work, partFile(round, part));
   const raw = readJson(path);
+  if (part === 'symptoms') return checkSymptoms(work, state, raw);
   const previous = Number(round) > 1 ? readJson(join(work, `findings-${Number(round) - 1}.json`)).previous_manual : null;
   const added = state.update?.add;
   const plan = previous
@@ -264,11 +271,14 @@ function checkWriter(work, [round, part]) {
     // 症状を足すときだけ、新しいページの行を受け取る。ほかの行は前の版のまま
     const addedRow = added ? raw.page_plan?.find((entry) => entry.id === added.id) : null;
     if (added && !addedRow) throw new Problem(`page_plan に ${added.id} を足してください`);
-    const output = previous ? { ...raw, page_plan: addedRow ? [...plan, addedRow] : plan } : raw;
+    // 困りごとから足すページの行は、プログラムが入れる。ほかの行は前の版のまま
+    const beforeAdding = !previous && state.symptom_add?.length ? readJson(join(work, partFile(1, 'common-previous'))) : null;
+    const output = previous ? { ...raw, page_plan: addedRow ? [...plan, addedRow] : plan } : beforeAdding ? { ...raw, page_plan: withAddedRows(beforeAdding.page_plan, state.symptom_add) } : raw;
     const schemaProblems = validate(writerFormat('common'), output);
     if (schemaProblems.length) throw new Problem(`形式が違います（共通部分）：\n${schemaProblems.slice(0, 10).join('\n')}`);
     checked = checkCommon(output, sources, { retiree: state.retiree });
     // 載せ漏れの書き直しは足すだけ。前の版が消えていれば受け付けない
+    if (beforeAdding && !state.leaks) checked.problems.push(...droppedFromCommon(beforeAdding, raw));
     if (state.leaks) {
       const before = Number(round) === 1 ? readJson(join(work, partFile(1, 'common-previous'))) : previousPiece(previous, 'common');
       checked.problems.push(...droppedFromCommon(before, raw));
@@ -279,6 +289,8 @@ function checkWriter(work, [round, part]) {
     const entry = plan.find((candidate) => candidate.id === part);
     if (!entry) throw new Problem(`手順ページの一覧にありません：${part}`);
     checked = checkPage(raw, entry, contacts, sources, { retiree: state.retiree });
+    const addition = Number(round) === 1 ? state.symptom_add?.find((candidate) => candidate.id === part) : null;
+    if (addition) checked.problems.push(...basisProblems(checked.output.statements, addition));
   }
   if (checked.problems.length) throw new Problem(`手順部品の指定やページの形に問題があります：\n${checked.problems.join('\n')}`);
   writeJson(path, checked.output);
@@ -292,6 +304,25 @@ function checkWriter(work, [round, part]) {
   const message = assembleRound(work, Number(round));
   if (existsSync(path)) markChecked(work, partFile(round, part));
   return message;
+}
+
+/** 足すページの行を、一覧の後ろに入れる。すでにある行は足さない。 */
+const withAddedRows = (plan, additions) => [...plan, ...additions.filter(({ id }) => !plan.some((entry) => entry.id === id)).map(({ id, category, symptom }) => ({ id, category, symptom }))];
+
+/** 手順ページのない困りごとへの Writer の答えを確かめる。ページにするものがあれば、共通部分と新しいページを書く段階へ戻す。 */
+function checkSymptoms(work, state, raw) {
+  const schemaProblems = validate(writerFormat('symptoms'), raw);
+  if (schemaProblems.length) throw new Problem(`形式が違います（symptoms）：\n${schemaProblems.slice(0, 10).join('\n')}`);
+  const common = join(work, partFile(1, 'common'));
+  const { problems, additions, exclusions } = applySymptomAnswer(raw, state.symptom_gaps, readJson(common).page_plan);
+  if (problems.length) throw new Problem(`手順ページのない困りごとの答えに問題があります：\n${problems.join('\n')}`);
+  writeJson(join(work, 'state.json'), { ...state, symptom_add: additions, symptom_exclusions: exclusions });
+  markChecked(work, partFile(1, 'symptoms'));
+  const summary = `ページにする ${additions.length} 件、外す ${exclusions.length} 件`;
+  if (!additions.length) return `${summary}。${assembleRound(work, 1)}`;
+  writeJson(join(work, partFile(1, 'common-previous')), readJson(common));
+  rmSync(common, { force: true });
+  return `${summary}。共通部分と新しいページ（${additions.map((addition) => addition.id).join('、')}）を書きます`;
 }
 
 /** 部分をまとめて、この回の取扱説明書にする。 */
@@ -316,8 +347,9 @@ function assembleRound(work, round) {
           ...(contactPart ? { contacts: { [contactPart]: load(contactPart) } } : {}),
         });
       })();
-  const { manual, problems } = composeProcedures(assembled, sources, { retiree: state.retiree });
+  const { manual: composed, problems } = composeProcedures(assembled, sources, { retiree: state.retiree });
   if (problems.length) throw new Problem(`手順部品の指定やページの形に問題があります：\n${problems.join('\n')}`);
+  const manual = state.symptom_exclusions?.length ? { ...composed, symptom_exclusions: state.symptom_exclusions } : composed;
   // 載せ漏れは、共通部分を1回だけ書き直して埋める。それでも残れば止める
   // 更新は依頼された箇所だけを直すので、過去の回答の載せ漏れで全体を書き直さない
   const leaks = state.update ? [] : coverageLeaks(manual, sources);
@@ -334,6 +366,19 @@ function assembleRound(work, round) {
   if (state.leaks) {
     const { leaks: _done, leaks_retried: _retried, ...rest } = state;
     writeJson(join(work, 'state.json'), rest);
+  }
+  // 手順ページのない困りごとは、最初の版で1回だけ Writer に判断してもらう。足したページがなければ止める
+  if (round === 1 && !state.update) {
+    if (!state.symptom_gaps) {
+      const gaps = symptomGaps(manual, sources.transcript, state.retiree);
+      if (gaps.length) {
+        writeJson(join(work, 'state.json'), { ...readJson(join(work, 'state.json')), symptom_gaps: gaps });
+        return `手順ページのない困りごとが ${gaps.length} 件あります。ページにするか外すかを Writer に答えてもらいます`;
+      }
+    } else {
+      const left = additionProblems(manual, state.symptom_add ?? []);
+      if (left.length) throw new Problem(`手順ページのない困りごとが残っています：\n${left.join('\n')}`);
+    }
   }
   checkSchema('manual', manual);
   const path = join(work, `manual-${round}.json`);

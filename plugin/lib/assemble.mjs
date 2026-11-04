@@ -55,8 +55,23 @@ const STATEMENTS_BEFORE_COMPOSE = {
 /** 更新で連絡先1件を書く形。ほかの文が変わらないよう、その連絡先の文だけを書く。 */
 const contactSchema = () => objectOf({ statements: WRITER_STATEMENTS, contact: MANUAL_SCHEMA.properties.contacts.items });
 
-/** プラグインの Writer が保存する形。part は common、page、contact。 */
+/** 手順ページのない困りごとへの答えの形。 */
+export const symptomSchema = () => objectOf({
+  decisions: {
+    type: 'array',
+    items: objectOf({
+      gap: { type: 'string', pattern: '^SYM-\\d+$' },
+      decision: { type: 'string', enum: ['page', 'exclude'] },
+      reason: { type: 'string' },
+      category: { type: ['string', 'null'], enum: [...CATEGORY.enum, null] },
+      symptom: { type: ['string', 'null'] },
+    }),
+  },
+});
+
+/** プラグインの Writer が保存する形。part は common、page、contact、symptoms。 */
 export const writerFormat = (part) => {
+  if (part === 'symptoms') return { $comment: 'Writer が保存する JSON の形。この項目の名前と値のとおりに保存する', ...symptomSchema() };
   const schema = part === 'common' ? commonSchema() : part === 'contact' ? contactSchema() : pageSchema();
   return { $comment: 'Writer が保存する JSON の形。この項目の名前と値のとおりに保存する', ...schema, properties: { ...schema.properties, statements: STATEMENTS_BEFORE_COMPOSE } };
 };
