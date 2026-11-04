@@ -90,6 +90,12 @@ export function checkCommon(output, sources, { library = loadLibrary(), retiree 
   const missing = commonStatementIds(output).filter((id) => !known.has(id));
   if (missing.length) problems.push(`statements にない文章を参照しています: ${[...new Set(missing)].join(', ')}`);
   if (output.page_plan.length === 0) problems.push('手順ページの一覧（page_plan）が空です。最初から全体を書いてください');
+  // 定期作業には会社の情報の表がないので、表を指す部品を置くと、後任が行き止まりになる
+  const tableParts = new Set(library.procedures.filter((part) => part.needs_table).map((part) => part.id));
+  const stepOf = new Map(statements.map((statement) => [statement.id, statement]));
+  for (const routine of output.routines) {
+    for (const id of routine.steps) if (tableParts.has(stepOf.get(id)?.library)) problems.push(`定期作業の手順に、会社の情報の表を指す部品は使えません（${stepOf.get(id).library}）。表がないので、見る場所を根拠のとおりに書くか、記録がないと書いてください`);
+  }
   const ids = output.page_plan.map((entry) => entry.id);
   if (new Set(ids).size !== ids.length) problems.push('page_plan の id が重複しています');
   const piece = { statements, contacts: output.contacts };

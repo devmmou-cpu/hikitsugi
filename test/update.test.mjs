@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { loadInput } from '../eval/lib/load-set.mjs';
 import { writerFormat } from '../plugin/lib/assemble.mjs';
 import { pageStatementIds } from '../plugin/lib/page-check.mjs';
-import { bundleOf, parseMemos, updateSummary, withUpdateMark } from '../plugin/lib/update.mjs';
+import { bundleOf, CREDENTIAL_MEMO, parseMemos, updateSummary, withContactPhone, withUpdateMark } from '../plugin/lib/update.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { withoutReplies, withReplies } from '../plugin/lib/reply.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
@@ -283,7 +283,7 @@ test('メモの取り込み：ページごとに分け、続きの行をまと�
   const items = parseMemos(`${title}：一言目\n二行目\nカワウソシステムサービス：パスワードは abcd1234 です\n知らない名前：あとの行\n`, manual);
   assert.deepEqual(items.map(({ target }) => target), ['T1', 'VEN-02']);
   assert.equal(items[0].text, '一言目\n二行目');
-  assert.equal(items[1].text, 'パスワードは abcd1234 です\n知らない名前：あとの行');
+  assert.equal(items[1].text, CREDENTIAL_MEMO, '本文は残さない');
   assert.equal(items[1].has_credential, true);
   assert.equal(items[0].has_credential, false);
 });
@@ -338,4 +338,69 @@ test('費用の測定：3種類を測り、費用の上限を超えたら担当�
   assert.deepEqual(CASES.map((item) => item.name), ['contact', 'page', 'add']);
   const stopped = await driveUpdate({ work: '/存在しないフォルダ', api: null, overBudget: () => true }).catch((error) => error.message);
   assert.match(stopped, /費用の上限/);
+});
+
+test('番号の更新：文の中の古い番号も直し、根拠を足す。ほかの連絡先が同じ番号なら置き換えない', () => {
+  const manual = {
+    contacts: [{ id: 'VEN-01', name: 'A', phone: '03-0000-0102' }, { id: 'VEN-02', name: 'B', phone: '03-0000-0103' }],
+    statements: [{ id: 'STM-001', text: '連絡先は 03-0000-0102 です。', evidence: ['INT-001'] }, { id: 'STM-002', text: '別の文です。', evidence: ['INT-001'] }],
+  };
+  const replaced = withContactPhone(manual, 'VEN-01', '03-0000-0102', NEW_PHONE, 'INT-009');
+  assert.deepEqual(replaced.statements[0], { id: 'STM-001', text: `連絡先は ${NEW_PHONE} です。`, evidence: ['INT-001', 'INT-009'] });
+  assert.equal(replaced.statements[1], manual.statements[1]);
+  assert.equal(withContactPhone(manual, 'VEN-01', '03-0000-0102', '03-0000-0102', 'INT-009'), manual);
+  const shared = { ...manual, contacts: [manual.contacts[0], { ...manual.contacts[1], phone: '03-0000-0102' }] };
+  assert.equal(withContactPhone(shared, 'VEN-01', '03-0000-0102', NEW_PHONE, 'INT-009'), shared);
+});
+
+test('番号の更新の流れ：文の中の番号が直って照合にかかり、古い番号が残らず、そのページに更新の行が付く', () =>
+  finished(({ work, dir, hikitsugi, write, read }) => {
+    const manual = read('manual-final.json');
+    const contact = manual.contacts.find((candidate) => candidate.id === 'VEN-02');
+    const page = manual.symptom_pages[0];
+    const target = manual.statements.find((statement) => statement.id === page.reassurance);
+    const oldText = `${contact.name}の連絡先は ${contact.phone} です。`;
+    target.text = oldText;
+    // 用語の説明の文にも番号がある場合。差し戻しの形に入らない文
+    const termStatement = manual.statements.find((statement) => statement.id === manual.glossary[0].company);
+    termStatement.text = `この会社では ${contact.phone} に電話します。`;
+    write('manual-final.json', manual);
+    write(`edited-${read('state.json').round}.json`, manual);
+    hikitsugi('update-start', ['佐藤']);
+    const shown = hikitsugi('review-show', ['VEN-02']);
+    assert.match(shown, /【この名前が出てくるほかの文】/);
+    assert.ok(shown.includes(oldText));
+    hikitsugi('update-fix', ['VEN-02'], `電話番号が ${NEW_PHONE} に変わりました。`);
+    hikitsugi('writer-task', ['2', 'VEN-02']);
+    const { statements, contact: previous } = read('writer-task.json').revision.previous;
+    write('writer-2-VEN-02.json', { statements, contact: { ...previous, phone: NEW_PHONE } });
+    hikitsugi('check-writer', ['2', 'VEN-02']);
+    const written = read('manual-2.json');
+    const fixed = written.statements.find((statement) => statement.id === target.id);
+    assert.equal(fixed.text, `${contact.name}の連絡先は ${NEW_PHONE} です。`);
+    assert.ok(fixed.evidence.includes('INT-004'), '今回の回答を根拠に足す');
+    assert.ok(!written.statements.some((statement) => statement.text.includes(contact.phone)), '古い番号は残らない');
+    assert.equal(nextStep(work).step, 'editor');
+    write('editor-2.json', { rewrites: [], glossary: [] });
+    hikitsugi('merge-edits', ['2']);
+    assert.deepEqual(read('verify-scope-2.json').statements.includes(target.id), true, '直した文は照合にかける');
+    const edited = read('edited-2.json');
+    assert.ok(read('verify-scope-2.json').statements.includes(termStatement.id), '用語の説明の文も照合にかける');
+    assert.equal(edited.statements.find((statement) => statement.id === termStatement.id).text, `この会社では ${NEW_PHONE} に電話します。`);
+    assert.ok(!edited.statements.some((statement) => statement.text.includes(contact.phone)), '用語の説明にも古い番号は残らない');
+    write('verification-2.json', { results: read('verify-scope-2.json').statements.map((statement) => ({ statement, verdict: 'correct', reason: '', checked: [], conflicts_with: [] })) });
+    hikitsugi('check-verification', ['2']);
+    assert.equal(edited.contacts.find((candidate) => candidate.id === 'VEN-02').phone, NEW_PHONE);
+    hikitsugi('review-ok', ['VEN-02']);
+    assert.ok(read('manual-final.json').updates[0].pages.includes(page.id), '番号を書いているページにも更新の行を出す');
+    hikitsugi('render');
+    assert.ok(!readFileSync(join(work, 'manual.html'), 'utf8').includes('<span>0102</span>'), 'HTML にも古い番号が残らない');
+  }));
+
+test('メモ：パスワードらしい値のある文は、列にも担当にも渡さない', () => {
+  const manual = finishedManual();
+  const items = parseMemos('社長：社長の PC のパスワードは abcd1234 です。', manual);
+  assert.equal(items[0].has_credential, true);
+  assert.equal(items[0].text, CREDENTIAL_MEMO);
+  assert.ok(!JSON.stringify(items).includes('abcd1234'));
 });

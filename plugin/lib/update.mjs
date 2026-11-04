@@ -1,9 +1,11 @@
 // 完成した取扱説明書を、あとから直すための部品。hikitsugi update の流れで使う。
 // manual.json は、作業フォルダがなくても更新を始められるように、render が説明書の隣に置く。
 
+import { pageStatementIds } from './page-check.mjs';
 import { hasCredential } from './transcript.mjs';
 
 export const BUNDLE_NAME = 'manual.json';
+export const CREDENTIAL_MEMO = '（パスワードらしい値があるので、この文は残していません）';
 
 const compact = (text) => text.normalize('NFKC').replace(/\s+/g, '');
 
@@ -38,8 +40,30 @@ export function targetKind(manual, id) {
   return null;
 }
 
+/**
+ * 連絡先の番号が変わったとき、文の中に書かれた古い番号も新しい番号にする。
+ * 番号だけの機械的な置き換えで、根拠に今回の回答を足す。文が変わるので Verifier の照合にかかる。
+ * ほかの連絡先が同じ番号を使っているときは、どちらの番号か分からないので置き換えない。
+ */
+export function withContactPhone(manual, contactId, oldPhone, newPhone, evidence) {
+  if (!oldPhone || !newPhone || oldPhone === newPhone) return manual;
+  if (manual.contacts.some((contact) => contact.id !== contactId && contact.phone === oldPhone)) return manual;
+  return {
+    ...manual,
+    statements: manual.statements.map((statement) => (statement.text.includes(oldPhone) ? { ...statement, text: statement.text.replaceAll(oldPhone, newPhone), evidence: [...new Set([...statement.evidence, evidence])] } : statement)),
+  };
+}
+
 /** 更新の対象の連絡先を使っているページ。 */
 export const pagesOfContact = (manual, id) => manual.symptom_pages.filter((page) => page.fallback?.contact === id).map((page) => page.id);
+
+/** 連絡先を使うページと、文の中にその番号を書いているページ。更新の行を出すページ。 */
+function pagesWithContact(manual, id) {
+  const { phone } = manual.contacts.find((contact) => contact.id === id);
+  const byId = new Map(manual.statements.map((statement) => [statement.id, statement]));
+  const named = phone ? manual.symptom_pages.filter((page) => pageStatementIds(page).some((ref) => byId.get(ref)?.text.includes(phone))).map((page) => page.id) : [];
+  return manual.symptom_pages.map((page) => page.id).filter((pageId) => pagesOfContact(manual, id).includes(pageId) || named.includes(pageId));
+}
 
 /** 更新の記録に残す、内容の一言。本人の答えの先頭30字。 */
 export const updateSummary = (answer) => [...answer.replace(/\s+/g, ' ').trim()].slice(0, 30).join('');
@@ -47,7 +71,7 @@ export const updateSummary = (answer) => [...answer.replace(/\s+/g, ' ').trim()]
 /** 更新の印を付ける。角印は更新で確認した人と最新の確認日を出し、前任者の確認の記録は残す。 */
 export function withUpdateMark(manual, { target, by, date, summary }) {
   const kind = targetKind(manual, target);
-  const pages = kind === 'page' ? [target] : kind === 'contact' ? pagesOfContact(manual, target) : [];
+  const pages = kind === 'page' ? [target] : kind === 'contact' ? pagesWithContact(manual, target) : [];
   const updates = [...(manual.updates ?? []), { target, pages, by, date, ...(summary ? { summary } : {}) }];
   return {
     ...manual,
@@ -87,5 +111,6 @@ export function parseMemos(text, manual) {
     else if (line.trim() && items.length) items.at(-1).text = `${items.at(-1).text}\n${line.trim()}`;
     else if (line.trim()) items.push({ target: null, name: '', text: line.trim() });
   }
-  return items.filter((item) => item.text.trim()).map((item) => ({ ...item, has_credential: hasCredential(item.text) }));
+  // パスワードらしい値のあるメモは、本文を列にも担当にも渡さない。保管場所を本人に聞く
+  return items.filter((item) => item.text.trim()).map((item) => (hasCredential(item.text) ? { ...item, text: CREDENTIAL_MEMO, has_credential: true } : { ...item, has_credential: false }));
 }

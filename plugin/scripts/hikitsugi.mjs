@@ -23,7 +23,7 @@ import { renderManual } from '../renderer/render.mjs';
 import { isComposedStatement, withoutFlaggedPlace, withReplies, withWindows10Note } from '../lib/reply.mjs';
 import { writePhoneBundle } from '../renderer/phone.mjs';
 import { oversizeMessage, PC_FILE_LIMIT, PC_FILE_TARGET, writeWithinLimit } from '../lib/limits.mjs';
-import { BUNDLE_NAME, bundleOf, pagesNeedingPhrases, pagesOfContact, parseMemos, targetKind, updateSummary, withUpdateMark } from '../lib/update.mjs';
+import { BUNDLE_NAME, bundleOf, pagesNeedingPhrases, pagesOfContact, parseMemos, targetKind, updateSummary, withContactPhone, withUpdateMark } from '../lib/update.mjs';
 
 const PLUGIN = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const MAX_RESENDS = 2;
@@ -347,7 +347,9 @@ function assembleRound(work, round) {
           ...(contactPart ? { contacts: { [contactPart]: load(contactPart) } } : {}),
         });
       })();
-  const { manual: composed, problems } = composeProcedures(assembled, sources, { retiree: state.retiree });
+  // 番号の更新では、文の中に書かれた古い番号も直す。置き忘れると、後任が古い番号へ電話してしまう
+  const withNewPhone = (target) => (contactPart && round > 1 ? withContactPhone(target, contactPart, readJson(join(work, `findings-${round - 1}.json`)).previous_manual.contacts.find((contact) => contact.id === contactPart).phone, load(contactPart).contact.phone, state.page_fix?.evidence) : target);
+  const { manual: composed, problems } = composeProcedures(withNewPhone(assembled), sources, { retiree: state.retiree });
   if (problems.length) throw new Problem(`手順部品の指定やページの形に問題があります：\n${problems.join('\n')}`);
   const manual = state.symptom_exclusions?.length ? { ...composed, symptom_exclusions: state.symptom_exclusions } : composed;
   // 載せ漏れは、共通部分を1回だけ書き直して埋める。それでも残れば止める
@@ -390,7 +392,9 @@ function assembleRound(work, round) {
   const before = readJson(join(work, `edited-${round - 1}.json`));
   const verification = readJson(join(work, `verification-${round - 1}.json`));
   const { findings } = summarizeVerification(verification, before);
-  const { manual: carried, changed } = carryForward(before, findings, manual);
+  // 用語の説明の文は差し戻しの形に入らず、ここで戻ってくるので、番号の置き換えももう一度かける
+  const { manual: carriedBefore, changed } = carryForward(before, findings, manual);
+  const carried = withNewPhone(carriedBefore);
   checkSchema('manual', carried);
   writeJson(path, carried);
   const remaining = plainProblems(carried);
@@ -553,6 +557,8 @@ function beforeLeaving(work) {
 const section2 = (manual, label, id) => (id ? [`【${label}】`, ...textsOf(manual, [id])] : []);
 
 /** ページの中身を、確認しやすい文章にして返す。 */
+const section2Lines = (label, lines) => (lines.length ? [`【${label}】`, ...lines] : []);
+
 function reviewShow(work, [pageId]) {
   const manual = readJson(join(work, 'manual-final.json'));
   const contactShown = manual.contacts.find((candidate) => candidate.id === pageId);
@@ -566,6 +572,7 @@ function reviewShow(work, [pageId]) {
       ...section2(manual, '契約番号の控えの場所', place),
       ...section2(manual, '伝えること', tell),
       `この連絡先を使うページ：${pagesOfContact(manual, pageId).join('、') || 'なし'}`,
+      ...section2Lines('この名前が出てくるほかの文', manual.statements.filter((statement) => statement.text.includes(name) && /\d|受付|窓口/.test(statement.text) && !isComposedStatement(statement) && ![role, hours, place, tell].includes(statement.id)).map((statement) => statement.text)),
     ].join('\n');
   }
   const deviceShown = manual.devices.find((candidate) => candidate.id === pageId);

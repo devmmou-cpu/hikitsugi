@@ -1348,3 +1348,13 @@ test('評価の Writer：手順ページのない困りごとからページを�
   const decide = sent.find((params) => taggedIn(params, 'task').part === 'symptoms');
   assert.match(JSON.stringify(decide.output_config ?? decide), /decisions/);
 });
+
+test('定期作業の手順に、会社の情報の表を指す部品は使えない', () => {
+  const { common } = pieces();
+  const part = JSON.parse(readFileSync(join(ROOT, 'plugin/library/procedures.json'), 'utf8')).procedures.find((candidate) => candidate.needs_table);
+  const broken = JSON.parse(JSON.stringify(common));
+  broken.statements.push({ id: 'STM-900', text: '', evidence: [], library: part.id }, { id: 'STM-901', text: '毎月の確認', evidence: ['INT-001'], library: null });
+  broken.routines.push({ id: 'R90', frequency: 'monthly', title: 'STM-901', steps: ['STM-900'] });
+  assert.match(checkCommon(broken, { survey: input.survey, transcript: input.transcript }).problems.join('\n'), /会社の情報の表を指す部品は使えません/);
+  assert.doesNotMatch(checkCommon(common, { survey: input.survey, transcript: input.transcript }).problems.join('\n'), /会社の情報の表を指す部品/);
+});
