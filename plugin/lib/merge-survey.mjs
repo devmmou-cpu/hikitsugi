@@ -28,6 +28,22 @@ const KEYS = [
   [/^account\.(join_type|m365_signed_in)$/, 'account'],
 ];
 
+// 調査スクリプトが、読めなくても必ず出す項目。ファイルにないものは「読めなかった」として記録する
+export const ALWAYS_KEYS = [
+  ['os.caption', 'os'], ['os.version', 'os'],
+  ['hw.maker', 'hardware'], ['hw.model', 'hardware'], ['hw.memory_gb', 'hardware'], ['disk.c_free_gb', 'hardware'],
+  ['net.ip_mode', 'network'], ['net.gateway', 'network'], ['net.dns', 'network'], ['net.wifi_ssid', 'network'],
+  ['share.drive_count', 'share'],
+  ['security.last_update', 'security'], ['security.feature_update', 'security'], ['security.antivirus', 'security'], ['security.bitlocker', 'security'],
+  ['account.join_type', 'account'], ['account.m365_signed_in', 'account'],
+];
+
+/** 1台の生データに欠けている、必ず出す項目の名前を返す。形の検査のあとに使う。 */
+export function missingKeys(raw) {
+  const present = new Set(raw.items.map((item) => item.key));
+  return ALWAYS_KEYS.filter(([key]) => !present.has(key)).map(([key]) => key);
+}
+
 // 文字列以外の値を持つ項目。PowerShell の型の違いをここで止める
 const INTEGER_KEYS = new Set(['hw.memory_gb', 'disk.c_free_gb', 'share.drive_count']);
 const JOIN_TYPES = new Set(['ドメイン', 'ワークグループ', 'クラウド参加', 'ドメインとクラウド参加']);
@@ -105,8 +121,9 @@ const compare = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
 /**
  * 生データの配列を survey の形にまとめる。問題があれば例外を投げる。
  * ID は PC 名、項目名の順に振るので、入力の順番によらず同じ結果になる。
+ * @param recordMissing true なら、必ず出す項目がファイルにないときに「読めなかった」として記録する
  */
-export function mergeSurveys(raws, { company } = {}) {
+export function mergeSurveys(raws, { company, recordMissing = false } = {}) {
   if (typeof company !== 'string' || company.trim() === '') throw new Error('会社の ID がありません');
   if (!Array.isArray(raws) || raws.length === 0) throw new Error('生データが1台分もありません');
   raws.forEach((raw, index) => checkRaw(raw, index + 1));
@@ -120,7 +137,10 @@ export function mergeSurveys(raws, { company } = {}) {
   }
 
   const items = raws
-    .flatMap((raw) => raw.items.map((item) => ({ host: raw.host, category: item.category, key: item.key, value: item.value, collected_at: raw.collected_at, status: item.status })))
+    .flatMap((raw) => [
+      ...raw.items.map((item) => ({ host: raw.host, category: item.category, key: item.key, value: item.value, collected_at: raw.collected_at, status: item.status })),
+      ...(recordMissing ? ALWAYS_KEYS : []).filter(([key]) => missingKeys(raw).includes(key)).map(([key, category]) => ({ host: raw.host, category, key, value: null, collected_at: raw.collected_at, status: 'unavailable' })),
+    ])
     .sort((x, y) => compare(x.host, y.host) || compare(x.key, y.key));
   if (items.length > MAX_ITEMS) throw new Error(`項目が ${items.length} 件あり、ID を振れる ${MAX_ITEMS} 件を超えています。PC の台数を分けて確かめてください`);
 

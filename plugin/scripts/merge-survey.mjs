@@ -5,7 +5,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { mergeSurveys } from '../lib/merge-survey.mjs';
+import { mergeSurveys, missingKeys } from '../lib/merge-survey.mjs';
 
 const USAGE = '使い方：node merge-survey.mjs <出力.json> <会社の ID> <生データ1.json> [生データ2.json ...]';
 
@@ -33,9 +33,14 @@ function main([output, company, ...inputs]) {
   if (!output || !company?.trim() || inputs.length === 0) return fail(USAGE, 2);
   if (inputs.some((input) => resolve(input) === resolve(output))) return fail('出力のファイルと生データのファイルを同じにはできません', 2);
   try {
-    const survey = mergeSurveys(inputs.map(readRaw), { company });
+    const raws = inputs.map(readRaw);
+    const survey = mergeSurveys(raws, { company, recordMissing: true });
     writeFileSync(output, `${JSON.stringify(survey, null, 2)}\n`);
     console.log(`${inputs.length} 台分、${survey.items.length} 件をまとめました：${output}`);
+    for (const raw of raws) {
+      const missing = missingKeys(raw);
+      if (missing.length) console.log(`${raw.host}：ファイルに ${missing.length} 件の項目がなかったので、読めなかった項目として記録しました（${missing.join('、')}）。あとの質問で補います`);
+    }
   } catch (error) {
     fail(`まとめられませんでした：${error.message}`, 1);
   }

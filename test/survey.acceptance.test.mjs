@@ -389,3 +389,44 @@ test('本人が Windows で試す手順書がある', () => {
 test('実機の生データをコミットしない設定になっている', () => {
   assert.match(readFileSync(join(ROOT, '.gitignore'), 'utf8'), /hikitsugi-survey-\*/);
 });
+
+// ---- 項目が欠けたファイル（本人の実機の結果の複製で見つかった） ----
+test('まとめ：必ず出す項目がファイルになければ、読めなかった項目として記録して画面に出す', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'merge-missing-'));
+  try {
+    const raw = rawOf('pc-a');
+    const removed = ['net.dns', 'hw.model'];
+    raw.items = raw.items.filter((item) => !removed.includes(item.key));
+    const input = join(dir, 'a.json');
+    const output = join(dir, 'merged.json');
+    writeFileSync(input, JSON.stringify(raw));
+    const result = runCli([output, 'okojo', input]);
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /件の項目がなかった/);
+    for (const key of removed) assert.ok(result.stdout.includes(key));
+    const survey = JSON.parse(readFileSync(output, 'utf8'));
+    for (const key of removed) {
+      const item = survey.items.find((entry) => entry.key === key);
+      assert.equal(item.status, 'unavailable');
+      assert.equal(item.value, null);
+    }
+    assert.deepEqual(validate(schema, survey), []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('まとめ：項目がそろっていれば、欠けの表示を出さない', async () => {
+  const { ALWAYS_KEYS } = await import(pathToFileURL(LIB).href);
+  const dir = mkdtempSync(join(tmpdir(), 'merge-full-'));
+  try {
+    const input = join(dir, 'a.json');
+    const items = ALWAYS_KEYS.map(([key, category]) => ({ category, key, value: null, status: 'unavailable' }));
+    writeFileSync(input, JSON.stringify({ ...rawOf('pc-a'), items }));
+    const result = runCli([join(dir, 'merged.json'), 'okojo', input]);
+    assert.equal(result.status, 0);
+    assert.doesNotMatch(result.stdout, /項目がなかった/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
