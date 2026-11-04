@@ -63,8 +63,9 @@ export const symptomSchema = () => objectOf({
       gap: { type: 'string', pattern: '^SYM-\\d+$' },
       decision: { type: 'string', enum: ['page', 'exclude'] },
       reason: { type: 'string' },
-      category: { type: ['string', 'null'], enum: [...CATEGORY.enum, null] },
-      symptom: { type: ['string', 'null'] },
+      // API の形は、列挙に null を混ぜられない。外すときは category を other、symptom を空文字にする
+      category: CATEGORY,
+      symptom: { type: 'string' },
     }),
   },
 });

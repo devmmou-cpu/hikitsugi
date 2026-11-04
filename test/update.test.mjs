@@ -145,7 +145,7 @@ test('連絡先の電話番号の変更：その連絡先の番号だけが変�
     assert.ok(html.includes('前任の田中さんが全ページを確認'), '前任者の確認の文は残す');
     assert.match(html, /作成：[^<]* 田中 確認/);
     assert.match(html, /<p class="label intro-label">更新の記録<\/p>/);
-    assert.ok(html.includes(`<td>連絡先の変更</td><td>佐藤</td><td>${after.contacts.find((contact) => contact.id === 'VEN-02').name}</td>`), '更新の記録に種類、確認した人、相手を出す');
+    assert.ok(html.includes(`<td class="update-kind">連絡先の変更</td><td>佐藤</td><td>${after.contacts.find((contact) => contact.id === 'VEN-02').name}</td>`), '更新の記録に種類、確認した人、相手を出す');
     assert.match(html, /更新：[^<]* 佐藤 確認/);
     assert.ok(existsSync(join(out, 'phone')));
     assert.equal(JSON.parse(readFileSync(join(out, 'manual.json'), 'utf8')).manual.review.updated_by, '佐藤');
@@ -334,8 +334,8 @@ test('更新の記録：内容は60字までで文の切れ目で切り、種類
   const html = renderManual(third);
   assert.match(html, /aria-label="佐藤・社長 確認/);
   assert.match(html, /<th>日付<\/th><th>種類<\/th><th>確認した人<\/th>/);
-  assert.ok(html.includes('<td>メモの取り込み</td><td>社長</td>'));
-  assert.ok(html.includes('<td>手順の修正</td><td>佐藤</td>'));
+  assert.ok(html.includes('<td class="update-kind">メモの取り込み</td><td>社長</td>'));
+  assert.ok(html.includes('<td class="update-kind">手順の修正</td><td>佐藤</td>'));
   // 表は新しい順
   assert.ok(html.indexOf('もう一度') < html.indexOf('番号を直す') && html.indexOf('番号を直す') < html.indexOf('受付を直す'));
   // ページ末尾は作成と更新の2段

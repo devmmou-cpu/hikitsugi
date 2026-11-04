@@ -176,7 +176,7 @@ const pieces = () => {
 };
 
 /** 手順ページのない困りごとへの偽の応答。すべて外す。 */
-const excludeAll = (task) => ({ decisions: task.gaps.map(({ id }) => ({ gap: id, decision: 'exclude', reason: 'テストの理由', category: null, symptom: null })) });
+const excludeAll = (task) => ({ decisions: task.gaps.map(({ id }) => ({ gap: id, decision: 'exclude', reason: 'テストの理由', category: 'other', symptom: '' })) });
 
 /** 載せ漏れの書き直しの偽の応答。足りない事実を機器として足す。 */
 const fillMissing = (previous, missing) => {
@@ -1268,13 +1268,13 @@ test('/hikitsugi:start：手順ページのない困りごとを Writer に聞�
     assert.ok(read('writer-format.json').properties.decisions);
 
     // 理由のない除外は受け付けない
-    write('writer-1-symptoms.json', { decisions: task.gaps.map(({ id }) => ({ gap: id, decision: 'exclude', reason: '', category: null, symptom: null })) });
+    write('writer-1-symptoms.json', { decisions: task.gaps.map(({ id }) => ({ gap: id, decision: 'exclude', reason: '', category: 'other', symptom: '' })) });
     assert.throws(() => hikitsugi('check-writer', ['1', 'symptoms']), /外す理由/);
     assert.equal(nextStep(work).part, 'symptoms');
 
     write('writer-1-symptoms.json', { decisions: [
       { gap: 'SYM-1', decision: 'page', reason: '', category: 'other', symptom: 'NAS のディスクが壊れた' },
-      { gap: 'SYM-2', decision: 'exclude', reason: 'T1 と同じ窓口で足ります', category: null, symptom: null },
+      { gap: 'SYM-2', decision: 'exclude', reason: 'T1 と同じ窓口で足ります', category: 'other', symptom: '' },
     ] });
     assert.match(hikitsugi('check-writer', ['1', 'symptoms']), /ページにする 1 件、外す 1 件.*T2/);
 
@@ -1327,7 +1327,7 @@ test('評価の Writer：手順ページのない困りごとからページを�
         };
         const decide = ({ id, detail }) => (detail.includes('入れ替え')
           ? { gap: id, decision: 'page', reason: '', category: 'other', symptom: 'ソフトの入れ替えが要る' }
-          : { gap: id, decision: 'exclude', reason: '困りごとではありません', category: null, symptom: null });
+          : { gap: id, decision: 'exclude', reason: '困りごとではありません', category: 'other', symptom: '' });
         const reply = task.part === 'symptoms' ? { decisions: task.gaps.map(decide) }
           : task.revision?.add_symptoms ? task.revision.previous
           : task.revision?.missing ? fillMissing(task.revision.previous, task.revision.missing)

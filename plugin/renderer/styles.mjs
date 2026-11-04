@@ -607,7 +607,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   white-space: nowrap;
 }
 
-.update-log .update-date {
+.update-log .update-date,
+.update-log .update-kind {
   white-space: nowrap;
 }
 

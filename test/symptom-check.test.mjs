@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { additionProblems, applySymptomAnswer, basisProblems, symptomGaps } from '../plugin/lib/symptom-check.mjs';
 import { pagesForPhrases } from '../plugin/lib/search-index.mjs';
+import { commonSchema, contactSchema, pageSchema, symptomSchema } from '../plugin/lib/assemble.mjs';
 
 const KUZURI_PAGES = ['共有フォルダが見えない', '営業所だけ社内につながらない', '車庫の Wi-Fi が切れる', '配車システムの画面が動かない', 'ウイルス感染が疑われる PC がある', '怪しいメールが来た', '回線が止まってネットが使えない', '社員がパスワードを忘れた', '営業所の NAS が満杯に近い', '停電のあと、配車システムが使えない', '複合機が故障した'];
 
@@ -63,7 +64,7 @@ test('答えを、足すページと外す理由に分ける。同じ症状は1�
   const decisions = [
     { gap: 'SYM-1', decision: 'page', reason: '', category: 'other', symptom: 'NAS のディスクが壊れた' },
     { gap: 'SYM-2', decision: 'page', reason: '', category: 'other', symptom: 'NAS のディスクが壊れた' },
-    { gap: 'SYM-3', decision: 'exclude', reason: '困りごとの話ではありません', category: null, symptom: null },
+    { gap: 'SYM-3', decision: 'exclude', reason: '困りごとの話ではありません', category: 'other', symptom: '' },
   ];
   const { problems, additions, exclusions } = applySymptomAnswer({ decisions }, GAPS, PLAN);
   assert.deepEqual(problems, []);
@@ -75,9 +76,9 @@ test('答えを、足すページと外す理由に分ける。同じ症状は1�
 
 test('答えのない件、理由のない除外、症状のないページ、一覧にない件を問題にする', () => {
   const decisions = [
-    { gap: 'SYM-1', decision: 'exclude', reason: ' ', category: null, symptom: null },
-    { gap: 'SYM-2', decision: 'page', reason: '', category: null, symptom: null },
-    { gap: 'SYM-9', decision: 'exclude', reason: '理由', category: null, symptom: null },
+    { gap: 'SYM-1', decision: 'exclude', reason: ' ', category: 'other', symptom: '' },
+    { gap: 'SYM-2', decision: 'page', reason: '', category: 'other', symptom: '' },
+    { gap: 'SYM-9', decision: 'exclude', reason: '理由', category: 'other', symptom: '' },
   ];
   const { problems } = applySymptomAnswer({ decisions }, GAPS, PLAN);
   assert.equal(problems.length, 4, problems.join('\n'));
@@ -93,9 +94,9 @@ test('足したページがなければ問題にする。ページの根拠に�
 
 test('外す理由に書かれた今あるページを受け皿にし、そのページの言い方の入力にだけヒントを渡す', () => {
   const decisions = [
-    { gap: 'SYM-1', decision: 'exclude', reason: 'T1「共有」が扱っています。Ｔ１１も同じです。T99 はありません', category: null, symptom: null },
+    { gap: 'SYM-1', decision: 'exclude', reason: 'T1「共有」が扱っています。Ｔ１１も同じです。T99 はありません', category: 'other', symptom: '' },
     { gap: 'SYM-2', decision: 'page', reason: '', category: 'other', symptom: '別の症状' },
-    { gap: 'SYM-3', decision: 'exclude', reason: 'T11 が扱っています', category: null, symptom: null },
+    { gap: 'SYM-3', decision: 'exclude', reason: 'T11 が扱っています', category: 'other', symptom: '' },
   ];
   const gaps = [GAPS[0], GAPS[1], { id: 'SYM-3', sources: ['INT-003'], detail: '障害は故障窓口 03-0000-0101 に電話します' }];
   const { exclusions } = applySymptomAnswer({ decisions }, gaps, PLAN);
@@ -105,4 +106,21 @@ test('外す理由に書かれた今あるページを受け皿にし、その�
   assert.deepEqual(t1.also_handles, ['ディスクの交換もそこに頼みます']);
   assert.ok(!('also_handles' in t5));
   assert.deepEqual(t11.also_handles, ['ディスクの交換もそこに頼みます', '障害は故障窓口に電話します'], '電話番号は渡さない');
+});
+
+test('API に渡す形：列挙の値は宣言した型に合う（合わないと API が 400 で断る）', () => {
+  const walk = (node, path) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) { node.forEach((child, index) => walk(child, `${path}[${index}]`)); return; }
+    if (node.enum && node.type) {
+      const types = [node.type].flat();
+      for (const value of node.enum) {
+        const actual = value === null ? 'null' : typeof value;
+        assert.ok(types.includes(actual), `${path}: ${value} は ${types.join('|')} に合いません`);
+      }
+      assert.equal(types.length, 1, `${path}: 列挙に複数の型は使わない`);
+    }
+    for (const [key, child] of Object.entries(node)) walk(child, `${path}.${key}`);
+  };
+  for (const [name, schema] of Object.entries({ symptomSchema, commonSchema, pageSchema, contactSchema })) walk(schema(), name);
 });
