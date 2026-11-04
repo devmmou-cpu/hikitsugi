@@ -168,7 +168,7 @@ function symptomHtml(ctx, page, fileTitle) {
   const contactPart = () => {
     if (!contact) return '';
     const heading = hasFirst || hasSteps ? 'それでもだめなら' : internal ? '相談してください' : '連絡してください';
-    return `<section class="part">\n<h2>${number()} ${heading}</h2>\n${contactHtml(ctx, contact, internal ? '相談のときに伝える文面' : '業者に送る文面', page.fallback.message)}\n</section>`;
+    return `<section class="part">\n<h2>${number()} ${heading}</h2>\n${contactHtml(ctx, contact, internal ? '相談するときの言い方' : '業者に送る文面', page.fallback.message)}\n</section>`;
   };
   const leading = contactLeads ? contactPart() : '';
   const figures = firstStepFigures(page, ctx.manual);

@@ -317,7 +317,7 @@ test('検査：手順部品でない ① を「試しました」と書いた文
     const lines = callOf(m, p).text.split('\n');
     lines.splice(2, 0, '説明書の手順「知らせる」は試しました。直りません。');
     callOf(m, p).text = lines.join('\n');
-  }), /最後の行/);
+  }), /件で相談です/);
 });
 
 test('業者に伝える文：機器を1つに絞れないときは、機器の場所の行を出さない', () => {
@@ -359,4 +359,31 @@ test('Windows 10 の分岐：束でも1本にまとめ、manual の文は分け�
   const text = renderPhoneBundle(manual).map(({ html }) => html.replace(/<[^>]+>/g, '')).join('\n');
   assert.match(text, /Windows 10 の PC（OKJ-CAD-01、OKJ-CAD-02）は、手順が違う/);
   assert.doesNotMatch(text, /該当する PC/);
+});
+
+test('社内の相談先に言う文：名乗らず、同僚に言う型で、① が手順部品のときだけ試した行を入れる', async () => {
+  const { composeCallScript, callScriptProblems } = await import('../plugin/lib/reply.mjs');
+  const manual = {
+    company_name: 'オコジョ精工株式会社',
+    contacts: [{ id: 'INH-01', name: '社長' }, { id: 'VEN-01', name: 'クロテン通信' }],
+    devices: [],
+    statements: [
+      { id: 'STM-001', text: 'NAS のディスクが壊れた', evidence: ['INT-001'] },
+      { id: 'STM-002', text: '電源を入れ直してください。', evidence: ['LIB-001'], library: 'LIB-001' },
+      { id: 'STM-003', text: '自分で考えた操作をしてください。', evidence: ['INT-001'] },
+    ],
+    symptom_pages: [],
+  };
+  const page = (first) => ({ id: 'T1', title: 'STM-001', badge: { value: 'internal' }, first_steps: first, fallback: { contact: 'INH-01', message: 'STM-010' } });
+  assert.equal(composeCallScript(page([]), manual).text, '「NAS のディスクが壊れた」の件で相談です。\nどうすればよいですか。');
+  assert.equal(composeCallScript(page(['STM-002']), manual).text, '「NAS のディスクが壊れた」の件で相談です。\n説明書の手順「電源を入れ直してください」は試しました。\nどうすればよいですか。');
+  assert.equal(composeCallScript(page(['STM-003']), manual).text, '「NAS のディスクが壊れた」の件で相談です。\nどうすればよいですか。', '手順部品でない ① は試したことにしない');
+  // 業者の型は変えない
+  const vendor = { ...page([]), fallback: { contact: 'VEN-01', message: 'STM-010' }, badge: { value: 'vendor' } };
+  assert.match(composeCallScript(vendor, manual).text, /^オコジョ精工株式会社です。\n「NAS のディスクが壊れた」件で連絡しました。\n確認をお願いします。$/);
+  // 型の検査
+  const composed = { ...manual, statements: [...manual.statements, { id: 'STM-010', text: composeCallScript(page([]), manual).text, evidence: ['INT-001'], usage: 'call_script' }], symptom_pages: [page([])] };
+  assert.deepEqual(callScriptProblems(composed), []);
+  const wrong = { ...composed, statements: composed.statements.map((statement) => (statement.id === 'STM-010' ? { ...statement, text: 'オコジョ精工株式会社です。' } : statement)) };
+  assert.match(callScriptProblems(wrong)[0], /件で相談です/);
 });

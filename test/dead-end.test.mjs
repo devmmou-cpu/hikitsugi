@@ -73,10 +73,12 @@ test('名前がないページ、「社内で相談」だけで相手がいな�
       ['T1', 'internal', '名前がない', null],
       ['T2', 'vendor', '相手がいない', 'VEN-01', ['置き場所は、記録がありません。社内で相談してください。']],
       ['T3', 'internal', '社内の相手がいる', 'INH-01', ['置き場所は、記録がありません。社内で相談してください。']],
-      ['T4', 'self', '自分で直せるページは見ない', null, ['社内で相談してください。']],
+      ['T4', 'self', '③ のない自分で直せるページ', null, ['社内で相談してください。']],
+      ['T5', 'check_first', '③ のある確認してからのページ', 'VEN-01', ['社内で相談してください。']],
+      ['T6', 'self', '「社内で相談」のない自分で直せるページ', null],
     ],
   );
-  assert.deepEqual(deadEnds(manual).map(({ page, kinds }) => [page, kinds]), [['T1', ['no_contact']], ['T2', ['no_target']]]);
+  assert.deepEqual(deadEnds(manual).map(({ page, kinds }) => [page, kinds]), [['T1', ['no_contact']], ['T2', ['no_target']], ['T4', ['no_target']]]);
 });
 
 test('内線、席、電話番号のどれかがあれば、手段があるとする', () => {
@@ -218,6 +220,17 @@ test('確認の前に行き止まりを聞き、答えを記録して、答え�
     const after = read('manual-final.json');
     assert.ok(after.statements.some((statement) => statement.text.includes('内線 201')));
     assert.equal(read('state.json').dead_end_fixes, undefined);
+    // 手段を聞いた相手は、連絡先の欄にも答えが入る
+    const contact = after.contacts.find(({ id }) => id === 'INH-01');
+    const hours = after.statements.find(({ id }) => id === contact.hours);
+    assert.equal(hours.text, '工場事務所の内線 201 で聞きます。');
+    assert.deepEqual(hours.evidence, ['INT-002']);
+    assert.ok(read('verify-scope-2.json').statements.includes(contact.hours), '連絡先の欄の文も照合にかける');
+  }));
+
+test('退職する本人を答えにはできない', () =>
+  atDeadEnd(({ hikitsugi }) => {
+    assert.throws(() => hikitsugi('dead-end-answer', ['T1'], '田中に聞いてください。'), /退職する本人/);
   }));
 
 test('照合で定型の文に指摘が出たら、次の回は指摘を優先して、定型を強制しない', () =>

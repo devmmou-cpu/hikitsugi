@@ -672,10 +672,33 @@ function reviewFix(work, [pageId], stdin) {
 /** まだ聞いていない行き止まりのページ。1ページに聞くのは1回だけ。 */
 const pendingDeadEnds = (manual, state) => deadEnds(manual).filter(({ page }) => !state.dead_ends?.[page]);
 
+/** 同じ相手を聞くページか。手段がないページはその連絡先ごと、それ以外は「社内の相手」でまとめる。 */
+const sameKey = ({ kinds, contact_id: contactId }) => (kinds.includes('no_means') ? contactId : 'internal');
+
+/** 手段がなかった連絡先の受付の欄に、前任者の答えを入れる。連絡先ごとに最初の答えを使う。ページの根拠と同じ INT にする。 */
+function withContactMeans(manual, answers) {
+  const seen = new Map();
+  for (const answer of answers) if (answer.answer && answer.means_for && !seen.has(answer.means_for)) seen.set(answer.means_for, answer);
+  if (!seen.size) return manual;
+  let next = Math.max(0, ...manual.statements.map((statement) => Number(statement.id.slice(4))));
+  const added = [];
+  const replaced = new Set();
+  const contacts = manual.contacts.map((contact) => {
+    const answer = seen.get(contact.id);
+    if (!answer) return contact;
+    if (contact.hours) replaced.add(contact.hours);
+    next += 1;
+    const id = `STM-${String(next).padStart(3, '0')}`;
+    added.push({ id, text: answer.answer, evidence: [answer.evidence], library: null });
+    return { ...contact, hours: id };
+  });
+  return { ...manual, contacts, statements: [...manual.statements.filter((statement) => !replaced.has(statement.id)), ...added] };
+}
+
 /** 同じ相手のページで答えを打ち直さなくて済むように、前の答えを添える。 */
 function deadEndStep(pending, state) {
   const [next] = pending;
-  const earlier = Object.values(state.dead_ends ?? {}).find((answer) => next.contact_id && answer.contact_id === next.contact_id && answer.answer);
+  const earlier = Object.values(state.dead_ends ?? {}).find((answer) => answer.answer && answer.same_key === sameKey(next));
   return { step: 'dead-end', ...next, left: pending.length, ...(earlier ? { same_answer: earlier.answer } : {}) };
 }
 
@@ -684,7 +707,7 @@ function startDeadEndRound(work, state, manual) {
   const fixes = Object.fromEntries(Object.entries(state.dead_ends).filter(([, answer]) => !answer.applied).map(([page, { comment, evidence, must_include: mustInclude }]) => [page, { comment, evidence, ...(mustInclude ? { must_include: mustInclude } : {}) }]));
   const todo = Object.keys(fixes);
   const round = state.round;
-  writeJson(join(work, `findings-${round}.json`), buildRevision(manual, []));
+  writeJson(join(work, `findings-${round}.json`), buildRevision(withContactMeans(manual, Object.values(state.dead_ends).filter((answer) => !answer.applied)), []));
   const pages = Object.fromEntries(Object.entries(state.review?.pages ?? {}).filter(([page]) => !todo.includes(page)));
   writeJson(join(work, 'state.json'), {
     ...state,
@@ -715,7 +738,7 @@ function recordDeadEnd(work, pageId, { answer, recorded, comment, mustInclude })
   }
   checkSchema('transcript', added.transcript);
   writeJson(transcriptPath, added.transcript);
-  const dead_ends = { ...state.dead_ends, [pageId]: { contact_id: found.contact_id, ...(answer ? { answer } : {}), comment: comment(added.entry.id), evidence: added.entry.id, ...(mustInclude ? { must_include: mustInclude } : {}) } };
+  const dead_ends = { ...state.dead_ends, [pageId]: { contact_id: found.contact_id, same_key: sameKey(found), ...(found.kinds.includes('no_means') ? { means_for: found.contact_id } : {}), ...(answer ? { answer } : {}), comment: comment(added.entry.id), evidence: added.entry.id, ...(mustInclude ? { must_include: mustInclude } : {}) } };
   const next = { ...state, dead_ends };
   writeJson(join(work, 'state.json'), next);
   const left = pendingDeadEnds(manual, next).length;
@@ -724,6 +747,8 @@ function recordDeadEnd(work, pageId, { answer, recorded, comment, mustInclude })
 
 function deadEndAnswer(work, [pageId], stdin) {
   const answer = stdin.trim();
+  const retiree = readJson(join(work, 'state.json')).retiree?.replace(/(さん|様|氏)$/, '');
+  if (retiree && answer.includes(retiree)) throw new Problem('退職する本人を相手にはできません。ほかの相手を教えてください');
   return recordDeadEnd(work, pageId, {
     answer,
     recorded: stdin,

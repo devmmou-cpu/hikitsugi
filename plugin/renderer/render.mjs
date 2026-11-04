@@ -603,7 +603,7 @@ function contactPartHtml(ctx, page, contact, heading, leading) {
     `<h4 class="contact-name">${esc(contact.name)}<span class="contact-role">${esc(ctx.raw(contact.role))}</span></h4>`,
     contact.hours ? hoursHtml(ctx, contact.hours) : '',
     !contact.phone && contact.id.startsWith('VEN-') ? '<p class="no-phone">電話番号の記録がありません</p>' : contact.phone ? `<div class="call-row">${callHtml(contact.phone)}${copyNumberHtml(contact.phone, statusId)}</div>` : '',
-    `<p class="say-label">${internal ? '相談のときに伝える文面' : '業者に送る文面'}</p>`,
+    `<p class="say-label">${internal ? '相談するときの言い方' : '業者に送る文面'}</p>`,
     `<blockquote class="say" id="${messageId}">${ctx.text(page.fallback.message)}</blockquote>`,
     `<button type="button" class="btn btn-copy tap js-only" data-copy="${messageId}" data-status="${statusId}">文面をコピー</button>`,
     copyStatusHtml(statusId),

@@ -97,11 +97,21 @@ const triedSteps = (page, byId) => {
 
 const triedLine = (steps) => `説明書の手順${steps.map((statement) => `「${withoutStop(statement.text)}」`).join('、')}は試しました。直りません。`;
 
+// 社内の相談先に言う文。業者と違い、名乗らず、同僚に言う形にする
+const CONSULT_END = 'どうすればよいですか。';
+const consultFirst = (title) => `「${withoutStop(title.text)}」の件で相談です。`;
+const consultTried = (steps) => `説明書の手順${steps.map((statement) => `「${withoutStop(statement.text)}」`).join('、')}は試しました。`;
+const isInternal = (page) => page.fallback?.contact?.startsWith('INH-');
+
 /** 業者に伝える文を作る。{ text, evidence } を返す。 */
 export function composeCallScript(page, manual) {
   const byId = mapById(manual);
   const title = byId.get(page.title);
   const steps = triedSteps(page, byId);
+  if (isInternal(page)) {
+    const lines = [consultFirst(title), ...(steps.length ? [consultTried(steps)] : []), CONSULT_END];
+    return { text: lines.join('\n'), evidence: [...new Set([title, ...steps].flatMap((statement) => (statement.library ? [statement.library] : statement.evidence)))] };
+  }
   const place = placeOf(page, manual, byId);
   const lines = [
     `${manual.company_name}です。`,
@@ -272,6 +282,13 @@ export function callScriptProblems(manual) {
     const lines = statement.text.split('\n');
     const title = byId.get(page.title);
     const steps = triedSteps(page, byId);
+    if (isInternal(page)) {
+      const expected = [consultFirst(title), ...(steps.length ? [consultTried(steps)] : []), CONSULT_END];
+      if (statement.text !== expected.join('\n')) problems.push(`${page.id}: 社内の相談先に言う文は「「症状の題名」の件で相談です。」で始まり、「${CONSULT_END}」で終える型です`);
+      if (!sourced(title)) problems.push(`${page.id}: 症状の題名に根拠がありません`);
+      if (!steps.every(sourced)) problems.push(`${page.id}: ① の文に根拠がありません`);
+      continue;
+    }
     if (lines[0] !== `${manual.company_name}です。`) problems.push(`${page.id}: 1行目は「会社名です。」の型です`);
     if (lines[1] !== `「${withoutStop(title.text)}」件で連絡しました。`) problems.push(`${page.id}: 2行目は「「症状の題名」件で連絡しました。」の型です`);
     if (!sourced(title)) problems.push(`${page.id}: 症状の題名に根拠がありません`);

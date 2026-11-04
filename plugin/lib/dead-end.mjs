@@ -1,5 +1,7 @@
 // 行き止まりの検査。前任者の確認の前に、連絡の相手か手段が分からないページをプログラムが挙げる。
-// 判定が「社内で相談」か「業者へ連絡」のページだけを見る。挙がったページは、前任者に1回だけ聞いて書き直す。
+// 判定が「社内で相談」か「業者へ連絡」のページは、相手、手段、「社内で相談」の相手を見る。
+// ほかの判定のページは、③ に名前のある連絡先がなく、「社内で相談」とだけあるときに挙げる。
+// 挙がったページは、前任者に1回だけ聞いて書き直す。
 
 // 連絡の手段が書かれているかを見る語
 const MEANS = /内線|電話|携帯|席|メール|Teams|チャット|声をかけ|直接/;
@@ -21,8 +23,11 @@ export function deadEnds(manual) {
   const byId = new Map(manual.statements.map((statement) => [statement.id, statement.text]));
   const textOf = (id) => byId.get(id);
   return manual.symptom_pages.flatMap((page) => {
-    if (!LOOKED_AT.has(page.badge.value)) return [];
     const contact = page.fallback ? manual.contacts.find((candidate) => candidate.id === page.fallback.contact) : null;
+    const saysInternal = statementIds(page).some((id) => NO_TARGET.test(textOf(id) ?? ''));
+    if (!LOOKED_AT.has(page.badge.value)) {
+      return !contact && saysInternal ? [{ page: page.id, title: textOf(page.title), contact: null, contact_id: null, kinds: ['no_target'], reasons: ['「社内で相談してください」の相手がいません'] }] : [];
+    }
     const kinds = [];
     const reasons = [];
     if (!contact) {
@@ -32,7 +37,7 @@ export function deadEnds(manual) {
       kinds.push('no_means');
       reasons.push(`「${contact.name}」への連絡の手段がありません`);
     }
-    if (!contact?.id.startsWith('INH-') && statementIds(page).some((id) => NO_TARGET.test(textOf(id) ?? ''))) {
+    if (!contact?.id.startsWith('INH-') && saysInternal) {
       kinds.push('no_target');
       reasons.push('「社内で相談してください」の相手がいません');
     }
