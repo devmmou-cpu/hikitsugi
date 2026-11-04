@@ -16,7 +16,7 @@ const COMMON_WORDS = new Set(['連絡', '連絡先', '電話', '相談', '依頼
 const compact = (text) => text.normalize('NFKC').replace(/\s+/g, '');
 
 /** 文の話題の語。カタカナ、漢字、英字のまとまりから、連絡先の名前とどこにでも出る語を除く。 */
-function topicWords(sentence, names) {
+export function topicWords(sentence, names) {
   let text = sentence.normalize('NFKC');
   for (const name of names) text = text.replaceAll(name, '');
   const words = text.match(/[A-Za-z][A-Za-z0-9-]+|[ァ-ヶー]{2,}|[一-龠々]{2,}/g) ?? [];
