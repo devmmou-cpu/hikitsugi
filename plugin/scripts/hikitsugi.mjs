@@ -210,15 +210,16 @@ function writerTask(work, [round, part]) {
     const revision = { previous: previousPiece(previous, part), findings: ownersOf(previous, findings).get(findingsOf) ?? [] };
     if (state.page_fix?.page === part) revision.page_fix = state.page_fix;
     if (state.leaks && part === 'common') revision.missing = state.leaks;
-    if (state.update) revision.update = { kind: state.update.kind, ...(state.update.add ? { add_symptom: state.update.add } : {}) };
+    if (state.update) revision.update = { kind: state.update.kind, ...(addedIsNew(state, previous) ? { add_symptom: state.update.add } : {}) };
     if (part === 'common') {
       revision.previous.page_plan = planOf(previous);
       task = { part: 'common', revision };
     } else if (state.update?.contact === part) {
       task = { part: 'contact', revision };
     } else {
-      const added = state.update?.add?.id === part;
-      const entry = added ? newPageEntry(work, round, state) : planOf(previous).find((candidate) => candidate.id === part);
+      // 足したページが前の版にあれば（差し戻しの回）、ふつうのページと同じに扱う
+      const inPrevious = planOf(previous).find((candidate) => candidate.id === part);
+      const entry = inPrevious ?? (state.update?.add?.id === part ? newPageEntry(work, round, state) : undefined);
       task = { part: 'page', entry, contacts: contactsForPages(...statementsAndContacts(work, round, state, previous)), revision };
     }
   }
@@ -234,9 +235,12 @@ function newPageEntry(work, round, state) {
   return entry;
 }
 
+/** 足す症状のページが、前の版にまだないか。差し戻しの回には、前の版に入っている。 */
+const addedIsNew = (state, previous) => Boolean(state.update?.add) && !previous.symptom_pages.some((page) => page.id === state.update.add.id);
+
 /** ページを書くときに使う連絡先。症状を足すときは、この回の共通部分の連絡先を使う。 */
 function statementsAndContacts(work, round, state, previous) {
-  if (!state.update?.add) return [previous.statements, previous.contacts];
+  if (!addedIsNew(state, previous)) return [previous.statements, previous.contacts];
   const common = readJson(join(work, partFile(round, 'common')));
   return [common.statements, common.contacts];
 }
@@ -255,7 +259,7 @@ function checkWriter(work, [round, part]) {
   const raw = readJson(path);
   if (part === 'symptoms') return checkSymptoms(work, state, raw);
   const previous = Number(round) > 1 ? readJson(join(work, `findings-${Number(round) - 1}.json`)).previous_manual : null;
-  const added = state.update?.add;
+  const added = previous && addedIsNew(state, previous) ? state.update.add : null;
   const plan = previous
     ? [...planOf(previous), ...(added && part === added.id ? [newPageEntry(work, round, state)] : [])]
     : part === 'common' ? null : readJson(join(work, partFile(1, 'common'))).page_plan;

@@ -1,6 +1,6 @@
 // 完成後の更新1回の費用と時間を測る（模擬評価）。
 // プラグインの進行のプログラムをそのまま動かし、担当の呼び出しだけを API にする。人の確認は「このままでよい」とする。
-// 使い方：node --env-file=.env eval/update-cost.mjs --bundle <manual.json> [--limit 3]
+// 使い方：node --env-file=.env eval/update-cost.mjs --bundle <manual.json> [--limit 3] [--only add]
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -89,7 +89,7 @@ export async function driveUpdate({ work, api, record, overBudget = () => false 
 }
 
 async function main() {
-  const { values } = parseArgs({ options: { bundle: { type: 'string' }, limit: { type: 'string' }, 'results-dir': { type: 'string' } } });
+  const { values } = parseArgs({ options: { bundle: { type: 'string' }, limit: { type: 'string' }, only: { type: 'string' }, 'results-dir': { type: 'string' } } });
   if (!values.bundle) throw new Error('使い方：node --env-file=.env eval/update-cost.mjs --bundle <manual.json> [--limit 3]');
   const limit = Number(values.limit ?? 3);
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*/, '');
@@ -98,7 +98,8 @@ async function main() {
   const api = await clientOf();
   const summary = { label: '模擬評価', bundle: values.bundle, cases: [] };
   let spent = 0;
-  for (const item of CASES) {
+  const cases = CASES.filter((item) => !values.only || item.name === values.only);
+  for (const item of cases) {
     const base = join(dir, item.name);
     mkdirSync(base, { recursive: true });
     copyFileSync(values.bundle, join(base, 'manual.json'));
@@ -132,7 +133,7 @@ async function main() {
   }
   writeFileSync(join(dir, 'summary.json'), JSON.stringify(summary, null, 2));
   console.log(`保存先：${dir}`);
-  return summary.cases.every((item) => item.status === 'update') && summary.cases.length === CASES.length ? 0 : 1;
+  return summary.cases.every((item) => item.status === 'update') && summary.cases.length === cases.length ? 0 : 1;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

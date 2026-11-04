@@ -404,3 +404,47 @@ test('メモ：パスワードらしい値のある文は、列にも担当に�
   assert.equal(items[0].text, CREDENTIAL_MEMO);
   assert.ok(!JSON.stringify(items).includes('abcd1234'));
 });
+
+test('症状を足す：差し戻しの回には足した行を二重にせず、共通部分と新しいページを書き直せる', () =>
+  finished(({ work, hikitsugi, write, read }) => {
+    const before = read('manual-final.json');
+    hikitsugi('update-start', ['佐藤']);
+    hikitsugi('update-add', [], '再接続しても開けないときは、カワウソシステムサービスに電話します。');
+    hikitsugi('writer-task', ['2', 'common']);
+    const { previous } = read('writer-task.json').revision;
+    // 共通部分の文を1つ変えて、照合にかかるようにする
+    const commonOne = before.contacts[0].what_to_tell;
+    const changedCommon = previous.statements.map((s) => (s.id === commonOne ? { ...s, text: `${s.text} 足しました。` } : s));
+    write('writer-2-common.json', { ...previous, statements: changedCommon, page_plan: [...previous.page_plan, { id: 'T2', category: 'file', symptom: '開けない' }] });
+    hikitsugi('check-writer', ['2', 'common']);
+    const source = before.symptom_pages[0];
+    const ids = new Set(pageStatementIds(source));
+    const { reply_to_staff: _reply, ...page } = source;
+    const statements = before.statements.filter((s) => ids.has(s.id) && !s.usage).map(({ usage: _usage, ...s }) => s);
+    write('writer-2-T2.json', { statements, page: { ...page, fallback: { contact: source.fallback.contact } } });
+    hikitsugi('check-writer', ['2', 'T2']);
+    write('editor-2.json', { rewrites: [], glossary: [] });
+    hikitsugi('merge-edits', ['2']);
+    // 共通部分の文と新しいページの文の両方に指摘を付ける
+    const scope = read('verify-scope-2.json').statements;
+    const edited = read('edited-2.json');
+    const added = edited.symptom_pages.find((candidate) => candidate.id === 'T2');
+    const verdicts = [...new Set([...scope, commonOne, added.reassurance])].map((statement) => ({ statement, verdict: statement === commonOne || statement === added.reassurance ? 'unsupported' : 'correct', reason: '根拠がありません', checked: [], conflicts_with: [] }));
+    write('verification-2.json', { results: verdicts });
+    assert.match(hikitsugi('check-verification', ['2']), /差し戻します/);
+    assert.deepEqual(read('state.json').todo.sort(), ['T2', 'common']);
+
+    assert.deepEqual(nextStep(work), { step: 'writer', round: 3, part: 'common' });
+    hikitsugi('writer-task', ['3', 'common']);
+    const again = read('writer-task.json');
+    assert.equal(again.revision.update.add_symptom, undefined, '行はもう足してある');
+    write('writer-3-common.json', again.revision.previous);
+    hikitsugi('check-writer', ['3', 'common']);
+    hikitsugi('writer-task', ['3', 'T2']);
+    const pageTask = read('writer-task.json');
+    assert.equal(pageTask.entry.id, 'T2');
+    assert.ok(pageTask.revision.previous.page, '前の版のページを渡す');
+    write('writer-3-T2.json', pageTask.revision.previous);
+    hikitsugi('check-writer', ['3', 'T2']);
+    assert.deepEqual(read('manual-3.json').symptom_pages.map((candidate) => candidate.id), ['T1', 'T2']);
+  }));
