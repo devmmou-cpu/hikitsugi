@@ -2459,8 +2459,11 @@ details[open] .plus-v {
     flex-direction: column;
   }
 
+  /* 広い画面の中央寄せを紙に持ち込まない。左端をほかの章とそろえる */
   #intro {
     order: -1;
+    max-width: none;
+    margin: 0;
   }
 
   .panel, .js .panel:not(.is-active), .workspace, .js:not([data-view="help"]):not([data-view="symptom"]) .workspace, .col-main {
