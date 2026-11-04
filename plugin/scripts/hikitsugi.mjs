@@ -23,7 +23,7 @@ import { renderManual } from '../renderer/render.mjs';
 import { isComposedStatement, withoutFlaggedPlace, withReplies, withWindows10Note } from '../lib/reply.mjs';
 import { writePhoneBundle } from '../renderer/phone.mjs';
 import { oversizeMessage, PC_FILE_LIMIT, PC_FILE_TARGET, writeWithinLimit } from '../lib/limits.mjs';
-import { BUNDLE_NAME, bundleOf, pagesNeedingPhrases, pagesOfContact, parseMemos, targetKind, withUpdateMark } from '../lib/update.mjs';
+import { BUNDLE_NAME, bundleOf, pagesNeedingPhrases, pagesOfContact, parseMemos, targetKind, updateSummary, withUpdateMark } from '../lib/update.mjs';
 
 const PLUGIN = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const MAX_RESENDS = 2;
@@ -740,7 +740,7 @@ function beginUpdate(work, { kind, target, title, comment, question, todo, extra
     round_base: round,
     todo,
     page_fix: { page: todo.at(-1), comment: added.entry.answer, evidence: added.entry.id },
-    update: { kind, target, by: state.updater, ...extra },
+    update: { kind, target, by: state.updater, summary: updateSummary(added.entry.answer), ...extra },
     review: { ...state.review, done: false },
   });
   return `記録しました（${added.entry.id}）。${target} を書き直します`;
@@ -795,7 +795,7 @@ function updateCancel(work) {
 /** 更新者の「このままでよい」。更新の印を付け、作り直す段階へ進める。 */
 function finishUpdate(work, state, manual, pageId) {
   if (pageId !== state.update.target) throw new Problem(`確認するのは ${state.update.target} です`);
-  writeJson(join(work, 'manual-final.json'), checkSchema('manual', withUpdateMark(manual, { target: pageId, by: state.update.by, date: today() })));
+  writeJson(join(work, 'manual-final.json'), checkSchema('manual', withUpdateMark(manual, { target: pageId, by: state.update.by, date: today(), summary: state.update.summary })));
   const pages = Object.fromEntries(manual.symptom_pages.map((page) => [page.id, 'ok']));
   rmSync(join(work, 'manual.html'), { force: true });
   rmSync(join(work, BEFORE_UPDATE), { force: true });

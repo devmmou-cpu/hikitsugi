@@ -128,7 +128,7 @@ Writer は1回に1つの部分だけを書きます。`status` の `round` と `
 ### update
 取扱説明書はすでに完成しています。更新を受け付けます。**更新した文も、Verifier の照合と、更新する人の確認を通します。**
 
-1. `updater` が `null` なら、更新する人の名前を聞いて `hikitsugi update-start <名前>` を実行します。`from_bundle` が `true` のときは、隣の `manual.json` から作業フォルダを作り直します。
+1. この会話でまだ聞いていなければ、最初に「あなたの名前（確認した人として記録します）」を聞いて、`hikitsugi update-start <名前>` を実行します。担当が代わることがあるので、`updater` に前回の名前があっても毎回聞き、前回の名前も添えます。`from_bundle` が `true` のときは、隣の `manual.json` から作業フォルダを作り直します。
 2. `output_dir` が `null` なら、取扱説明書を置いているフォルダ（OneDrive など）を1回だけ聞いて `hikitsugi update-output <フォルダ>` を実行します。以後はそこへ直接書きます。
 3. `memo_left` が1以上なら、手順 5 の「後任のメモから取り込む」の続きから始めます。
 4. AskUserQuestion で聞きます。選択肢は「連絡先を直す」「症状を足す」「手順を直す」「後任のメモから取り込む」の4つです。

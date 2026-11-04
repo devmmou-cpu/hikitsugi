@@ -586,6 +586,31 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   margin-bottom: var(--s6);
 }
 
+.update-log {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.update-log th,
+.update-log td {
+  padding: var(--s2) var(--s3) var(--s2) 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.update-log th {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.update-log .update-date {
+  white-space: nowrap;
+}
+
 .seal {
   display: block;
   flex: none;

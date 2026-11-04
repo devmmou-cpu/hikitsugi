@@ -9,7 +9,8 @@ import { fileURLToPath } from 'node:url';
 import { loadInput } from '../eval/lib/load-set.mjs';
 import { writerFormat } from '../plugin/lib/assemble.mjs';
 import { pageStatementIds } from '../plugin/lib/page-check.mjs';
-import { bundleOf, parseMemos, withUpdateMark } from '../plugin/lib/update.mjs';
+import { bundleOf, parseMemos, updateSummary, withUpdateMark } from '../plugin/lib/update.mjs';
+import { renderManual } from '../plugin/renderer/render.mjs';
 import { withoutReplies, withReplies } from '../plugin/lib/reply.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { nextStep, run } from '../plugin/scripts/hikitsugi.mjs';
@@ -133,6 +134,7 @@ test('連絡先の電話番号の変更：その連絡先の番号だけが変�
     assert.deepEqual(after.search_index, before.search_index, '言い方は作り直さない');
     assert.equal(after.contacts.find((c) => c.id === 'VEN-02').phone, NEW_PHONE);
     assert.deepEqual(after.updates.map(({ target, pages, by }) => [target, pages, by]), [['VEN-02', ['T1'], '佐藤']]);
+    assert.ok(after.updates[0].summary.includes(NEW_PHONE) || after.updates[0].summary.length === 30, '本人の答えの先頭30字を残す');
     assert.equal(after.review.reviewer, '田中');
     assert.equal(after.review.updated_by, '佐藤');
 
@@ -140,6 +142,9 @@ test('連絡先の電話番号の変更：その連絡先の番号だけが変�
     const html = readFileSync(join(out, 'manual.html'), 'utf8');
     assert.ok(html.includes('佐藤 確認'), '角印と上部は最新の確認者');
     assert.ok(html.includes('前任の田中さんが全ページを確認'), '前任者の確認の文は残す');
+    assert.match(html, /作成：[^<]* 田中 確認/);
+    assert.match(html, /<p class="label intro-label">更新の記録<\/p>/);
+    assert.ok(html.includes(`<td>佐藤</td><td>${after.contacts.find((contact) => contact.id === 'VEN-02').name}</td>`), '更新の記録に確認した人と相手を出す');
     assert.match(html, /更新：[^<]* 佐藤 確認/);
     assert.ok(existsSync(join(out, 'phone')));
     assert.equal(JSON.parse(readFileSync(join(out, 'manual.json'), 'utf8')).manual.review.updated_by, '佐藤');
@@ -307,4 +312,23 @@ test('スキルの案内：update の4択と、更新に Claude Code が要る�
   for (const words of ['「連絡先を直す」「症状を足す」「手順を直す」「後任のメモから取り込む」', 'update-fix', 'update-add', 'update-memo', 'update-cancel', '更新には Claude Code が要ります', 'update-output']) assert.ok(skill.includes(words), words);
   assert.ok(!skill.includes('### done'));
   assert.ok(readFileSync(join(ROOT, 'plugin/agents/writer.md'), 'utf8').includes('task.revision.update'));
+});
+
+test('更新の記録：内容の一言は先頭30字。確認した人が複数なら角印の名前を「・」でつなぐ', () => {
+  const manual = finishedManual();
+  assert.equal(updateSummary(`  あ\nい${'う'.repeat(40)}`), `あ い${'う'.repeat(27)}`);
+  const first = withUpdateMark(manual, { target: 'T1', by: '佐藤', date: '2026-12-01', summary: '受付を直す' });
+  assert.equal(first.review.updated_by, '佐藤');
+  assert.deepEqual(first.updates[0], { target: 'T1', pages: ['T1'], by: '佐藤', date: '2026-12-01', summary: '受付を直す' });
+  const second = withUpdateMark(first, { target: 'T1', by: '社長', date: '2027-01-10', summary: '番号を直す' });
+  assert.equal(second.review.updated_by, '佐藤・社長');
+  assert.equal(second.review.updated_on, '2027-01-10');
+  const third = withUpdateMark(second, { target: 'T1', by: '佐藤', date: '2027-02-01', summary: 'もう一度' });
+  assert.equal(third.review.updated_by, '佐藤・社長', '同じ人は1回だけ');
+  const html = renderManual(third);
+  assert.match(html, /aria-label="佐藤・社長 確認/);
+  // 表は新しい順
+  assert.ok(html.indexOf('もう一度') < html.indexOf('番号を直す') && html.indexOf('番号を直す') < html.indexOf('受付を直す'));
+  // ページ末尾は作成と更新の2段
+  assert.match(html, /<span>作成：[^<]* 田中 確認<\/span><span>更新：[^<]* 佐藤 確認<\/span>/);
 });

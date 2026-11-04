@@ -370,6 +370,25 @@ export const MEMO_NO_JS = '<p class="memo-nojs">メモは PC 版で書けます<
 // 欄の中身は JavaScript が作る。JavaScript なしでは何も出ないので、隠す指定が要らない
 const memoHtml = (id, name) => `<div class="memo is-empty" data-memo="${esc(id)}" data-memo-name="${esc(name)}"></div>`;
 
+/** 更新の記録の表。担当が代わっても、誰が何を確認したかを追えるようにする。新しい順。 */
+function updateLogHtml({ manual, text }) {
+  if (!manual.updates?.length) return '';
+  const nameOf = (target) => {
+    const page = manual.symptom_pages.find((candidate) => candidate.id === target);
+    if (page) return text(page.title);
+    const contact = manual.contacts.find((candidate) => candidate.id === target);
+    if (contact) return esc(contact.name);
+    const device = manual.devices.find((candidate) => candidate.id === target);
+    return device ? text(device.name) : esc(target);
+  };
+  const rows = [...manual.updates].reverse().map(({ target, by, date, summary }) => `<tr><td class="update-date">${esc(formatDate(date))}</td><td>${esc(by)}</td><td>${nameOf(target)}</td><td>${esc(summary ?? '')}</td></tr>`);
+  return [
+    '<p class="label intro-label">更新の記録</p>',
+    '<table class="update-log"><thead><tr><th>日付</th><th>確認した人</th><th>ページ</th><th>内容</th></tr></thead>',
+    `<tbody>${rows.join('')}</tbody></table>`,
+  ].join('\n');
+}
+
 /** 判定の凡例。はじめにと、PC の開いた直後の画面で同じものを出す。 */
 const legendHtml = () => `<ul class="legend" role="list">${Object.keys(BADGE_LABELS).map((value) => `<li>${badgeHtml(value)}<span class="legend-text">${esc(BADGE_MEANINGS[value])}</span></li>`).join('')}</ul>`;
 
@@ -396,8 +415,9 @@ function introPanel(ctx) {
     `<ul class="can-list" role="list">${cans.map(([name, text]) => `<li>${icon(name)}<span>${text}</span></li>`).join('')}</ul>`,
     '<p class="label intro-label">判定の見かた</p>',
     legendHtml(),
+    updateLogHtml(ctx),
     '</section>',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }
 
 // ---- 困ったとき：症状の一覧 ----
@@ -624,9 +644,9 @@ export function evidenceLines(ctx, ids, pageId) {
     ...(has('LIB-') ? ['確認済みの標準手順'] : []),
   ];
   const { review } = ctx.manual;
-  const state = review ? `この手順は、前任の${esc(review.reviewer)}さんが確認済みです。` : 'この手順は、前任者の確認前です。';
+  const made = review ? `作成：${esc(formatDate(review.confirmed_on))} ${esc(review.reviewer)} 確認` : 'この手順は、前任者の確認前です。';
   const update = pageId ? latestUpdateOf(ctx.manual, pageId) : null;
-  return [state, `もとにした情報：${sources.join('、')}`, ...(update ? [`更新：${esc(formatDate(update.date))} ${esc(update.by)} 確認`] : [])];
+  return [made, ...(update ? [`更新：${esc(formatDate(update.date))} ${esc(update.by)} 確認`] : []), `もとにした情報：${sources.join('、')}`];
 }
 
 function evidenceHtml(ctx, ids, pageId) {

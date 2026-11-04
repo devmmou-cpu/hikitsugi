@@ -248,7 +248,7 @@ test('手順ページは決まった順番で並ぶ', () => {
     ['最後の手順', textOf(manual, page.steps.at(-1))],
     ['それでもだめなら', 'それでもだめなら'],
     ['業者に送る文面', textOf(manual, page.fallback.message)],
-    ['根拠', '確認済み'],
+    ['根拠', '作成：'],
   ];
   let position = -1;
   for (const [label, expected] of order) {
@@ -330,7 +330,7 @@ test('根拠：調査データの日付と聞き取りを表示する', () => {
   assert.ok(text.includes('調査データ'));
   assert.ok(text.includes('2026年11月5日'));
   assert.ok(text.includes('聞き取り'));
-  assert.ok(text.includes('確認済み'));
+  assert.ok(text.includes('作成：'));
 });
 
 test('根拠：手順ページの記述に調査データがなければ、調査データとは書かない', () => {
@@ -339,9 +339,9 @@ test('根拠：手順ページの記述に調査データがなければ、調�
   });
   const page = output.slice(output.search(/\bid="symptom-T1"/));
   const note = visibleText(page);
-  const at = note.indexOf('確認済み');
+  const at = note.indexOf('もとにした情報：');
   assert.ok(at >= 0);
-  assert.ok(!note.slice(Math.max(0, at - 60), at).includes('調査データ'));
+  assert.ok(!note.slice(at, at + 60).includes('調査データ'));
 });
 
 // ---- 見た目の決まり ----

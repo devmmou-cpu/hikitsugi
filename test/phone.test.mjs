@@ -181,7 +181,7 @@ test('下書きには帯を出し、確認が済んだら確認した人を書�
   assert.ok(review);
   assert.ok(renderPhoneBundle(draft).every(({ html }) => html.includes('下書き（前任者の確認前）')));
   assert.ok(bundle.every(({ html }) => !html.includes('下書き（前任者の確認前）')));
-  assert.ok(bundle.slice(1, -1).every(({ html }) => html.includes(`前任の${manual.review.reviewer}さんが確認済み`)));
+  assert.ok(bundle.slice(1, -1).every(({ html }) => html.includes(`${manual.review.reviewer} 確認`) && html.includes('作成：')));
 });
 
 test('形の問題がある取扱説明書からは、1つも作らない', () => {

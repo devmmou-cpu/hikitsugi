@@ -41,14 +41,18 @@ export function targetKind(manual, id) {
 /** 更新の対象の連絡先を使っているページ。 */
 export const pagesOfContact = (manual, id) => manual.symptom_pages.filter((page) => page.fallback?.contact === id).map((page) => page.id);
 
-/** 更新の印を付ける。角印は最新の確認者と確認日を出し、前任者の確認の記録は残す。 */
-export function withUpdateMark(manual, { target, by, date }) {
+/** 更新の記録に残す、内容の一言。本人の答えの先頭30字。 */
+export const updateSummary = (answer) => [...answer.replace(/\s+/g, ' ').trim()].slice(0, 30).join('');
+
+/** 更新の印を付ける。角印は更新で確認した人と最新の確認日を出し、前任者の確認の記録は残す。 */
+export function withUpdateMark(manual, { target, by, date, summary }) {
   const kind = targetKind(manual, target);
   const pages = kind === 'page' ? [target] : kind === 'contact' ? pagesOfContact(manual, target) : [];
+  const updates = [...(manual.updates ?? []), { target, pages, by, date, ...(summary ? { summary } : {}) }];
   return {
     ...manual,
-    review: { ...manual.review, updated_by: by, updated_on: date },
-    updates: [...(manual.updates ?? []), { target, pages, by, date }],
+    review: { ...manual.review, updated_by: [...new Set(updates.map((update) => update.by))].join('・'), updated_on: date },
+    updates,
   };
 }
 
