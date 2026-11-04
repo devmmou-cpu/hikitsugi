@@ -96,6 +96,13 @@ test('「分からない」の定型は、社内の相談先のうち手段が�
   assert.equal(unknownSentence(manualOf([['VEN-01', '業者', '03-0000-0111', null]], [])), '連絡先の記録がありません。社内で相談してください。');
 });
 
+test('相手がいないだけのページの定型は「記録がありません」と書かない（業者の記録と矛盾するため）', () => {
+  const manual = manualOf([['VEN-01', '業者', '03-0000-0111', null], ['INH-01', '社長', null, '連絡は内線でします。']], []);
+  assert.equal(unknownSentence(manual, ['no_target']), '社内で相談するときは、社長に聞いてください。');
+  assert.equal(unknownSentence(manual, ['no_means']), '連絡先の記録がありません。社長に聞いてください。');
+  assert.equal(unknownSentence(manual, ['no_contact', 'no_target']), '連絡先の記録がありません。社長に聞いてください。');
+});
+
 test('書き直したページは、答えを根拠にし、定型の文を入れる', () => {
   const statements = [{ id: 'STM-001', text: '連絡先の記録がありません。 社長に聞いてください。', evidence: ['INT-009'] }];
   assert.deepEqual(deadEndFixProblems(statements, 'T1', { evidence: 'INT-009', must_include: '連絡先の記録がありません。社長に聞いてください。' }), []);
@@ -211,4 +218,33 @@ test('確認の前に行き止まりを聞き、答えを記録して、答え�
     const after = read('manual-final.json');
     assert.ok(after.statements.some((statement) => statement.text.includes('内線 201')));
     assert.equal(read('state.json').dead_end_fixes, undefined);
+  }));
+
+test('照合で定型の文に指摘が出たら、次の回は指摘を優先して、定型を強制しない', () =>
+  atDeadEnd(({ work, hikitsugi, write, read }) => {
+    hikitsugi('dead-end-answer', ['T1'], '工場事務所の内線 201 で聞きます。');
+    hikitsugi('dead-end-unknown', ['T2']);
+    const put = (part, sentence, evidence) => {
+      hikitsugi('writer-task', [String(read('state.json').round), part]);
+      const { previous } = read('writer-task.json').revision;
+      const added = { id: 'STM-960', text: sentence, evidence: [evidence], library: null };
+      write(`writer-${read('state.json').round}-${part}.json`, { statements: [...previous.statements, added], page: { ...previous.page, notes: ['STM-960', ...previous.page.notes] } });
+      hikitsugi('check-writer', [String(read('state.json').round), part]);
+    };
+    put('T1', '工場事務所の内線 201 で聞きます。', 'INT-002');
+    put('T2', '連絡先の記録がありません。工場の担当者に聞いてください。', 'INT-003');
+    write('editor-2.json', { rewrites: [], glossary: [] });
+    hikitsugi('merge-edits', ['2']);
+    const edited = read('edited-2.json');
+    const flagged = edited.statements.find((statement) => statement.text.startsWith('連絡先の記録がありません。工場')).id;
+    write('verification-2.json', { schema_version: 1, company: 'okojo', round: 2, results: read('verify-scope-2.json').statements.map((id) => ({ statement: id, verdict: id === flagged ? 'contradiction' : 'correct', reason: '記録と矛盾します', checked: ['INT-001'], conflicts_with: id === flagged ? ['INT-001'] : [] })) });
+    assert.match(hikitsugi('check-verification', ['2']), /差し戻します（直す部分：T2）/);
+    hikitsugi('writer-task', ['3', 'T2']);
+    const task = read('writer-task.json').revision;
+    assert.match(task.page_fix.comment, /findings の指摘があるときは、指摘に従って/);
+    // 定型の文がなくても通る。答えを根拠にすることは変わらない
+    const { statements, page } = task.previous;
+    const rewritten = statements.map((statement) => (statement.id === flagged ? { ...statement, text: '社内で相談するときは、工場の担当者に聞いてください。' } : statement));
+    write('writer-3-T2.json', { statements: rewritten, page });
+    assert.doesNotThrow(() => hikitsugi('check-writer', ['3', 'T2']));
   }));

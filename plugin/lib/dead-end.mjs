@@ -47,9 +47,13 @@ export function firstInternal(manual) {
   return internal.find((contact) => hasMeans(contact, (id) => byId.get(id))) ?? internal[0] ?? null;
 }
 
-/** 「分からない」のときの定型の文。 */
-export function unknownSentence(manual) {
+/**
+ * 「分からない」のときの定型の文。
+ * 相手がいないだけのページ（no_target）は業者の連絡先の記録があるので、「記録がありません」と書くと事実と矛盾する。
+ */
+export function unknownSentence(manual, kinds = []) {
   const contact = firstInternal(manual);
+  if (kinds.length === 1 && kinds[0] === 'no_target') return contact ? `社内で相談するときは、${contact.name}に聞いてください。` : '社内で相談してください。';
   return contact ? `連絡先の記録がありません。${contact.name}に聞いてください。` : '連絡先の記録がありません。社内で相談してください。';
 }
 

@@ -216,7 +216,8 @@ function writerTask(work, [round, part]) {
     const revision = { previous: previousPiece(previous, part), findings: ownersOf(previous, findings).get(findingsOf) ?? [] };
     if (state.page_fix?.page === part) revision.page_fix = state.page_fix;
     const deadEndFix = state.dead_end_fixes?.[part];
-    if (deadEndFix) revision.page_fix = { page: part, comment: deadEndFix.comment, evidence: deadEndFix.evidence };
+    // 差し戻しの回は、最初の答えのあとに照合の指摘が出ている。指摘を優先するので、定型の文を強制しない
+    if (deadEndFix) revision.page_fix = { page: part, comment: Number(round) > state.round_base + 1 ? `${deadEndFix.comment} ただし、findings の指摘があるときは、指摘に従って直してください。` : deadEndFix.comment, evidence: deadEndFix.evidence };
     if (state.leaks && part === 'common') revision.missing = state.leaks;
     if (state.update) revision.update = { kind: state.update.kind, ...(addedIsNew(state, previous) ? { add_symptom: state.update.add } : {}) };
     if (part === 'common') {
@@ -304,7 +305,10 @@ function checkWriter(work, [round, part]) {
     const addition = Number(round) === 1 ? state.symptom_add?.find((candidate) => candidate.id === part) : null;
     if (addition) checked.problems.push(...basisProblems(checked.output.statements, addition));
     const deadEndFix = state.dead_end_fixes?.[part];
-    if (deadEndFix) checked.problems.push(...deadEndFixProblems(checked.output.statements, part, deadEndFix));
+    if (deadEndFix) {
+      const { must_include: mustInclude, ...rest } = deadEndFix;
+      checked.problems.push(...deadEndFixProblems(checked.output.statements, part, Number(round) > state.round_base + 1 ? rest : deadEndFix));
+    }
   }
   if (checked.problems.length) throw new Problem(`手順部品の指定やページの形に問題があります：\n${checked.problems.join('\n')}`);
   writeJson(path, checked.output);
@@ -728,7 +732,8 @@ function deadEndAnswer(work, [pageId], stdin) {
 }
 
 function deadEndUnknown(work, [pageId]) {
-  const sentence = unknownSentence(readJson(join(work, 'manual-final.json')));
+  const manual = readJson(join(work, 'manual-final.json'));
+  const sentence = unknownSentence(manual, deadEnds(manual).find(({ page }) => page === pageId)?.kinds);
   return recordDeadEnd(work, pageId, {
     recorded: `分からない。決まりにより、次の文を載せます：${sentence}`,
     comment: () => `このページは行き止まりで、前任者は「分からない」と答えました。notes の先頭に、次の文をそのまま書いてください：${sentence}`,
