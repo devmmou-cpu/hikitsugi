@@ -398,30 +398,42 @@ function updateLogHtml({ manual, text }) {
   ].join('\n');
 }
 
-/** 判定の凡例。はじめにと、PC の開いた直後の画面で同じものを出す。 */
+/** 判定の凡例。はじめにと、PC の開いた直後の中央で同じものを出す。 */
 const legendHtml = () => `<ul class="legend" role="list">${Object.keys(BADGE_LABELS).map((value) => `<li>${badgeHtml(value)}<span class="legend-text">${esc(BADGE_MEANINGS[value])}</span></li>`).join('')}</ul>`;
 
 // ---- はじめに ----
-function introPanel(ctx) {
-  const { manual } = ctx;
-  const { review } = manual;
+/** 説明書の説明の前半。はじめにと、PC の開いた直後の中央で同じ文を出す。 */
+function introHeadHtml({ manual }, titleTag) {
+  return [
+    `<${titleTag} class="intro-title">ITの取扱説明書</${titleTag}>`,
+    '<p class="intro-role">この説明書は、社員から最初に相談を受ける人（一次受け）のためのものです。</p>',
+    `<p class="intro-date">${esc(formatDate(manual.as_of))}時点の内容です。</p>`,
+    '<p class="intro-text">前任の担当者が使っていた設定と手順を、調査と聞き取りをもとにまとめました。</p>',
+  ];
+}
+
+/** 「この説明書でできること」の一覧。 */
+function introCansHtml({ manual: { review } }) {
   const cans = [
     ['check', '症状を選ぶと、やることが順に出ます。'],
     ['phone', '直せないときは、連絡先と、伝える文面があります。'],
     ...(review ? [['stamp', `この取扱説明書は、AIがもとの情報と照らし合わせ、前任の${esc(review.reviewer)}さんが全ページを確認したものです。`]] : []),
   ];
   return [
-    '<section id="intro" class="panel">',
-    `<div class="intro-top"><span class="chip-secret">社外秘</span>${review ? sealHtml(review) : ''}</div>`,
-    `<p class="intro-company">${esc(manual.company_name)}</p>`,
-    '<h1 class="intro-title">ITの取扱説明書</h1>',
-    '<p class="intro-role">この説明書は、社員から最初に相談を受ける人（一次受け）のためのものです。</p>',
-    `<p class="intro-date">${esc(formatDate(manual.as_of))}時点の内容です。</p>`,
-    '<p class="intro-text">前任の担当者が使っていた設定と手順を、調査と聞き取りをもとにまとめました。</p>',
-    `<a class="btn btn-primary tap" href="#tab-help">困ったときは</a>`,
-    '<p class="intro-more"><a class="tap text-link" href="#tab-contacts">連絡先を見る</a></p>',
     '<p class="label intro-label">この説明書でできること</p>',
     `<ul class="can-list" role="list">${cans.map(([name, text]) => `<li>${icon(name)}<span>${text}</span></li>`).join('')}</ul>`,
+  ];
+}
+
+function introPanel(ctx) {
+  return [
+    '<section id="intro" class="panel">',
+    `<div class="intro-top"><span class="chip-secret">社外秘</span>${ctx.manual.review ? sealHtml(ctx.manual.review) : ''}</div>`,
+    `<p class="intro-company">${esc(ctx.manual.company_name)}</p>`,
+    ...introHeadHtml(ctx, 'h1'),
+    `<a class="btn btn-primary tap" href="#tab-help">困ったときは</a>`,
+    '<p class="intro-more"><a class="tap text-link" href="#tab-contacts">連絡先を見る</a></p>',
+    ...introCansHtml(ctx),
     '<p class="label intro-label">判定の見かた</p>',
     legendHtml(),
     updateLogHtml(ctx),
@@ -468,38 +480,33 @@ function helpPanel(ctx) {
   return [`<section id="tab-help" class="panel col-list">`, `<h2 tabindex="-1">${SCREEN_TITLE_HELP}</h2>`, searchBox, lead, jump, ...lists, noMatch, '</section>'].filter(Boolean).join('\n');
 }
 
-/** 2列以上で、まだ症状を選んでいないときに中央の列に出す案内。 */
-/** 開いた直後の右の列。社内の相談先の先頭を「まず誰に言うか」として1枚だけ置く。 */
+/** 開いた直後の中央の「まず誰に言うか」。社内の相談先の先頭を1枚だけ置く。 */
 function firstContactHtml(ctx) {
   const first = ctx.manual.contacts.find((contact) => contact.id.startsWith('INH-'));
   if (!first) return '';
   return [
-    '<aside class="pick-rail" aria-label="まず誰に言うか">',
-    '<div class="rail-block">',
-    '<h3 class="label">まず誰に言うか</h3>',
-    `<p class="rail-name">${esc(first.name)}</p>`,
-    `<p class="rail-hours">${esc(ctx.raw(first.role))}</p>`,
-    first.hours ? `<p class="rail-hours">${ctx.text(first.hours)}</p>` : '',
+    '<section class="pick-first" aria-label="まず誰に言うか">',
+    '<h3 class="label intro-label">まず誰に言うか</h3>',
+    `<p class="pick-first-name">${esc(first.name)}</p>`,
+    `<p class="pick-first-text">${esc(ctx.raw(first.role))}</p>`,
+    first.hours ? `<p class="pick-first-text">${ctx.text(first.hours)}</p>` : '',
     first.phone ? callHtml(first.phone, true) : '',
-    '</div>',
-    '</aside>',
+    '</section>',
   ].filter(Boolean).join('\n');
 }
 
+/** 2列以上で、まだ症状を選んでいないときに中央の列に出す「はじめに」の中身。症状は左の一覧に、会社名と社外秘と確認の印は上部にあるので、ここには出さない。 */
 function pickPromptHtml(ctx) {
-  const groups = CATEGORY_LABELS.map(([category, label]) => [label, ctx.manual.symptom_pages.filter((p) => p.category === category)]).filter(([, pages]) => pages.length);
   return [
     '<div class="js-only pick-prompt" id="pick-home">',
-    firstContactHtml(ctx),
-    '<div class="pick-main">',
-    '<p class="pick-lead">いま困っていることを押してください。</p>',
-    '<p class="pick-note">開いて読むだけなら、PC や機器には何も起きません。</p>',
-    '<p class="label pick-label">判定の見かた</p>',
+    ...introHeadHtml(ctx, 'h2'),
+    ...introCansHtml(ctx),
+    '<p class="label intro-label">判定の見かた</p>',
     legendHtml(),
-    ...groups.flatMap(([label, pages]) => [`<h3 class="group-title">${esc(label)}</h3>`, `<ul class="sym-group" role="list">\n${pages.map((page) => symHtml(ctx, page)).join('\n')}\n</ul>`]),
+    firstContactHtml(ctx),
+    updateLogHtml(ctx),
     '</div>',
-    '</div>',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }
 
 // ---- 手順ページ ----

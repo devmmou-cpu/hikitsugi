@@ -514,11 +514,6 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   margin-left: .3em;
 }
 
-/* 「まず誰に言うか」は3列の幅でだけ出す。同じ相手は連絡先の画面にある */
-.js .pick-rail {
-  display: none;
-}
-
 /* ---- 普段の言葉で探す（JavaScript があるときだけ） ---- */
 .js .search-box {
   display: block;
@@ -940,7 +935,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   color: var(--ink-3);
 }
 
-/* 2列以上で中央の列に出す案内。スマホでは一覧の冒頭に同じ文がある */
+/* 2列以上で中央の列に出す「はじめに」の中身。スマホでは表紙に同じ文がある */
 .js .pick-prompt {
   display: none;
 }
@@ -2178,29 +2173,37 @@ details[open] .plus-v {
     padding-bottom: var(--s7);
   }
 
-  .pick-note {
-    margin-top: var(--s2);
+  /* 開いた直後：はじめにの中身を1枚の紙のように置く。はじめにより少し詰めて、1画面に収める */
+  .pick-prompt {
+    max-width: 760px;
   }
 
-  .pick-label {
-    margin: var(--s5) 0 var(--s3);
+  .pick-prompt .intro-title {
+    font-size: 34px;
   }
 
-  .pick-prompt .group-title {
-    margin: var(--s5) 0 var(--s2);
+  .pick-prompt .intro-date {
+    margin-top: var(--s3);
   }
 
-  .pick-lead {
-    font-size: 22px;
+  .pick-prompt .intro-label {
+    margin-top: var(--s5);
+    padding-top: var(--s3);
+  }
+
+  .pick-first-name {
+    font-size: 20px;
     font-weight: 700;
-    line-height: 1.5;
-    word-break: auto-phrase;
   }
 
-  .pick-note {
+  .pick-first-text {
+    margin-top: var(--s1);
     font-size: 15px;
-    line-height: 1.6;
     color: var(--ink-2);
+  }
+
+  .pick-first .btn {
+    margin-top: var(--s2);
   }
 
   /* 連絡先：社内の相談先と業者を、2列のカードに */
@@ -2384,30 +2387,6 @@ details[open] .plus-v {
 
   .rail .btn-copy {
     width: 100%;
-  }
-
-  /* 開いた直後：右の列に「まず誰に言うか」を置く。手順ページの右の列と同じ幅と位置 */
-  .js[data-view="help"] .pick-prompt {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
-    column-gap: var(--s5);
-    width: calc(100% + 324px);
-    align-items: start;
-  }
-
-  .pick-main {
-    grid-column: 1;
-    grid-row: 1;
-    min-width: 0;
-  }
-
-  .js .pick-rail {
-    display: block;
-    grid-column: 2;
-    grid-row: 1;
-    position: sticky;
-    top: 88px;
-    width: 300px;
   }
 
   .company-layout {

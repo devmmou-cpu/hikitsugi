@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { loadInput } from '../eval/lib/load-set.mjs';
 import { writerFormat } from '../plugin/lib/assemble.mjs';
 import { pageStatementIds } from '../plugin/lib/page-check.mjs';
-import { bundleOf, CREDENTIAL_MEMO, parseMemos, updateSummary, withContactPhone, withUpdateMark } from '../plugin/lib/update.mjs';
+import { changeSummary, bundleOf, CREDENTIAL_MEMO, parseMemos, updateSummary, withContactPhone, withUpdateMark } from '../plugin/lib/update.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
 import { withoutReplies, withReplies } from '../plugin/lib/reply.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
@@ -130,6 +130,8 @@ test('連絡先の電話番号の変更：その連絡先の番号だけが変�
     assert.equal(nextStep(work).step, 'render');
     const output = hikitsugi('render');
     assert.ok(output.includes(join(out, 'manual.html')));
+    assert.equal(output.split('\n').at(-1), '更新（VEN-02）：変えたページ 1（T1）、変わった文 0', '番号は文ではないので、文の数は0');
+    assert.equal(read('state.json').last_update, undefined, '要約は1回だけ出す');
 
     const after = read('manual-final.json');
     assert.deepEqual(after.statements, before.statements, '文章はすべて同じ');
@@ -484,4 +486,14 @@ test('更新の記録：内容の電話番号は .tel の部品で出す', async
   const start = html.indexOf('<table class="update-log"');
   const log = html.slice(start, html.indexOf('</table>', start));
   assert.match(log, /<span class="tel"><span>03<\/span><span>0000<\/span><span>0188<\/span><\/span>/);
+});
+
+test('要約の数え方：変わったページと文を文面で数え、番号の振り直しは数えない', () => {
+  const manual = finishedManual();
+  const page = manual.symptom_pages[0];
+  assert.deepEqual(changeSummary(manual, manual), { pages: [], statements: 0 });
+  const changed = { ...manual, statements: manual.statements.map((statement) => (statement.id === page.steps[0] ? { ...statement, text: `${statement.text}（直しました）` } : statement)) };
+  assert.deepEqual(changeSummary(manual, changed), { pages: [page.id], statements: 1 });
+  const added = { ...manual, statements: [...manual.statements, { id: 'STM-900', text: '足した文です。', evidence: ['INT-001'] }], symptom_pages: [...manual.symptom_pages, { ...page, id: 'T9' }] };
+  assert.deepEqual(changeSummary(manual, added), { pages: ['T9'], statements: 1 });
 });

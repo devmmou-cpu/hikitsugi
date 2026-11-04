@@ -4,7 +4,7 @@
 
 import { readFileSync } from 'node:fs';
 import { contactProblems, pageProblems, pageStatementIds, statementProblems, reassuranceProblems } from './page-check.mjs';
-import { composeStatements, contactEvidenceProblems, loadLibrary, pageDetailProblems } from './procedures.mjs';
+import { composeStatements, contactEvidenceProblems, loadLibrary, pageDetailProblems, stepSourceProblems } from './procedures.mjs';
 import { hasCredential } from './transcript.mjs';
 
 const MANUAL_SCHEMA = JSON.parse(readFileSync(new URL('../schemas/manual.schema.json', import.meta.url), 'utf8'));
@@ -97,6 +97,7 @@ export function checkCommon(output, sources, { library = loadLibrary(), retiree 
   for (const routine of output.routines) {
     for (const id of routine.steps) if (tableParts.has(stepOf.get(id)?.library)) problems.push(`定期作業の手順に、会社の情報の表を指す部品は使えません（${stepOf.get(id).library}）。表がないので、見る場所を根拠のとおりに書くか、記録がないと書いてください`);
   }
+  for (const routine of output.routines) problems.push(...stepSourceProblems(routine.id, routine.steps, statements));
   const ids = output.page_plan.map((entry) => entry.id);
   if (new Set(ids).size !== ids.length) problems.push('page_plan の id が重複しています');
   const piece = { statements, contacts: output.contacts };

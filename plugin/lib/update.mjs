@@ -99,6 +99,28 @@ export function withUpdateMark(manual, { target, by, date, summary, kind: update
 /** 更新の印から、ページの最新の更新を返す。なければ null。 */
 export const latestUpdateOf = (manual, pageId) => (manual.updates ?? []).filter((update) => update.pages.includes(pageId)).at(-1) ?? null;
 
+/** 更新で変わったページの ID と、変わった文の数を返す。文の数は文面で比べるので、番号が変わっても数えない。 */
+export function changeSummary(before, after) {
+  const textOf = (manual) => new Map(manual.statements.map((statement) => [statement.id, statement.text]));
+  const pageText = (manual, page) => {
+    const text = textOf(manual);
+    // 連絡先の番号は文ではないが、そのページに出るので一緒に比べる
+    const contact = manual.contacts.find((candidate) => candidate.id === page.fallback?.contact);
+    return JSON.stringify([page, contact?.name, contact?.phone]).replace(/STM-\d+/g, (id) => text.get(id) ?? id);
+  };
+  const old = new Map(before.symptom_pages.map((page) => [page.id, page]));
+  const pages = after.symptom_pages.filter((page) => !old.has(page.id) || pageText(before, old.get(page.id)) !== pageText(after, page)).map((page) => page.id);
+  const left = new Map();
+  for (const { text } of before.statements) left.set(text, (left.get(text) ?? 0) + 1);
+  let added = 0;
+  for (const { text } of after.statements) {
+    if (left.get(text)) left.set(text, left.get(text) - 1);
+    else added += 1;
+  }
+  const removed = [...left.values()].reduce((sum, count) => sum + count, 0);
+  return { pages, statements: Math.max(added, removed) };
+}
+
 /** 検証の言い方を作り直すページ。題名、判定の文、① のどれかが変わったページと、新しいページ。 */
 export function pagesNeedingPhrases(before, after) {
   const textsOf = (manual, page) => {

@@ -75,6 +75,18 @@ function partProblems(page, statements, library) {
   return problems;
 }
 
+/**
+ * 手順の文が、調査データだけを根拠にしていないかを確かめる。手順は部品か聞き取りから作る。
+ * 調査データの値は資料で、ソフト名のように PC の中の誰かが書ける。そこから後任の操作を作らせない。
+ * 聞き取りの中身と文が合っているかは、プログラムでは見ない（Verifier の照合）。
+ */
+export function stepSourceProblems(ownerId, stepIds, statements) {
+  const byId = new Map(statements.map((statement) => [statement.id, statement]));
+  return stepIds
+    .filter((id) => byId.has(id) && !byId.get(id).library && byId.get(id).evidence.every((ref) => ref.startsWith('INV-')))
+    .map((id) => `${ownerId}: ${id} は手順の文ですが、調査データだけを根拠にしています。手順は部品か聞き取りのとおりに書いてください。どちらにもなければ書かないでください`);
+}
+
 /** 表の値が、その文章の根拠に本当にあるかを確かめる。値を書き写した誤りをプログラムで止める。 */
 function infoRowProblems(page, statements, readEvidence) {
   const byId = new Map(statements.map((statement) => [statement.id, statement]));
@@ -109,7 +121,7 @@ export function contactEvidenceProblems(contacts, { survey, transcript }) {
 
 /** ページ1つの、部品と表の問題。 */
 export function pageDetailProblems(page, statements, sources, library = loadLibrary()) {
-  return [...partProblems(page, statements, library), ...infoRowProblems(page, statements, evidenceReader(sources))];
+  return [...partProblems(page, statements, library), ...infoRowProblems(page, statements, evidenceReader(sources)), ...stepSourceProblems(page.id, [...page.first_steps, ...page.steps], statements)];
 }
 
 /**

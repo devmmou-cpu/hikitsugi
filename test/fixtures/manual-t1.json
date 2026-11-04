@@ -52,16 +52,12 @@
     {
       "id": "STM-007",
       "text": "「ドライブ」で Z を選んでください。",
-      "evidence": [
-        "INV-060"
-      ]
+      "evidence": ["INV-060", "INT-018"]
     },
     {
       "id": "STM-008",
       "text": "「フォルダー」の欄に \\\\OKOJO-NAS\\図面 と入れてください。",
-      "evidence": [
-        "INV-060"
-      ]
+      "evidence": ["INV-060", "INT-018"]
     },
     {
       "id": "STM-009",

@@ -698,7 +698,7 @@ test('ゴール、分岐、例外を手順と別の項目に置ける。手順�
   const statements = [
     { id: 'STM-001', text: 'NAS は事務所にあります。', evidence: [driveItem.id] },
     { id: 'STM-002', text: 'ルーターは初期化しないでください。', evidence: [driveItem.id] },
-    { id: 'STM-003', text: 'ルーターの電源を確かめてください。', evidence: [driveItem.id] },
+    { id: 'STM-003', text: 'ルーターの電源を確かめてください。', evidence: [driveItem.id, 'INT-001'] },
     { id: 'STM-005', text: '画面が消えます。そのあと電源を入れてください。', evidence: [driveItem.id] },
     step('STM-004', 'LIB-001'),
   ];

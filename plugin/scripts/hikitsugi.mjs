@@ -20,13 +20,13 @@ import { plainProblems } from '../lib/plain-check.mjs';
 import { pagesForPhrases, phraseProblems, withSearchIndex } from '../lib/search-index.mjs';
 import { applyRetireeCheck } from '../lib/retiree-check.mjs';
 import { composeProcedures, libraryForAgents } from '../lib/procedures.mjs';
-import { appendEntry, appendReviewEntry, checkNextQuestion, emptyTranscript, interviewProgress, QUESTION_LIMIT } from '../lib/transcript.mjs';
+import { appendEntry, appendReviewEntry, checkNextQuestion, emptyTranscript, interviewProgress, QUESTION_LIMIT, REVIEW_GAP } from '../lib/transcript.mjs';
 import { validate } from '../lib/validate.mjs';
 import { renderManual } from '../renderer/render.mjs';
 import { isComposedStatement, withoutFlaggedPlace, withReplies, withWindows10Note } from '../lib/reply.mjs';
 import { writePhoneBundle } from '../renderer/phone.mjs';
 import { oversizeMessage, PC_FILE_LIMIT, PC_FILE_TARGET, writeWithinLimit } from '../lib/limits.mjs';
-import { BUNDLE_NAME, bundleOf, pagesNeedingPhrases, pagesOfContact, parseMemos, targetKind, updateSummary, withContactPhone, withUpdateMark } from '../lib/update.mjs';
+import { BUNDLE_NAME, bundleOf, changeSummary, pagesNeedingPhrases, pagesOfContact, parseMemos, targetKind, updateSummary, withContactPhone, withUpdateMark } from '../lib/update.mjs';
 
 const PLUGIN = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const MAX_RESENDS = 2;
@@ -939,10 +939,11 @@ function finishUpdate(work, state, manual, pageId) {
   if (pageId !== state.update.target) throw new Problem(`確認するのは ${state.update.target} です`);
   writeJson(join(work, 'manual-final.json'), checkSchema('manual', withUpdateMark(manual, { target: pageId, by: state.update.by, date: today(), summary: state.update.summary, kind: state.update.from_memo ? 'memo' : state.update.kind })));
   const pages = Object.fromEntries(manual.symptom_pages.map((page) => [page.id, 'ok']));
+  const before = existsSync(join(work, BEFORE_UPDATE)) ? readJson(join(work, BEFORE_UPDATE)).manual : null;
   rmSync(join(work, 'manual.html'), { force: true });
   rmSync(join(work, BEFORE_UPDATE), { force: true });
   const { update: _done, ...rest } = state;
-  writeJson(join(work, 'state.json'), { ...rest, needs_render: true, review: { ...state.review, pages, done: true } });
+  writeJson(join(work, 'state.json'), { ...rest, needs_render: true, ...(before ? { last_update: { target: pageId, ...changeSummary(before, manual) } } : {}), review: { ...state.review, pages, done: true } });
   return `${pageId} の更新を確認しました`;
 }
 
@@ -968,6 +969,25 @@ function unknownsOf(work, state) {
   const saved = join(work, 'unknowns.json');
   if (existsSync(saved)) return readJson(saved);
   return existsSync(join(work, 'transcript.json')) ? unknownItems(readJson(join(work, 'transcript.json')), state.retiree) : [];
+}
+
+/** 作り終えたときの要約の1行。更新のあとは、変えたページと変わった文の数。記録がなければ出さない。 */
+function runSummary(work, state, manual) {
+  if (state.last_update) {
+    const { target, pages, statements } = state.last_update;
+    return `更新（${target}）：変えたページ ${pages.length}${pages.length ? `（${pages.join('、')}）` : ''}、変わった文 ${statements}`;
+  }
+  const gapsPath = join(work, 'gaps.json');
+  const transcriptPath = join(work, 'transcript.json');
+  if (!existsSync(gapsPath) || !existsSync(transcriptPath)) return null;
+  const questions = readJson(transcriptPath).entries.filter((entry) => entry.gap !== REVIEW_GAP).length;
+  // 差し戻しは、Verifier が指摘を出した回。前の回から引き継いだ結果に指摘は残らない
+  const flagged = readdirSync(work)
+    .filter((name) => /^verification-\d+\.json$/.test(name))
+    .map((name) => new Set(readJson(join(work, name)).results.filter((result) => result.verdict !== 'correct').map((result) => result.statement)).size)
+    .filter(Boolean);
+  const reviewed = Object.values(state.review?.pages ?? {}).filter((answer) => answer === 'ok').length;
+  return `空白 ${readJson(gapsPath).gaps.length} 件 → 質問 ${questions} 問 → 書いたページ ${manual.symptom_pages.length} → 差し戻し ${flagged.length} 回（${flagged.reduce((sum, count) => sum + count, 0)} 文）→ 確認 ${reviewed} ページ`;
 }
 
 function render(work, [outPath]) {
@@ -1000,8 +1020,8 @@ function render(work, [outPath]) {
     const data = JSON.stringify(bundleOf({ manual, unknowns, survey: readJson(join(work, 'survey.json')), transcript: readJson(join(work, 'transcript.json')), state }), null, 2) + '\n';
     for (const dir of new Set([dirname(target), work])) writeFileSync(join(dir, BUNDLE_NAME), data);
   }
-  if (state.needs_render) {
-    const { needs_render: _done, ...rest } = state;
+  if (state.needs_render || state.last_update) {
+    const { needs_render: _done, last_update: _shown, ...rest } = state;
     writeJson(join(work, 'state.json'), rest);
   }
   const notes = [manual.review ? `取扱説明書を作りました：${target}` : `下書きを作りました：${target}`, `スマホ向けのファイル：${phoneDir}（${bundle.length} ファイル）`];
@@ -1011,6 +1031,8 @@ function render(work, [outPath]) {
   const places = locationWarnings(manual);
   if (places.length) notes.push(`置き場所に部屋の名前がない機器があります（止めません）：${places.map(({ device }) => device).join('、')}`);
   if (omitted.routines || omitted.devices) notes.push(`表示プログラムが未対応のため外した項目：定期作業 ${omitted.routines} 件、機器 ${omitted.devices} 件`);
+  const summary = runSummary(work, state, manual);
+  if (summary) notes.push(summary);
   return notes.join('\n');
 }
 
