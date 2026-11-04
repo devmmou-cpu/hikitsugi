@@ -387,3 +387,8 @@ test('社内の相談先に言う文：名乗らず、同僚に言う型で、�
   const wrong = { ...composed, statements: composed.statements.map((statement) => (statement.id === 'STM-010' ? { ...statement, text: 'オコジョ精工株式会社です。' } : statement)) };
   assert.match(callScriptProblems(wrong)[0], /件で相談です/);
 });
+
+test('文面の枠は改行を保つ（1行ずつ言う文面のため）', async () => {
+  const { STYLES } = await import('../plugin/renderer/styles.mjs');
+  assert.match(STYLES, /\.say \{\s*white-space: pre-line;/);
+});

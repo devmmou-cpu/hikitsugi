@@ -1423,6 +1423,7 @@ kbd {
 }
 
 .say {
+  white-space: pre-line;
   padding: 12px 16px;
   background: var(--card-2);
   border-left: 4px solid var(--line-strong);
