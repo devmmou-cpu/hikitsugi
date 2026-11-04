@@ -3,6 +3,7 @@
 // AI を使わず、外部への送信もしない。作業の結果は ./hikitsugi-work/ に保存するので、途中で止めても続きから再開できる。
 // 終了コード：0＝成功、1＝内容の問題（理由を表示）、2＝使い方の誤り
 
+import { deadEndFixProblems, deadEnds, unknownSentence } from '../lib/dead-end.mjs';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -79,6 +80,11 @@ export function nextStep(work) {
   if (!has(`edited-${round}.json`)) return { step: 'editor', round };
   if (!has(`verification-${round}.json`)) return { step: 'verifier', round };
   if (!state.passed && !isChecked(work, `verification-${round}.json`)) return { step: 'verifier', round, unchecked: true };
+  // 行き止まりは言い方を作る前に聞く。書き直すと言い方を作り直すことになるため
+  if (state.passed && !state.update && !state.review?.done) {
+    const pending = pendingDeadEnds(readJson(join(work, 'manual-final.json')), state);
+    if (pending.length) return deadEndStep(pending, state);
+  }
   if (state.passed && !readJson(join(work, 'manual-final.json')).search_index) return { step: 'phrases' };
   if (state.passed && !state.review?.done) {
     const manual = readJson(join(work, 'manual-final.json'));
@@ -209,6 +215,8 @@ function writerTask(work, [round, part]) {
     const findingsOf = state.update?.contact === part ? 'common' : part;
     const revision = { previous: previousPiece(previous, part), findings: ownersOf(previous, findings).get(findingsOf) ?? [] };
     if (state.page_fix?.page === part) revision.page_fix = state.page_fix;
+    const deadEndFix = state.dead_end_fixes?.[part];
+    if (deadEndFix) revision.page_fix = { page: part, comment: deadEndFix.comment, evidence: deadEndFix.evidence };
     if (state.leaks && part === 'common') revision.missing = state.leaks;
     if (state.update) revision.update = { kind: state.update.kind, ...(addedIsNew(state, previous) ? { add_symptom: state.update.add } : {}) };
     if (part === 'common') {
@@ -295,6 +303,8 @@ function checkWriter(work, [round, part]) {
     checked = checkPage(raw, entry, contacts, sources, { retiree: state.retiree });
     const addition = Number(round) === 1 ? state.symptom_add?.find((candidate) => candidate.id === part) : null;
     if (addition) checked.problems.push(...basisProblems(checked.output.statements, addition));
+    const deadEndFix = state.dead_end_fixes?.[part];
+    if (deadEndFix) checked.problems.push(...deadEndFixProblems(checked.output.statements, part, deadEndFix));
   }
   if (checked.problems.length) throw new Problem(`手順部品の指定やページの形に問題があります：\n${checked.problems.join('\n')}`);
   writeJson(path, checked.output);
@@ -430,7 +440,7 @@ function mergeEdits(work, [round]) {
   const manual = readJson(join(work, `manual-${round}.json`));
   let applied;
   try {
-    applied = applyEdits(manual, readJson(join(work, `editor-${round}.json`)), { retiree: readJson(join(work, 'state.json')).retiree });
+    applied = applyEdits(manual, readJson(join(work, `editor-${round}.json`)), { retiree: readJson(join(work, 'state.json')).retiree, sources: { survey: readJson(join(work, 'survey.json')), transcript: readJson(join(work, 'transcript.json')) } });
   } catch (error) {
     if (error instanceof Problem) throw error;
     throw new Problem(`${error.message}\n用語の説明の文は rewrites ではなく、glossary の同じ語の company を直してください`);
@@ -476,7 +486,7 @@ function checkVerification(work, [round]) {
   markChecked(work, `verification-${round}.json`);
   const result = summarizeVerification(verification, manual);
   if (result.passed) {
-    const { page_fix: _fix, todo: _todo, ...rest } = state;
+    const { page_fix: _fix, todo: _todo, dead_end_fixes: _deadEndFixes, ...rest } = state;
     writeJson(join(work, 'state.json'), { ...rest, passed: true });
     // 書き直しのあとは症状が変わることがあるので、言い方は作り直す
     const { search_index: _old, ...fresh } = manual;
@@ -652,6 +662,78 @@ function reviewFix(work, [pageId], stdin) {
     review: { ...state.review, pages },
   });
   return `記録しました（${added.entry.id}）。${pageId} を書き直します`;
+}
+
+// ---- 行き止まり ----
+/** まだ聞いていない行き止まりのページ。1ページに聞くのは1回だけ。 */
+const pendingDeadEnds = (manual, state) => deadEnds(manual).filter(({ page }) => !state.dead_ends?.[page]);
+
+/** 同じ相手のページで答えを打ち直さなくて済むように、前の答えを添える。 */
+function deadEndStep(pending, state) {
+  const [next] = pending;
+  const earlier = Object.values(state.dead_ends ?? {}).find((answer) => next.contact_id && answer.contact_id === next.contact_id && answer.answer);
+  return { step: 'dead-end', ...next, left: pending.length, ...(earlier ? { same_answer: earlier.answer } : {}) };
+}
+
+/** 聞き終えたら、答えのあったページをまとめて書き直す。1ページずつだと、ページの数だけ Editor と Verifier を待つことになる。 */
+function startDeadEndRound(work, state, manual) {
+  const fixes = Object.fromEntries(Object.entries(state.dead_ends).filter(([, answer]) => !answer.applied).map(([page, { comment, evidence, must_include: mustInclude }]) => [page, { comment, evidence, ...(mustInclude ? { must_include: mustInclude } : {}) }]));
+  const todo = Object.keys(fixes);
+  const round = state.round;
+  writeJson(join(work, `findings-${round}.json`), buildRevision(manual, []));
+  const pages = Object.fromEntries(Object.entries(state.review?.pages ?? {}).filter(([page]) => !todo.includes(page)));
+  writeJson(join(work, 'state.json'), {
+    ...state,
+    passed: false,
+    round: round + 1,
+    round_base: round,
+    todo,
+    dead_end_fixes: fixes,
+    dead_ends: Object.fromEntries(Object.entries(state.dead_ends).map(([page, answer]) => [page, { ...answer, applied: true }])),
+    ...(state.review ? { review: { ...state.review, pages } } : {}),
+  });
+  return `${todo.length} ページの答えを記録しました。${todo.join('、')} を書き直します`;
+}
+
+/** 行き止まりの答えを聞き取りの記録にする。全部聞き終えたら書き直しに進む。 */
+function recordDeadEnd(work, pageId, { answer, recorded, comment, mustInclude }) {
+  const state = readJson(join(work, 'state.json'));
+  if (!state.passed || state.update) throw new Problem('行き止まりを聞ける段階ではありません');
+  const manual = readJson(join(work, 'manual-final.json'));
+  const found = pendingDeadEnds(manual, state).find(({ page }) => page === pageId);
+  if (!found) throw new Problem(`まだ聞いていない行き止まりのページではありません：${pageId}`);
+  const transcriptPath = join(work, 'transcript.json');
+  let added;
+  try {
+    added = appendReviewEntry(readJson(transcriptPath), { pageId, title: found.title, comment: recorded, answeredAt: new Date().toISOString(), question: `手順ページ ${pageId}「${found.title}」は行き止まりです。誰に、どうやって連絡しますか。` });
+  } catch (error) {
+    throw new Problem(error.message);
+  }
+  checkSchema('transcript', added.transcript);
+  writeJson(transcriptPath, added.transcript);
+  const dead_ends = { ...state.dead_ends, [pageId]: { contact_id: found.contact_id, ...(answer ? { answer } : {}), comment: comment(added.entry.id), evidence: added.entry.id, ...(mustInclude ? { must_include: mustInclude } : {}) } };
+  const next = { ...state, dead_ends };
+  writeJson(join(work, 'state.json'), next);
+  const left = pendingDeadEnds(manual, next).length;
+  return left ? `記録しました（${added.entry.id}）。残り ${left} ページです` : `記録しました（${added.entry.id}）。${startDeadEndRound(work, next, manual)}`;
+}
+
+function deadEndAnswer(work, [pageId], stdin) {
+  const answer = stdin.trim();
+  return recordDeadEnd(work, pageId, {
+    answer,
+    recorded: stdin,
+    comment: () => `このページは行き止まりでした。誰に、どうやって連絡するかの答えは次のとおりです：${answer} この答えを notes の先頭に書いてください。連絡先の欄は変えません。`,
+  });
+}
+
+function deadEndUnknown(work, [pageId]) {
+  const sentence = unknownSentence(readJson(join(work, 'manual-final.json')));
+  return recordDeadEnd(work, pageId, {
+    recorded: `分からない。決まりにより、次の文を載せます：${sentence}`,
+    comment: () => `このページは行き止まりで、前任者は「分からない」と答えました。notes の先頭に、次の文をそのまま書いてください：${sentence}`,
+    mustInclude: sentence,
+  });
 }
 
 // ---- 完成後の更新 ----
@@ -894,6 +976,8 @@ const COMMANDS = {
   'review-show': reviewShow,
   'review-ok': reviewOk,
   'review-fix': reviewFix,
+  'dead-end-answer': deadEndAnswer,
+  'dead-end-unknown': deadEndUnknown,
   'update-start': updateStart,
   'update-output': updateOutput,
   'update-targets': updateTargets,
@@ -916,7 +1000,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const [command, ...args] = process.argv.slice(2);
   const work = resolve(process.env.HIKITSUGI_WORK ?? 'hikitsugi-work');
   try {
-    const stdin = ['record', 'review-fix', 'update-fix', 'update-add', 'update-memo'].includes(command) ? readFileSync(0, 'utf8') : '';
+    const stdin = ['record', 'review-fix', 'dead-end-answer', 'update-fix', 'update-add', 'update-memo'].includes(command) ? readFileSync(0, 'utf8') : '';
     console.log(run(command, args, { work, stdin }));
   } catch (error) {
     if (error instanceof Problem) {

@@ -242,7 +242,7 @@ export async function runEditorLive({ manual, survey, transcript, retiree, rever
   const agent = loadAgent('plugin/agents/plain-japanese-editor.md');
   const edit = async (current, findings) => {
     const params = buildEditorRequest({ manual: current, survey, transcript, retiree, findings, agent });
-    return applyEdits(current, await callAgent({ api, agent, params, record }), { revert, retiree });
+    return applyEdits(current, await callAgent({ api, agent, params, record }), { revert, retiree, sources: { survey, transcript } });
   };
   const remaining = (current) => {
     const problems = plainProblems(current);

@@ -55,3 +55,27 @@ test('文が変わらない更新で、主のエージェントが言う文が S
   const skill = readFileSync(new URL('../plugin/skills/start/SKILL.md', import.meta.url), 'utf8');
   assert.ok(skill.includes('「文は変わらないので、番号を置き換えて確認します」'));
 });
+
+const withText = (text) => ({ ...manual(text), statements: [{ id: 'STM-001', text, evidence: ['INT-001'], library: null }, { id: 'STM-002', text: 'ページの題名です。', evidence: ['INT-001'], library: null }], symptom_pages: [{ ...manual(text).symptom_pages[0], reassurance: 'STM-002' }] });
+
+test('Editor が機器名を落とした文は元に戻す（語がなくなるとき）', () => {
+  const { manual: result, changes } = applyEdits(withText('複合機が止まったらサーバーを確かめます。'), { rewrites: [{ id: 'STM-001', text: 'それが止まったらサーバーを確かめます。' }], glossary: [] });
+  assert.equal(result.statements[0].text, '複合機が止まったらサーバーを確かめます。');
+  assert.deepEqual(changes, [{ statement: 'STM-001', missing: ['複合機'] }]);
+});
+
+test('Editor が機器名を落とした文は元に戻す（同じ語の回数が減るとき）', () => {
+  const before = 'NAS とサーバーが止まっているときだけ、NAS、サーバーの順に押します。';
+  const { manual: result, changes } = applyEdits(withText(before), { rewrites: [{ id: 'STM-001', text: 'サーバーが止まっているときだけ、NAS、サーバーの順に押します。' }], glossary: [] });
+  assert.equal(result.statements[0].text, before);
+  assert.deepEqual(changes[0].missing, ['NAS']);
+});
+
+test('調査と聞き取りにある機器の名前も守り、機器名が残る直しは通す', () => {
+  const sources = { survey: { items: [{ host: 'OKJ-CAD-01', key: 'printer.1', value: 'MODEL-A1 事務室' }] }, transcript: { entries: [{ answer: 'OKOJO-NAS に保存します。' }] } };
+  const printer = applyEdits(withText('MODEL-A1 事務室で印刷します。'), { rewrites: [{ id: 'STM-001', text: '事務室で印刷します。' }], glossary: [] }, { sources });
+  assert.equal(printer.manual.statements[0].text, 'MODEL-A1 事務室で印刷します。');
+  const kept = applyEdits(withText('サーバーの電源を確かめてください。'), { rewrites: [{ id: 'STM-001', text: 'サーバーの電源が入っているかを確かめてください。' }], glossary: [] }, { sources });
+  assert.equal(kept.manual.statements[0].text, 'サーバーの電源が入っているかを確かめてください。');
+  assert.deepEqual(kept.changes, []);
+});

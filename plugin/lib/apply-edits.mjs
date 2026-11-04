@@ -19,17 +19,37 @@ export function missingTokens(before, after, extra = []) {
   return tokens.filter((token) => !target.includes(compact(token)));
 }
 
+// 機器の呼び名。英字の語は存在だけなら上で守れるが、同じ語の回数が減ると条件が変わるので、回数で比べる
+const DEVICE_WORDS = ['NAS', 'サーバー', 'ルーター', 'UTM', '複合機', '無線 AP', 'プリンター', 'スイッチ'];
+// 聞き取りに出てくる、機器の個別の名前（大文字と数字をハイフンでつないだもの）
+const MACHINE_NAME = /[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+/g;
+
+/** 守る機器名の一覧。決まった語、説明書の機器の一覧、調査の PC 名とプリンター名、聞き取りの機器の名前。 */
+export function deviceNames(manual, { survey, transcript } = {}) {
+  const byId = new Map(manual.statements.map((statement) => [statement.id, statement.text]));
+  const hosts = (survey?.items ?? []).flatMap((item) => [item.host, ...(item.key?.startsWith('printer.') && typeof item.value === 'string' ? [item.value] : [])]);
+  const named = (transcript?.entries ?? []).flatMap((entry) => entry.answer?.match(MACHINE_NAME) ?? []);
+  return [...new Set([...DEVICE_WORDS, ...(manual.devices ?? []).map((device) => byId.get(device.name)), ...hosts, ...named].filter(Boolean))];
+}
+
+const countOf = (text, word) => compact(text).split(compact(word)).length - 1;
+
+/** 元の文より回数が減った機器名を返す。 */
+export const droppedDevices = (before, after, names) => names.filter((name) => countOf(after, name) < countOf(before, name));
+
 /**
  * @param manual Writer の出力
  * @param edits Editor の出力（rewrites、glossary）
  * @param revert true なら、事実が変わった文章を元に戻す。評価では false にして、変わった件数をそのまま数える
+ * @param sources { survey, transcript }。機器名を集める。なければ決まった語と説明書の機器の一覧だけを守る
  * @returns { manual, changes } changes は事実が変わった文章の一覧
  */
-export function applyEdits(manual, edits, { revert = true, retiree } = {}) {
+export function applyEdits(manual, edits, { revert = true, retiree, sources } = {}) {
   const retireeName = retiree?.trim().replace(/(さん|様|氏)$/, '').split(/\s+/)[0];
   const namesRetiree = (text) => Boolean(retireeName) && text.includes(retireeName);
   const known = new Map(manual.statements.map((statement) => [statement.id, statement]));
   const names = manual.contacts.map((contact) => contact.name);
+  const devices = deviceNames(manual, sources);
   const rewrites = new Map();
   for (const { id, text } of edits.rewrites) {
     if (!known.has(id)) throw new Error(`存在しない文章を直しています: ${id}`);
@@ -66,7 +86,7 @@ export function applyEdits(manual, edits, { revert = true, retiree } = {}) {
       changes.push({ statement: statement.id, missing: ['手順の形'] });
       return statement;
     }
-    const missing = missingTokens(statement.text, text, names);
+    const missing = [...new Set([...missingTokens(statement.text, text, names), ...droppedDevices(statement.text, text, devices)])];
     if (missing.length) {
       changes.push({ statement: statement.id, missing });
       if (revert) return statement;
