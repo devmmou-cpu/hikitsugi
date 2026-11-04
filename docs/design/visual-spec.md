@@ -107,7 +107,7 @@
 
 - カードはグループ化（現状どおり）。カード内の 1 行目は症状、2 行目はバッジ＋目安。
 - 一覧の末尾に「当てはまる症状がないとき」カード（社内で相談バッジ → 連絡先の社内担当へ）。4 種目のバッジをここで必ず使う。
-- グループ見出しの直前に、スクロール位置に関係なく飛べる **「ジャンプ」行** を見出しの下に 1 行置く：`インターネット · 印刷とスキャン · ファイル · メールと Teams · その他`（15px、暖色、横スクロール可）。JS 不要のページ内リンク。
+- グループ見出しの直前に、スクロール位置に関係なく飛べる **「ジャンプ」行** を見出しの下に 1 行置く：`インターネット · 印刷とスキャン · ファイル · メールとアカウント · その他`（15px、暖色、横スクロール可）。JS 不要のページ内リンク。
 
 ### 3-4. 画面 2：手順ページ
 
@@ -244,7 +244,7 @@
 
 ③ それでもだめなら
    カワウソシステムサービス   [☎ 03-0000-0102]  受付 平日 9〜18 時
-   業者に送る文面：「共有フォルダをつなぎ直しても見えません。社内ネットワークの不調かもしれません。」
+   業者に伝える文面：「共有フォルダをつなぎ直しても見えません。社内ネットワークの不調かもしれません。」（社内の相談先では、見出しは「相談するときの言い方」で、「「題名」の件で相談です。」の型）
    [文面をコピー]
 
 この症状で使う会社の情報                           ← 表
@@ -530,6 +530,8 @@ code, .num { font-variant-numeric: tabular-nums; }
 
 ### 7-9. 安心帯／分岐帯／例外帯
 
+Windows 10 の分岐と該当する PC は、表示では1本にする（「Windows 10 の PC（名前）は、手順が違うので、連絡先へ連絡してください。」）。
+
 安心帯の文は、調査か聞き取りで裏づけられる事実か、聞き取りにある決まりだけを書く。「大丈夫です」のような保証の言い切りは書かない（`docs/design.md` の 11/4）。
 
 - 共通：`padding: 12px 16px; border-radius: 8px; display:flex; gap: 10px; font-size: 16px;` 先頭に 20px アイコン。
@@ -565,7 +567,7 @@ code, .num { font-variant-numeric: tabular-nums; }
 │                                      │
 │ この説明書でできること                  │  ← 14px ラベル
 │ ✓ 症状を選ぶと、やることが順に出ます。   │  ← 3 行、各行 17px
-│ ☎ 直せないときは、電話と、送る文面があります。│
+│ ☎ 直せないときは、電話と、伝える文面があります。│
 │ ◎ 手順は人が確認したものだけ載せています。 │
 │                                      │
 │ ［バッジ 4 種の凡例］                   │  ← 4 つ横並び（スマホは 2×2）
@@ -583,7 +585,9 @@ code, .num { font-variant-numeric: tabular-nums; }
 - PC：上部バー 64px、sticky。左にチップ＋会社名＋タイトル、中央にナビ、右に「2026.11.05 確認 ◎」。
 - 社外秘チップ：`font-size:13px; font-weight:700; letter-spacing:.04em; padding: 2px 8px; border:1.5px solid var(--ink); border-radius:4px;` 色は墨。赤にしない（日常的に開く文書なので、警告色は不要）。
 
-「はじめに」の末尾に「更新の記録」の表（日付、種類、確認した人、ページ、内容）を置く。更新がなければ出さない。印刷にも出す。
+「はじめに」の末尾に「更新の記録」の表（日付、種類、確認した人、ページ、内容）を置く。更新がなければ出さない。印刷にも出す。内容の電話番号は `.tel` の部品で折り返さない。その下に、内容が変わったときの案内を1行置く。
+
+連絡先の受付の行の印は内容で分ける。受付時間は時計、連絡の手段（席、内線、電話、メールなど）は人。束も同じ。連絡先の画面の冒頭に、「連絡先へ連絡」の行き先と、当てはまる症状がないときの相手の案内を置く。
 
 ### 8-3. フッター
 
@@ -603,7 +607,7 @@ code, .num { font-variant-numeric: tabular-nums; }
 | 済んだ手順を薄くする | `.step:has(input:checked) .step-body{ color: var(--ink-3) }`。チェックは native `input` なので JS なしでも動く（保存はされない）。 |
 | チェックの見た目 | `input` は `position:absolute; opacity:0; width:1px; height:1px;`、`label` 内の `.step-box` を `input:checked + label .step-box` で塗る。`input:focus-visible + label{ outline: 3px solid var(--accent); outline-offset: 2px }`。 |
 | 用語の開閉 | `details/summary`。`summary` に `transition: background .15s`。 |
-| 「伝えること」「業者に送る文面」のワンタップ選択 | `user-select: all`（iOS Safari は `-webkit-user-select: all`）。長押し→全選択→コピーが JS なしで成立。 |
+| 「伝えること」「業者に伝える文面」のワンタップ選択 | `user-select: all`（iOS Safari は `-webkit-user-select: all`）。長押し→全選択→コピーが JS なしで成立。 |
 | 電話 | `tel:` リンク。 |
 | 押した手触り | `.btn:active, .sym:active, .step label:active{ transform: translateY(1px) }`、`transition: transform .08s, background .15s`。 |
 | hover（PC のみ） | `@media (hover:hover){ .sym:hover{ background: var(--card-2) } }`。タッチ端末で hover が残らないように。 |

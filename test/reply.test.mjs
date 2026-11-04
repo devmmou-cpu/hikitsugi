@@ -392,3 +392,9 @@ test('文面の枠は改行を保つ（1行ずつ言う文面のため）', asyn
   const { STYLES } = await import('../plugin/renderer/styles.mjs');
   assert.match(STYLES, /\.say \{\s*white-space: pre-line;/);
 });
+
+test('連絡先の印：受付時間は時計、連絡の手段は人', async () => {
+  const { hoursIconName } = await import('../plugin/renderer/render.mjs');
+  for (const text of ['受付は平日9時から18時です。', '24時間受け付けています。', '受付時間の記録がありません。', '平日に電話で受け付けています。']) assert.equal(hoursIconName(text), 'clock', text);
+  for (const text of ['連絡は内線でします。', '工場の CAD 担当者に聞くときは、工場事務所の席まで行ってください。', 'メールで連絡します。']) assert.equal(hoursIconName(text), 'people', text);
+});

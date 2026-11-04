@@ -384,7 +384,7 @@ test('社内で相談のページ：バッジを文字で出し、業者へ連�
   assert.match(section, /data-badge="internal"/);
   assert.ok(strip(section).includes('社内で相談'));
   assert.ok(!strip(section).includes('業者へ連絡'));
-  assert.ok(!strip(section).includes('業者に送る文面'));
+  assert.ok(!strip(section).includes('業者に伝える文面'));
 });
 
 test('実装は外部ライブラリを使わない', () => {

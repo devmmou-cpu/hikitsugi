@@ -19,7 +19,7 @@ import { pathToFileURL } from 'node:url';
 import { fileSize, oversizeMessage, PHONE_FILE_LIMIT, writeWithinLimit } from '../lib/limits.mjs';
 import { contactProblems, pageProblems } from '../lib/page-check.mjs';
 import { firstStepFigures } from '../lib/figures.mjs';
-import { MEMO_NO_JS, actionHtml, BADGE_ICONS, BADGE_LABELS, CATEGORY_LABELS, checkInput, compactCss, esc, evidenceLines, ICONS, infoTables, makeContext, pageTerms, stepParts, telHtml } from './render.mjs';
+import { MEMO_NO_JS, actionHtml, contactGuide, hoursIconName, BADGE_ICONS, BADGE_LABELS, CATEGORY_LABELS, checkInput, compactCss, esc, evidenceLines, ICONS, infoTables, makeContext, pageTerms, stepParts, telHtml } from './render.mjs';
 import { STYLES } from './styles.mjs';
 
 const SYMPTOM_NAME_MAX = 30;
@@ -81,6 +81,8 @@ code, kbd { font-family: ui-monospace, monospace; font-size: .95em; }
 .note { margin-top: var(--s1); font-size: 15px; color: var(--ink-2); }
 .no-phone { margin-top: var(--s2); font-weight: 700; color: var(--danger-fg); }
 .label { margin-top: var(--s3); font-size: 15px; font-weight: 700; }
+.contact-hours { display: flex; gap: var(--s2); align-items: flex-start; }
+.contact-hours svg { flex: none; width: 20px; height: 20px; margin-top: 4px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; color: var(--ink-2); }
 .say { margin-top: var(--s1); padding: var(--s3) var(--s4); background: var(--card-2); border-left: 4px solid var(--line-strong); border-radius: 0 8px 8px 0; white-space: pre-line; -webkit-user-select: all; user-select: all; }
 .terms dt { margin-top: var(--s3); font-weight: 700; }
 .terms dd { color: var(--ink-2); }
@@ -141,7 +143,7 @@ function contactHtml(ctx, contact, sayLabel, sayId) {
     '<div class="contact">',
     `<h3 class="contact-name">${esc(contact.name)}<span class="contact-role">${esc(ctx.raw(contact.role))}</span></h3>`,
     // 受付を番号の上に置く。長押しのメニューが番号の下の行に重なるため（本人の実機）
-    contact.hours ? `<p>${ctx.text(contact.hours)}</p>` : '',
+    contact.hours ? `<p class="contact-hours"><svg viewBox="0 0 24 24" role="presentation">${ICONS[hoursIconName(ctx.raw(contact.hours))]}</svg><span>${ctx.text(contact.hours)}</span></p>` : '',
     !contact.phone && contact.id.startsWith('VEN-') ? '<p class="no-phone">電話番号の記録がありません</p>' : contact.phone ? `<p class="num">${telHtml(contact.phone)}</p>\n<p class="note">${PHONE_NOTE}</p>` : '',
     sayId ? `<p class="label">${sayLabel}</p>\n${copyBoxHtml(ctx.text(sayId))}` : '',
     '</div>',
@@ -168,7 +170,7 @@ function symptomHtml(ctx, page, fileTitle) {
   const contactPart = () => {
     if (!contact) return '';
     const heading = hasFirst || hasSteps ? 'それでもだめなら' : internal ? '相談してください' : '連絡してください';
-    return `<section class="part">\n<h2>${number()} ${heading}</h2>\n${contactHtml(ctx, contact, internal ? '相談するときの言い方' : '業者に送る文面', page.fallback.message)}\n</section>`;
+    return `<section class="part">\n<h2>${number()} ${heading}</h2>\n${contactHtml(ctx, contact, internal ? '相談するときの言い方' : '業者に伝える文面', page.fallback.message)}\n</section>`;
   };
   const leading = contactLeads ? contactPart() : '';
   const figures = firstStepFigures(page, ctx.manual);
@@ -212,7 +214,7 @@ function symptomHtml(ctx, page, fileTitle) {
 }
 
 /** 連絡先の一覧。まず誰に言うかの順に、社内の相談先を先に並べる。 */
-function contactsHtml(ctx, heading, lead, fileTitle) {
+function contactsHtml(ctx, heading, lead, fileTitle, guide) {
   const { contacts } = ctx.manual;
   const inside = contacts.filter((c) => c.id.startsWith('INH-'));
   const vendors = contacts.filter((c) => !c.id.startsWith('INH-'));
@@ -223,6 +225,7 @@ function contactsHtml(ctx, heading, lead, fileTitle) {
   const body = [
     `<h1>${heading}</h1>`,
     `<p class="verdict-text">${lead}</p>`,
+    ...(guide ? [`<p class="note">${guide}</p>`] : []),
     inside.length ? `<section class="part">\n<h2>まず社内に相談</h2>\n${inside.map(card).join('\n')}\n</section>` : '',
     vendors.length ? `<section class="part">\n<h2>業者</h2>\n${vendors.map(card).join('\n')}\n</section>` : '',
     contacts.length ? MEMO_NO_JS : '<p>連絡先は、まだこの説明書に入っていません。</p>',
@@ -259,7 +262,7 @@ export function renderPhoneBundle(input) {
 
   const ctx = makeContext(manual);
   const bundle = [
-    { name: '00_連絡先.html', html: contactsHtml(ctx, '連絡先', '困ったときに連絡する相手です。', '連絡先') },
+    { name: '00_連絡先.html', html: contactsHtml(ctx, '連絡先', '困ったときに連絡する相手です。', '連絡先', contactGuide(manual.contacts)) },
     ...pages.map((page, index) => {
       const title = ctx.raw(page.title);
       return { name: phoneFileName(index + 1, page.badge.value, title), html: symptomHtml(ctx, page, title) };

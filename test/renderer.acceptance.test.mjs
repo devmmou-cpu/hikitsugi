@@ -247,7 +247,7 @@ test('手順ページは決まった順番で並ぶ', () => {
     ['最初の手順', textOf(manual, page.steps[0])],
     ['最後の手順', textOf(manual, page.steps.at(-1))],
     ['それでもだめなら', 'それでもだめなら'],
-    ['業者に送る文面', textOf(manual, page.fallback.message)],
+    ['業者に伝える文面', textOf(manual, page.fallback.message)],
     ['根拠', '作成：'],
   ];
   let position = -1;

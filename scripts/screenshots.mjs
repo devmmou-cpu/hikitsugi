@@ -271,6 +271,17 @@ async function shootBundle(input, output, chromePath) {
         writeFileSync(join(output, `${number}-${theme}.png`), Buffer.from(data, 'base64'));
         shots.push(`${number}-${theme}`);
       }
+      // 連絡先のファイルで、番号と案内が実機で確かめた形になっていること。03 に番号がない会社でも確かめられるように
+      if (number === '00') {
+        const parts = JSON.parse(await evaluate(`JSON.stringify((() => {
+          const num = document.querySelector('.num');
+          if (!num) return {};
+          const tel = num.querySelector('.tel');
+          const style = getComputedStyle(num);
+          return { contactTel: /^\\d+$/.test(tel?.textContent ?? '') && (getComputedStyle(tel).userSelect === 'all' || getComputedStyle(tel).webkitUserSelect === 'all'), contactNum: style.fontSize === '22px' && style.fontWeight === '700', contactNote: num.nextElementSibling?.classList.contains('note') && num.nextElementSibling.textContent.includes('番号を長押しすると、発信できます。') };
+        })())`));
+        for (const [key, ok] of Object.entries(parts)) if (!ok) problems.push(`${name}：実機で確かめた形になっていません（${key}）`);
+      }
       // 03 のファイルで、実機で確かめた形（番号と案内、枠と案内、開いた用語）が映っていること
       if (number === '03') {
         const parts = JSON.parse(await evaluate(`JSON.stringify((() => {
@@ -279,8 +290,8 @@ async function shootBundle(input, output, chromePath) {
           const num = document.querySelector('.num');
           const tel = document.querySelector('.num .tel');
           const selectAll = (el) => el && (getComputedStyle(el).userSelect === 'all' || getComputedStyle(el).webkitUserSelect === 'all');
-          // 連絡先のないページは、番号の確認を除く
-          if (!document.querySelector('.contact')) return { say: [...document.querySelectorAll('.say')].length > 0 && [...document.querySelectorAll('.say')].every((el) => note(el, '長押しして選択し、コピーしてください。')), term: [...document.querySelectorAll('.terms dd')].some(shown), closed: document.querySelectorAll('details').length === 0 };
+          // 連絡先か番号のないページは、番号の確認を除く
+          if (!document.querySelector('.contact') || !num) return { say: [...document.querySelectorAll('.say')].length > 0 && [...document.querySelectorAll('.say')].every((el) => note(el, '長押しして選択し、コピーしてください。')), term: [...document.querySelectorAll('.terms dd')].some(shown), closed: document.querySelectorAll('details').length === 0 };
           
           return { telOneRun: /^\\d+$/.test(tel?.textContent ?? '') && selectAll(tel), sayAll: [...document.querySelectorAll('.say')].every(selectAll), num: shown(num) && getComputedStyle(num).fontSize === '22px' && getComputedStyle(num).fontWeight === '700', numNote: note(num, '番号を長押しすると、発信できます。'), say: [...document.querySelectorAll('.say')].length > 0 && [...document.querySelectorAll('.say')].every((el) => note(el, '長押しして選択し、コピーしてください。')), noteSize: getComputedStyle(document.querySelector('.note') ?? document.body).fontSize === '15px', term: [...document.querySelectorAll('.terms dd')].some(shown), closed: document.querySelectorAll('details').length === 0 };
         })())`));

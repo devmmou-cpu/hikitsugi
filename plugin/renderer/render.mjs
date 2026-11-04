@@ -27,14 +27,14 @@ const BADGE_MEANINGS = {
   self: '自分でやります',
   check_first: '確かめてから動きます',
   vendor: '業者に電話します',
-  internal: '社内の人に聞きます',
+  internal: '連絡先の社内の人に聞きます',
 };
 
 export const CATEGORY_LABELS = [
   ['net', 'インターネット'],
   ['print_scan', '印刷とスキャン'],
   ['file', 'ファイル'],
-  ['mail_teams', 'メールと Teams'],
+  ['mail_teams', 'メールとアカウント'],
   ['pc', 'PC'],
   ['other', 'その他'],
 ];
@@ -263,8 +263,16 @@ const copyNumberHtml = (phone, statusId) =>
 
 const copyStatusHtml = (statusId) => `<span class="js-only copy-status" id="${statusId}" role="status"></span>`;
 
-/** 受付の時間。文章が「受付は〜」で始まるので、見出しを付けると同じ言葉が重なる。印と文だけで示す。 */
-const hoursHtml = (ctx, id) => `<p class="contact-hours">${icon('clock')}<span>${ctx.text(id)}</span></p>`;
+// 受付時間の文か。時間の語があれば時計、なければ連絡の手段の文として人の印にする
+const TIME_WORDS = /受付|受け付け|平日|土日|\d時|時間/;
+const MEANS_WORDS = /内線|席|電話|メール|携帯|Teams|チャット|声をかけ|直接/;
+export const hoursIconName = (text) => (!TIME_WORDS.test(text) && MEANS_WORDS.test(text) ? 'people' : 'clock');
+
+/** 受付の時間か連絡の手段。文章が「受付は〜」で始まるので、見出しを付けると同じ言葉が重なる。印と文だけで示す。 */
+const hoursHtml = (ctx, id) => `<p class="contact-hours">${icon(hoursIconName(ctx.raw(id)))}<span>${ctx.text(id)}</span></p>`;
+
+/** 連絡先の画面の案内。手順の「連絡先へ連絡」の行き先と、当てはまる症状がないときの相手を示す。 */
+export const contactGuide = (contacts) => `手順に「連絡先へ連絡」とあるときは、そのページに出ている相手に連絡します。${contacts.some((contact) => contact.id.startsWith('INH-')) ? '当てはまる症状がないときは、「まず社内に相談」の相手に聞きます。' : ''}`;
 
 /** 用語の説明。JavaScript なしでも読めるように開いておき、JavaScript があれば閉じる。 */
 /**
@@ -398,7 +406,7 @@ function introPanel(ctx) {
   const { review } = manual;
   const cans = [
     ['check', '症状を選ぶと、やることが順に出ます。'],
-    ['phone', '直せないときは、電話と、送る文面があります。'],
+    ['phone', '直せないときは、電話と、伝える文面があります。'],
     ...(review ? [['stamp', `この取扱説明書は、AIがもとの情報と照らし合わせ、前任の${esc(review.reviewer)}さんが全ページを確認したものです。`]] : []),
   ];
   return [
@@ -416,6 +424,7 @@ function introPanel(ctx) {
     '<p class="label intro-label">判定の見かた</p>',
     legendHtml(),
     updateLogHtml(ctx),
+    '<p class="note">内容が変わったときは、そのページのメモに書いてください。説明書そのものを直すには Claude Code が要ります。</p>',
     '</section>',
   ].filter(Boolean).join('\n');
 }
@@ -603,7 +612,7 @@ function contactPartHtml(ctx, page, contact, heading, leading) {
     `<h4 class="contact-name">${esc(contact.name)}<span class="contact-role">${esc(ctx.raw(contact.role))}</span></h4>`,
     contact.hours ? hoursHtml(ctx, contact.hours) : '',
     !contact.phone && contact.id.startsWith('VEN-') ? '<p class="no-phone">電話番号の記録がありません</p>' : contact.phone ? `<div class="call-row">${callHtml(contact.phone)}${copyNumberHtml(contact.phone, statusId)}</div>` : '',
-    `<p class="say-label">${internal ? '相談するときの言い方' : '業者に送る文面'}</p>`,
+    `<p class="say-label">${internal ? '相談するときの言い方' : '業者に伝える文面'}</p>`,
     `<blockquote class="say" id="${messageId}">${ctx.text(page.fallback.message)}</blockquote>`,
     `<button type="button" class="btn btn-copy tap js-only" data-copy="${messageId}" data-status="${statusId}">文面をコピー</button>`,
     copyStatusHtml(statusId),
@@ -753,7 +762,8 @@ function contactsPanel(ctx) {
   const body = ctx.manual.contacts.length
     ? [
         '<p class="lead">困ったときに連絡する相手です。</p>',
-        '<p class="note">電話のボタンを押すと、電話をかける画面が開きます。</p>',
+        `<p class="note">${contactGuide(ctx.manual.contacts)}</p>`,
+        '<p class="note">PC では、番号を見て会社の電話からかけます。スマホでは、電話のボタンを押すと、電話をかける画面が開きます。</p>',
         MEMO_NO_JS,
         ...(inside.length ? ['<h3 class="section-title">まず社内に相談</h3>', grid(inside)] : []),
         ...(vendors.length ? [inside.length ? '<h3 class="section-title">業者</h3>' : '', grid(vendors)] : []),
