@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>スキャンしたファイルが NAS の「スキャン」フォルダに届かない</title>
+<style>
+:root {
+color-scheme: light;
+--bg: #F7F6F1;
+--card: #FFFFFF;
+--card-2: #F1EFE9;
+--line: #DCD9D1;
+--line-strong: #8E8A82;
+--ink: #1E2124;
+--ink-2: #5B6066;
+--ink-3: #6B7076;
+--accent: #8A4E22;
+--accent-ink: #FFFFFF;
+--accent-soft: #FBF1E6;
+--accent-strong: #6E3B16;
+--ok-fg: #1E6B3F;
+--ok-bg: #E4F1E7;
+--warn-fg: #7A4F00;
+--warn-bg: #FBEFD0;
+--call-fg: #FFFFFF;
+--call-bg: #1E2124;
+--ask-fg: #2D5A8A;
+--ask-bg: #E1EBF6;
+--danger-fg: #B00020;
+--danger-bg: #FBE9EC;
+--shadow-card: 0 1px 2px rgba(30, 33, 36, .06);
+--shadow-hero: 0 6px 20px rgba(138, 78, 34, .14), 0 1px 2px rgba(30, 33, 36, .06);
+--okojo-body: #FFFFFF;
+--okojo-tip: #1E2124;
+--okojo-line: #5B6066;
+--s1: 4px;
+--s2: 8px;
+--s3: 12px;
+--s4: 16px;
+--s5: 24px;
+--s6: 32px;
+--s7: 48px;
+--mono: ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+:root:not([data-theme="light"]) {
+color-scheme: dark;
+--bg: #151718;
+--card: #1F2224;
+--card-2: #26292C;
+--line: #363A3E;
+--line-strong: #6F746B;
+--ink: #ECEAE3;
+--ink-2: #B3AFA6;
+--ink-3: #9A9690;
+--accent: #E2A66F;
+--accent-ink: #151718;
+--accent-soft: #2B2520;
+--accent-strong: #F0BE8E;
+--ok-fg: #8FD3A5;
+--ok-bg: #1C3426;
+--warn-fg: #F2C46B;
+--warn-bg: #3A2E12;
+--call-fg: #151718;
+--call-bg: #ECEAE3;
+--ask-fg: #9CC3EC;
+--ask-bg: #1C2E42;
+--danger-fg: #FF8A80;
+--danger-bg: #3A1F1F;
+--shadow-card: none;
+--shadow-hero: 0 0 0 1px var(--accent);
+--okojo-line: #B3AFA6;
+}
+}
+* { box-sizing: border-box; }
+html {
+font-family: system-ui, sans-serif;
+font-size: 17px;
+line-height: 1.7;
+color: var(--ink);
+background: var(--bg);
+-webkit-text-size-adjust: 100%;
+text-size-adjust: 100%;
+}
+body { margin: 0; padding: var(--s4); overflow-wrap: anywhere; }
+h1, h2, h3, p, ul, ol, dl, dd, blockquote { margin: 0; }
+.nb { white-space: nowrap; }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-size: 14px; color: var(--ink-2); }
+.chip-secret { padding: 0 var(--s2); font-size: 13px; font-weight: 700; color: var(--ink); border: 1px solid var(--ink); border-radius: 4px; }
+.draft { margin-top: var(--s3); padding: var(--s2) var(--s3); font-weight: 700; color: var(--warn-fg); background: var(--warn-bg); border-radius: 8px; }
+h1 { margin-top: var(--s4); font-size: 26px; line-height: 1.4; }
+.verdict { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s3); margin-top: var(--s3); font-size: 15px; color: var(--ink-2); }
+.badge { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px 0 10px; font-size: 15px; font-weight: 700; line-height: 1; white-space: nowrap; border-radius: 999px; }
+.badge svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.badge[data-badge="self"] { color: var(--ok-fg); background: var(--ok-bg); }
+.badge[data-badge="check_first"] { color: var(--warn-fg); background: var(--warn-bg); }
+.badge[data-badge="vendor"] { color: var(--call-fg); background: var(--call-bg); }
+.badge[data-badge="internal"] { color: var(--ask-fg); background: var(--ask-bg); }
+.verdict-text { margin-top: var(--s2); }
+.safe { margin-top: var(--s3); color: var(--ink-2); }
+.part { margin-top: var(--s6); }
+h2 { font-size: 22px; line-height: 1.4; }
+h3 { margin-top: var(--s4); font-size: 17px; }
+.first { padding: var(--s4); background: var(--card); border: 2px solid var(--accent); border-radius: 12px; }
+.first-body { margin-top: var(--s2); font-size: 19px; font-weight: 500; }
+.step-figure { display: block; width: 100%; max-width: 320px; height: auto; margin-top: var(--s2); color: var(--ink); }
+.goal { margin-top: var(--s3); padding: var(--s2) var(--s3); color: var(--ok-fg); background: var(--ok-bg); border-radius: 8px; }
+.band { margin-top: var(--s3); padding: var(--s2) var(--s3); background: var(--card-2); border-radius: 8px; }
+.notes, .phone-steps { padding-left: 1.5em; }
+.notes li, .phone-steps li { margin-top: var(--s2); }
+.step-note { font-size: 15px; color: var(--ink-2); }
+.info-table { width: 100%; margin-top: var(--s2); font-size: 15px; border-collapse: collapse; background: var(--card); }
+.info-table th, .info-table td { padding: var(--s2); text-align: left; vertical-align: top; border: 1px solid var(--line); }
+.info-table th { white-space: nowrap; }
+.info-drive { white-space: nowrap; text-align: center; }
+code, kbd { font-family: ui-monospace, monospace; font-size: .95em; }
+.contact { margin-top: var(--s3); padding: var(--s4); background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.contact-name { margin-top: 0; font-size: 19px; }
+.contact-role { display: block; font-size: 15px; font-weight: 400; color: var(--ink-2); }
+.tel { white-space: nowrap; -webkit-user-select: all; user-select: all; }
+.tel > span + span { margin-left: .3em; }
+.num { margin-top: var(--s2); font-size: 22px; font-weight: 700; line-height: 1.3; letter-spacing: .02em; }
+.note { margin-top: var(--s1); font-size: 15px; color: var(--ink-2); }
+.no-phone { margin-top: var(--s2); font-weight: 700; color: var(--danger-fg); }
+.label { margin-top: var(--s3); font-size: 15px; font-weight: 700; }
+.contact-hours { display: flex; gap: var(--s2); align-items: flex-start; }
+.contact-hours svg { flex: none; width: 20px; height: 20px; margin-top: 4px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; color: var(--ink-2); }
+.say { margin-top: var(--s1); padding: var(--s3) var(--s4); background: var(--card-2); border-left: 4px solid var(--line-strong); border-radius: 0 8px 8px 0; white-space: pre-line; -webkit-user-select: all; user-select: all; }
+.terms dt { margin-top: var(--s3); font-weight: 700; }
+.terms dd { color: var(--ink-2); }
+.foot { margin-top: var(--s7); padding-top: var(--s3); font-size: 14px; color: var(--ink-2); border-top: 1px solid var(--line); }
+.foot p + p { margin-top: var(--s1); }
+
+</style>
+</head>
+<body>
+<p class="top"><span class="chip-secret">社外秘</span><span>オコジョ精工株式会社 ITの取扱説明書</span></p>
+<h1><span class="nb">スキャン</span>した<span class="nb">ファイル</span>が <span class="nb">NAS</span> の「<span class="nb">スキャン</span>」<span class="nb">フォルダ</span>に届かない</h1>
+<p class="verdict"><span class="badge" data-badge="check_first"><svg viewBox="0 0 24 24" role="presentation"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg><span>確認してから</span></span><span>目安 約3分</span></p>
+<p class="verdict-text"><span class="nb">NAS</span> の<span class="nb">空き容量</span>を確かめて、空きがあるのに届かなければ、<span class="nb">イタチ事務</span>機に連絡してください。</p>
+<p class="safe"><span class="nb">スキャン</span>した<span class="nb">ファイル</span>は <span class="nb">NAS</span> の「<span class="nb">スキャン</span>」<span class="nb">フォルダ</span>に保存されます。後任が確かめるのは、<span class="nb">NAS</span> の<span class="nb">空き容量</span>です。</p>
+<section class="part">
+<h2>社員に返す文</h2>
+<blockquote class="say">いま確認しています。</blockquote>
+<p class="note">長押しして選択し、コピーしてください。</p>
+</section>
+<section class="part">
+<h2>先に知っておくこと</h2>
+<ul class="notes">
+<li>この<span class="nb">ページ</span>は、総務室の複合機で<span class="nb">スキャン</span>した<span class="nb">ファイル</span>が届かないときの<span class="nb">ページ</span>です。</li>
+</ul>
+</section>
+<section class="part">
+<h2>この症状で使う会社の情報</h2>
+<table class="info-table info-drives">
+<thead><tr><th scope="col">PC</th><th scope="col">ドライブ</th><th scope="col">接続先</th></tr></thead>
+<tbody>
+<tr><td class="info-target">OKJ-<wbr>SOUMU-<wbr>01</td><td class="info-drive">S</td><td class="info-path"><code class="path">\\OKOJO-<wbr>NAS\<wbr>スキャン</code></td></tr>
+</tbody>
+</table>
+</section>
+<section class="part">
+<h2>① やること</h2>
+<p class="band">Windows 10 の PC（OKJ-<span class="nb">CAD</span>-01）は、手順が違うので、連絡先へ連絡してください。</p>
+<p class="band">帯が赤くなく、空きがあるのに<span class="nb">ファイル</span>が届かないときは、<span class="nb">イタチ事務</span>機に連絡してください。</p>
+<ol class="phone-steps">
+<li><span class="nb">キーボード</span>の <kbd>Windows</kbd> <span class="nb">キー</span>を押しながら、<kbd>E</kbd> の<span class="nb">キー</span>を押してください。</li>
+<li>開いた画面の左の一覧で、「PC」を選んでください。</li>
+<li>「PC」の画面で、会社の情報の表の<span class="nb">ドライブ</span>の帯<span class="nb">グラフ</span>を見てください。</li>
+</ol>
+
+<p class="band">帯が赤ければ、空きがほとんどありません。</p>
+<p class="band">帯が赤いときに空きを増やす方法は、記録がありません。社長に聞いてください（連絡先）。</p>
+</section>
+<section class="part">
+<h2>② それでもだめなら</h2>
+<div class="contact">
+<h3 class="contact-name">イタチ事務機<span class="contact-role">複合機のリース</span></h3>
+<p class="contact-hours"><svg viewBox="0 0 24 24" role="presentation"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg><span>受付は平日9時から17時です。</span></p>
+<p class="num"><span class="tel"><span>03</span><span>0000</span><span>0103</span></span></p>
+<p class="note">番号を長押しすると、発信できます。</p>
+<p class="label">業者に伝える文面</p>
+<blockquote class="say"><span class="nb">オコジョ精工</span>株式会社です。
+「<span class="nb">スキャン</span>した<span class="nb">ファイル</span>が <span class="nb">NAS</span> の「<span class="nb">スキャン</span>」<span class="nb">フォルダ</span>に届かない」件で連絡しました。
+確認をお願いします。</blockquote>
+<p class="note">長押しして選択し、コピーしてください。</p>
+</div>
+</section>
+<p class="memo-nojs">メモは PC 版で書けます</p>
+<section class="part terms">
+<h2>このページのことば</h2>
+<dl>
+<dt>ドライブ</dt>
+<dd>ファイルをしまう場所を、文字で呼ぶ名前です。</dd>
+<dt>NAS</dt>
+<dd>みんなで使うファイルをためておく機器です。</dd>
+<dt>空き容量</dt>
+<dd>ファイルをしまえる、残りの広さのことです。</dd>
+<dt>CAD</dt>
+<dd>図面を描くためのソフトのことです。</dd>
+</dl>
+</section>
+<div class="foot">
+<p>作成：2026年11月4日 田中 確認</p>
+<p>もとにした情報：調査データ（2026年11月5日時点）、聞き取り、確認済みの標準手順</p>
+<p>ほかの症状は、フォルダの一覧から開いてください。</p>
+</div>
+</body>
+</html>

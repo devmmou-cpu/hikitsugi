@@ -4,6 +4,10 @@ IT をひとりで見てきた担当者が辞めると、IT 未経験の総務�
 
 > Built with Claude: Japan 2026 の参加作品です。登場する企業、人物、業者はすべて架空です。
 
+<p><img src="docs/images/pc-search.png" width="400" alt="PC 用：「フォルダが消えた」で探すと、手順の図と社員に返す文が1画面に出る"> <img src="docs/images/phone-bundle.png" width="340" alt="スマホ用の束：フォルダの一覧が目次になり、1ファイルに1症状"></p>
+
+**サンプル：** 架空の会社のサンプルです。ダウンロードして、ブラウザーで開けます。[PC 用](samples/okojo/manual.html)、[スマホ用の束](samples/okojo/phone/)、[更新用のデータ](samples/okojo/manual.json)（実物の通し4回目、模擬評価）。
+
 ```
 git clone https://github.com/devmmou-cpu/hikitsugi.git
 mkdir handover; cd handover

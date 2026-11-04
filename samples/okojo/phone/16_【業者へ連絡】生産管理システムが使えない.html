@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>生産管理システムが使えない</title>
+<style>
+:root {
+color-scheme: light;
+--bg: #F7F6F1;
+--card: #FFFFFF;
+--card-2: #F1EFE9;
+--line: #DCD9D1;
+--line-strong: #8E8A82;
+--ink: #1E2124;
+--ink-2: #5B6066;
+--ink-3: #6B7076;
+--accent: #8A4E22;
+--accent-ink: #FFFFFF;
+--accent-soft: #FBF1E6;
+--accent-strong: #6E3B16;
+--ok-fg: #1E6B3F;
+--ok-bg: #E4F1E7;
+--warn-fg: #7A4F00;
+--warn-bg: #FBEFD0;
+--call-fg: #FFFFFF;
+--call-bg: #1E2124;
+--ask-fg: #2D5A8A;
+--ask-bg: #E1EBF6;
+--danger-fg: #B00020;
+--danger-bg: #FBE9EC;
+--shadow-card: 0 1px 2px rgba(30, 33, 36, .06);
+--shadow-hero: 0 6px 20px rgba(138, 78, 34, .14), 0 1px 2px rgba(30, 33, 36, .06);
+--okojo-body: #FFFFFF;
+--okojo-tip: #1E2124;
+--okojo-line: #5B6066;
+--s1: 4px;
+--s2: 8px;
+--s3: 12px;
+--s4: 16px;
+--s5: 24px;
+--s6: 32px;
+--s7: 48px;
+--mono: ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+:root:not([data-theme="light"]) {
+color-scheme: dark;
+--bg: #151718;
+--card: #1F2224;
+--card-2: #26292C;
+--line: #363A3E;
+--line-strong: #6F746B;
+--ink: #ECEAE3;
+--ink-2: #B3AFA6;
+--ink-3: #9A9690;
+--accent: #E2A66F;
+--accent-ink: #151718;
+--accent-soft: #2B2520;
+--accent-strong: #F0BE8E;
+--ok-fg: #8FD3A5;
+--ok-bg: #1C3426;
+--warn-fg: #F2C46B;
+--warn-bg: #3A2E12;
+--call-fg: #151718;
+--call-bg: #ECEAE3;
+--ask-fg: #9CC3EC;
+--ask-bg: #1C2E42;
+--danger-fg: #FF8A80;
+--danger-bg: #3A1F1F;
+--shadow-card: none;
+--shadow-hero: 0 0 0 1px var(--accent);
+--okojo-line: #B3AFA6;
+}
+}
+* { box-sizing: border-box; }
+html {
+font-family: system-ui, sans-serif;
+font-size: 17px;
+line-height: 1.7;
+color: var(--ink);
+background: var(--bg);
+-webkit-text-size-adjust: 100%;
+text-size-adjust: 100%;
+}
+body { margin: 0; padding: var(--s4); overflow-wrap: anywhere; }
+h1, h2, h3, p, ul, ol, dl, dd, blockquote { margin: 0; }
+.nb { white-space: nowrap; }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-size: 14px; color: var(--ink-2); }
+.chip-secret { padding: 0 var(--s2); font-size: 13px; font-weight: 700; color: var(--ink); border: 1px solid var(--ink); border-radius: 4px; }
+.draft { margin-top: var(--s3); padding: var(--s2) var(--s3); font-weight: 700; color: var(--warn-fg); background: var(--warn-bg); border-radius: 8px; }
+h1 { margin-top: var(--s4); font-size: 26px; line-height: 1.4; }
+.verdict { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s3); margin-top: var(--s3); font-size: 15px; color: var(--ink-2); }
+.badge { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px 0 10px; font-size: 15px; font-weight: 700; line-height: 1; white-space: nowrap; border-radius: 999px; }
+.badge svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.badge[data-badge="self"] { color: var(--ok-fg); background: var(--ok-bg); }
+.badge[data-badge="check_first"] { color: var(--warn-fg); background: var(--warn-bg); }
+.badge[data-badge="vendor"] { color: var(--call-fg); background: var(--call-bg); }
+.badge[data-badge="internal"] { color: var(--ask-fg); background: var(--ask-bg); }
+.verdict-text { margin-top: var(--s2); }
+.safe { margin-top: var(--s3); color: var(--ink-2); }
+.part { margin-top: var(--s6); }
+h2 { font-size: 22px; line-height: 1.4; }
+h3 { margin-top: var(--s4); font-size: 17px; }
+.first { padding: var(--s4); background: var(--card); border: 2px solid var(--accent); border-radius: 12px; }
+.first-body { margin-top: var(--s2); font-size: 19px; font-weight: 500; }
+.step-figure { display: block; width: 100%; max-width: 320px; height: auto; margin-top: var(--s2); color: var(--ink); }
+.goal { margin-top: var(--s3); padding: var(--s2) var(--s3); color: var(--ok-fg); background: var(--ok-bg); border-radius: 8px; }
+.band { margin-top: var(--s3); padding: var(--s2) var(--s3); background: var(--card-2); border-radius: 8px; }
+.notes, .phone-steps { padding-left: 1.5em; }
+.notes li, .phone-steps li { margin-top: var(--s2); }
+.step-note { font-size: 15px; color: var(--ink-2); }
+.info-table { width: 100%; margin-top: var(--s2); font-size: 15px; border-collapse: collapse; background: var(--card); }
+.info-table th, .info-table td { padding: var(--s2); text-align: left; vertical-align: top; border: 1px solid var(--line); }
+.info-table th { white-space: nowrap; }
+.info-drive { white-space: nowrap; text-align: center; }
+code, kbd { font-family: ui-monospace, monospace; font-size: .95em; }
+.contact { margin-top: var(--s3); padding: var(--s4); background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.contact-name { margin-top: 0; font-size: 19px; }
+.contact-role { display: block; font-size: 15px; font-weight: 400; color: var(--ink-2); }
+.tel { white-space: nowrap; -webkit-user-select: all; user-select: all; }
+.tel > span + span { margin-left: .3em; }
+.num { margin-top: var(--s2); font-size: 22px; font-weight: 700; line-height: 1.3; letter-spacing: .02em; }
+.note { margin-top: var(--s1); font-size: 15px; color: var(--ink-2); }
+.no-phone { margin-top: var(--s2); font-weight: 700; color: var(--danger-fg); }
+.label { margin-top: var(--s3); font-size: 15px; font-weight: 700; }
+.contact-hours { display: flex; gap: var(--s2); align-items: flex-start; }
+.contact-hours svg { flex: none; width: 20px; height: 20px; margin-top: 4px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; color: var(--ink-2); }
+.say { margin-top: var(--s1); padding: var(--s3) var(--s4); background: var(--card-2); border-left: 4px solid var(--line-strong); border-radius: 0 8px 8px 0; white-space: pre-line; -webkit-user-select: all; user-select: all; }
+.terms dt { margin-top: var(--s3); font-weight: 700; }
+.terms dd { color: var(--ink-2); }
+.foot { margin-top: var(--s7); padding-top: var(--s3); font-size: 14px; color: var(--ink-2); border-top: 1px solid var(--line); }
+.foot p + p { margin-top: var(--s1); }
+
+</style>
+</head>
+<body>
+<p class="top"><span class="chip-secret">社外秘</span><span>オコジョ精工株式会社 ITの取扱説明書</span></p>
+<h1><span class="nb">生産管理システム</span>が使えない</h1>
+<p class="verdict"><span class="badge" data-badge="vendor"><svg viewBox="0 0 24 24" role="presentation"><path d="M6.6 3.5h2.2c.5 0 .9.3 1 .8l.8 3.2c.1.4 0 .8-.3 1L8.7 9.9a13 13 0 0 0 5.4 5.4l1.4-1.6c.3-.3.7-.4 1-.3l3.2.8c.5.1.8.5.8 1v2.2c0 1.1-.9 2-2 2C10.6 19.4 4.6 13.4 4.6 5.5c0-1.1.9-2 2-2z"/></svg><span>業者へ連絡</span></span><span>目安 約5分</span></p>
+<p class="verdict-text"><span class="nb">イイズナソフト</span>に連絡してください。</p>
+<p class="safe"><span class="nb">生産管理システム</span>は社内の<span class="nb">サーバー</span>1台で動いていて、相談の窓口は販売店の<span class="nb">イイズナソフト</span>です。</p>
+<section class="part">
+<h2>社員に返す文</h2>
+<blockquote class="say">いま確認しています。
+<span class="nb">イイズナソフト</span>に連絡します。</blockquote>
+<p class="note">長押しして選択し、コピーしてください。</p>
+</section>
+<section class="part">
+<h2>① 連絡してください</h2>
+<div class="contact">
+<h3 class="contact-name">イイズナソフト<span class="contact-role">生産管理ソフト</span></h3>
+<p class="contact-hours"><svg viewBox="0 0 24 24" role="presentation"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg><span>受付は平日9時から17時30分です。</span></p>
+<p class="num"><span class="tel"><span>03</span><span>0000</span><span>0104</span></span></p>
+<p class="note">番号を長押しすると、発信できます。</p>
+<p class="label">業者に伝える文面</p>
+<blockquote class="say"><span class="nb">オコジョ精工</span>株式会社です。
+「<span class="nb">生産管理システム</span>が使えない」件で連絡しました。
+確認をお願いします。</blockquote>
+<p class="note">長押しして選択し、コピーしてください。</p>
+</div>
+</section>
+<section class="part">
+<h2>先に知っておくこと</h2>
+<ul class="notes">
+<li>社内で相談するときは、社長に聞いてください。</li>
+<li>この<span class="nb">ページ</span>は、<span class="nb">生産管理システム</span>だけが使えないときの手順です。</li>
+<li><span class="nb">サーバー</span>は勝手に再起動しないでください。</li>
+<li>電源を入れる手順は、次の<span class="nb">ページ</span>にあります。（「NAS が止まっている・直らない（停電のあとなど）」のファイル）</li>
+<li><span class="nb">サーバー</span>の置き場所の記録がありません。社長に聞いてください（連絡先）。</li>
+</ul>
+</section>
+<p class="memo-nojs">メモは PC 版で書けます</p>
+<section class="part terms">
+<h2>このページのことば</h2>
+<dl>
+<dt>生産管理システム</dt>
+<dd>ものづくりの進み具合を記録して管理するソフトです。</dd>
+<dt>サーバー</dt>
+<dd>ほかの機器にソフトやファイルを渡す機器です。</dd>
+</dl>
+</section>
+<div class="foot">
+<p>作成：2026年11月4日 田中 確認</p>
+<p>もとにした情報：聞き取り</p>
+<p>ほかの症状は、フォルダの一覧から開いてください。</p>
+</div>
+</body>
+</html>
