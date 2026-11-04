@@ -168,6 +168,31 @@ export function withWindows10Note(manual, survey) {
   return { ...base, statements: [...base.statements, ...added], symptom_pages: pages };
 }
 
+/**
+ * 表示のために、分岐と該当する PC の2本を1本にする。「Windows 10 の PC（名前）は、手順が違うので…」。
+ * 検証は別々の文のまま済んでいるので、manual.json は変えない。根拠は両方を残す。
+ */
+export function withPcInBranch(manual) {
+  const byId = mapById(manual);
+  const merged = new Map();
+  const notes = new Set();
+  for (const page of manual.symptom_pages) {
+    page.branches.forEach((id, index) => {
+      const note = byId.get(page.branches[index + 1]);
+      if (byId.get(id)?.library !== WINDOWS_10_PART || note?.usage !== PC_NOTE_USAGE) return;
+      const hosts = note.text.replace(/^該当する PC：/, '').replace(/。$/, '');
+      merged.set(id, { text: byId.get(id).text.replace('Windows 10 の PC は', `Windows 10 の PC（${hosts}）は`), evidence: [...byId.get(id).evidence, ...note.evidence] });
+      notes.add(note.id);
+    });
+  }
+  if (!merged.size) return manual;
+  return {
+    ...manual,
+    statements: manual.statements.filter((statement) => !notes.has(statement.id)).map((statement) => (merged.has(statement.id) ? { ...statement, ...merged.get(statement.id) } : statement)),
+    symptom_pages: manual.symptom_pages.map((page) => ({ ...page, branches: page.branches.filter((id) => !notes.has(id)) })),
+  };
+}
+
 /** プログラムが組む文を外した形に戻す。Writer と Editor には渡さない。 */
 export function withoutReplies(manual) {
   const composed = new Set(manual.statements.filter((statement) => statement.usage === REPLY_USAGE || statement.usage === CALL_USAGE).map((statement) => statement.id));

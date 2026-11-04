@@ -13,7 +13,7 @@ import { validate } from '../lib/validate.mjs';
 import { CLIENT_HEAD_SCRIPT, CLIENT_SCRIPT } from './client.mjs';
 import { STYLES } from './styles.mjs';
 import { oversizeMessage, PC_FILE_LIMIT, writeWithinLimit } from '../lib/limits.mjs';
-import { callScriptProblems, replyProblems } from '../lib/reply.mjs';
+import { callScriptProblems, replyProblems, withPcInBranch } from '../lib/reply.mjs';
 import { firstStepFigures } from '../lib/figures.mjs';
 import { latestUpdateOf, UPDATE_KIND_LABELS } from '../lib/update.mjs';
 
@@ -85,7 +85,7 @@ export const BADGE_ICONS = { self: 'check', check_first: 'alert', vendor: 'phone
 const TABS = [
   ['tab-help', '困った<wbr>とき', 'help'],
   ['tab-contacts', '連絡先', 'phone'],
-  ['tab-routines', '毎月<wbr>やること', 'calendar'],
+  ['tab-routines', '決まった<wbr>作業', 'calendar'],
   ['tab-company', '会社の<wbr>IT', 'monitor'],
 ];
 
@@ -381,7 +381,7 @@ function updateLogHtml({ manual, text }) {
     const device = manual.devices.find((candidate) => candidate.id === target);
     return device ? text(device.name) : esc(target);
   };
-  const rows = [...manual.updates].reverse().map(({ target, by, date, kind, summary }) => `<tr><td class="update-date">${esc(formatDate(date))}</td><td class="update-kind">${esc(UPDATE_KIND_LABELS[kind] ?? '')}</td><td>${esc(by)}</td><td>${nameOf(target)}</td><td>${esc(summary ?? '')}</td></tr>`);
+  const rows = [...manual.updates].reverse().map(({ target, by, date, kind, summary }) => `<tr><td class="update-date">${esc(formatDate(date))}</td><td class="update-kind">${esc(UPDATE_KIND_LABELS[kind] ?? '')}</td><td>${esc(by)}</td><td>${nameOf(target)}</td><td>${esc(summary ?? '').replace(PHONE_IN_TEXT, telHtml)}</td></tr>`);
   return [
     '<p class="label intro-label">更新の記録</p>',
     '<table class="update-log"><thead><tr><th>日付</th><th>種類</th><th>確認した人</th><th>ページ</th><th>内容</th></tr></thead>',
@@ -762,7 +762,7 @@ function contactsPanel(ctx) {
   return `<section id="tab-contacts" class="panel screen">\n<h2 tabindex="-1">連絡先</h2>\n${body}\n</section>`;
 }
 
-// ---- 毎月やること ----
+// ---- 決まった作業 ----
 /** 基準日の月から数えて、何か月先か。月のない年の作業は最後に回す。 */
 function monthsAway(routine, asOfMonth) {
   return routine.month === undefined ? 12 : (routine.month - asOfMonth + 12) % 12;
@@ -784,7 +784,7 @@ function routineHtml(ctx, routine) {
 function routinesPanel(ctx) {
   const { routines, as_of: asOf, glossary } = ctx.manual;
   if (!routines.length) {
-    return `<section id="tab-routines" class="panel screen">\n<h2 tabindex="-1">毎月やること</h2>\n${emptyHtml('毎月やることは、まだこの説明書に入っていません。')}\n</section>`;
+    return `<section id="tab-routines" class="panel screen">\n<h2 tabindex="-1">決まった作業</h2>\n${emptyHtml('決まった作業は、まだこの説明書に入っていません。')}\n</section>`;
   }
   const asOfMonth = Number(asOf.slice(5, 7));
   const present = FREQUENCY_LABELS.filter(([frequency]) => routines.some((r) => r.frequency === frequency));
@@ -798,7 +798,7 @@ function routinesPanel(ctx) {
   });
   const toc = `<nav class="toc" aria-label="頻度へ移る">${present.map(([frequency, label]) => `<a class="tap" href="#freq-${frequency}">${esc(label)}</a>`).join('')}</nav>`;
   const link = glossary.length ? '\n<p class="tab-link"><a class="tap text-link" href="#company-terms">分からないことばを調べる</a></p>' : '';
-  return `<section id="tab-routines" class="panel screen">\n<h2 tabindex="-1">毎月やること</h2>\n<p class="lead">決まった時期にやる作業です。</p>\n<div class="routines-layout">\n${toc}\n<div class="routines-main">\n${groups.join('\n')}${link}\n</div>\n</div>\n</section>`;
+  return `<section id="tab-routines" class="panel screen">\n<h2 tabindex="-1">決まった作業</h2>\n<p class="lead">決まった時期にやる作業です。</p>\n<div class="routines-layout">\n${toc}\n<div class="routines-main">\n${groups.join('\n')}${link}\n</div>\n</div>\n</section>`;
 }
 
 // ---- 会社のIT ----
@@ -878,8 +878,9 @@ export function makeContext(manual) {
 }
 
 /** 取扱説明書の中身から HTML の文字列を作る。入力に異常があれば例外を投げる。 */
-export function renderManual(manual) {
-  checkInput(manual);
+export function renderManual(input) {
+  checkInput(input);
+  const manual = withPcInBranch(input);
   const ctx = makeContext(manual);
   const company = esc(manual.company_name);
   return `<!doctype html>

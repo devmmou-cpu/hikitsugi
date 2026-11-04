@@ -185,7 +185,7 @@ test('下部のタブが4つあり、リンク先が存在する', () => {
   const links = startTags(nav, 'a');
   assert.equal(links.length, 4);
   const text = visibleText(nav);
-  for (const label of ['困ったとき', '連絡先', '毎月やること', '会社のIT']) {
+  for (const label of ['困ったとき', '連絡先', '決まった作業', '会社のIT']) {
     assert.ok(text.includes(label), `タブがありません: ${label}`);
   }
   for (const tag of links) {

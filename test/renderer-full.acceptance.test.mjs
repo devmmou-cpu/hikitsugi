@@ -5,7 +5,7 @@
 // - タブは <section id="tab-…" class="panel"> で書き、中に section を入れない。手順ページは <article id="symptom-T1"> で書く
 // - 手順の一覧は <ol class="steps">。番号は <span class="step-n">1</span> の要素で書き、ol の標準の番号を消す。
 //   .steps の最初のルールに list-style: none と padding: 0 を書く
-// - 毎月やることの定期作業は <article class="routine" data-frequency="weekly"> の形で書き、
+// - 決まった作業の定期作業は <article class="routine" data-frequency="weekly"> の形で書き、
 //   頻度は「毎週」「毎月」「年に1回」の文字でも示す
 // - 機器は <article class="device"> の形で書き、「置き場所」「役割」「止まると」の見出しを付ける
 // - 色、文字、列の値は renderer-visual.acceptance.test.mjs で確かめる
@@ -97,7 +97,7 @@ test('連絡先：全社のカードに、電話のリンクと全項目があ�
   }
 });
 
-test('毎月やること：全作業が頻度つきで並び、手順も読める', () => {
+test('決まった作業：全作業が頻度つきで並び、手順も読める', () => {
   const section = sectionOf('tab-routines', 'section');
   const articles = tags(section, 'article').filter((tag) => /class="[^"]*\broutine\b/.test(tag));
   assert.equal(articles.length, manual.routines.length);
@@ -114,7 +114,7 @@ test('毎月やること：全作業が頻度つきで並び、手順も読め�
   }
 });
 
-test('毎月やること：毎週、毎月のあとに、年の作業が基準日から近い順に並ぶ', () => {
+test('決まった作業：毎週、毎月のあとに、年の作業が基準日から近い順に並ぶ', () => {
   const section = strip(sectionOf('tab-routines', 'section'));
   const position = (routine) => section.indexOf(textOf(routine.title));
   const asOfMonth = Number(manual.as_of.slice(5, 7));

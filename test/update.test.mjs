@@ -471,3 +471,14 @@ test('メモから始めた更新は、種類を「メモの取り込み」と�
     assert.equal(read('state.json').update.from_memo, undefined);
     assert.equal(nextStep(work).step, 'writer');
   }));
+
+test('更新の記録：内容の電話番号は .tel の部品で出す', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { renderManual } = await import('../plugin/renderer/render.mjs');
+  const manual = JSON.parse(readFileSync(new URL('./fixtures/manual-full.json', import.meta.url), 'utf8'));
+  const target = manual.contacts[0].id;
+  const html = renderManual({ ...manual, updates: [{ target, pages: [], by: '佐藤', date: '2026-11-04', kind: 'contact', summary: '電話番号が 03-0000-0188 に変わりました。' }] });
+  const start = html.indexOf('<table class="update-log"');
+  const log = html.slice(start, html.indexOf('</table>', start));
+  assert.match(log, /<span class="tel"><span>03<\/span><span>0000<\/span><span>0188<\/span><\/span>/);
+});

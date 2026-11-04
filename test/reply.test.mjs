@@ -274,7 +274,9 @@ test('Windows 10 の分岐：何度組んでも増えず、Writer には渡さ�
   const revision = buildRevision(withReplies(once), []);
   assert.ok(!revision.previous_manual.statements.some((s) => s.usage));
   assert.ok(revision.previous_manual.symptom_pages.every((p) => !p.branches.some((id) => !revision.previous_manual.statements.some((s) => s.id === id))));
-  assert.match(renderManual(withReplies(once)).replace(/<[^>]+>/g, ''), /該当する PC：OKJ-CAD-01。/);
+  const shown = renderManual(withReplies(once)).replace(/<[^>]+>/g, '');
+  assert.match(shown, /Windows 10 の PC（OKJ-CAD-01）は、手順が違うので、連絡先へ連絡してください。/);
+  assert.doesNotMatch(shown, /該当する PC/);
 });
 
 test('業者に伝える文：業者へ連絡以外のページには、機器の場所の行を出さない', () => {
@@ -340,4 +342,21 @@ test('業者に伝える文：機器を1つに絞れないときは、機器の�
   assert.equal(placeLine('サーバーが動かない'), null, '置き場所の記録がない');
   assert.equal(placeLine('工場の AP が止まった'), '機器の場所：工場の入口に近い柱の上にあります');
   assert.equal(placeLine('AP が止まった'), null, 'どちらの AP か分からない');
+});
+
+test('Windows 10 の分岐：束でも1本にまとめ、manual の文は分けたまま根拠を残す', async () => {
+  const { renderPhoneBundle } = await import('../plugin/renderer/phone.mjs');
+  const { withPcInBranch } = await import('../plugin/lib/reply.mjs');
+  const manual = withReplies(withWindows10Note(withBranch(), surveyWith(['OKJ-CAD-01', 'Windows 10 Pro'], ['OKJ-CAD-02', 'Windows 10 Pro'])));
+  const page = pageWithBranch(manual);
+  const merged = withPcInBranch(manual);
+  const part = merged.statements.find((s) => s.library === 'LIB-021');
+  assert.equal(part.text, 'Windows 10 の PC（OKJ-CAD-01、OKJ-CAD-02）は、手順が違うので、連絡先へ連絡してください。');
+  assert.ok(part.evidence.includes('INV-001'));
+  assert.ok(!merged.statements.some((s) => s.usage === 'pc_note'));
+  assert.equal(merged.symptom_pages.find((p) => p.id === page.id).branches.length, page.branches.length - 1);
+  assert.ok(manual.statements.some((s) => s.usage === 'pc_note'), '元の manual は変えない');
+  const text = renderPhoneBundle(manual).map(({ html }) => html.replace(/<[^>]+>/g, '')).join('\n');
+  assert.match(text, /Windows 10 の PC（OKJ-CAD-01、OKJ-CAD-02）は、手順が違う/);
+  assert.doesNotMatch(text, /該当する PC/);
 });

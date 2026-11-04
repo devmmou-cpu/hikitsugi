@@ -607,12 +607,9 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   white-space: nowrap;
 }
 
-.update-log .update-date {
-  white-space: nowrap;
-}
-
-/* 種類は広い幅でだけ1行にする。狭い幅では折り返さないと横にはみ出す */
+/* 日付と種類は広い幅でだけ1行にする。電話番号は折り返さないので、狭い幅ではこちらを折り返す */
 @media (min-width: 700px) {
+  .update-log .update-date,
   .update-log .update-kind {
     white-space: nowrap;
   }
@@ -1683,7 +1680,7 @@ details[open] .plus-v {
   gap: var(--s4);
 }
 
-/* ---- 毎月やること ---- */
+/* ---- 決まった作業 ---- */
 .toc {
   display: flex;
   gap: var(--s4);
@@ -2219,7 +2216,7 @@ details[open] .plus-v {
     width: 100%;
   }
 
-  /* 毎月やること：左に目次 */
+  /* 決まった作業：左に目次 */
   .routines-layout {
     display: grid;
     grid-template-columns: 148px minmax(0, 1fr);

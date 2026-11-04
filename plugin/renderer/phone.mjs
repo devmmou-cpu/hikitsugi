@@ -12,6 +12,7 @@
 //
 // 使い方：node plugin/renderer/phone.mjs <入力.json> <出力フォルダ>
 
+import { withPcInBranch } from '../lib/reply.mjs';
 import { mkdirSync, readdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -248,7 +249,8 @@ export function phoneFileProblems(html) {
  * スマホ向けのファイルの一覧を作る。{ name, html } の配列で、並びはフォルダの一覧と同じ。
  * 入力か出力に問題があれば、例外を投げて1つも作らない。
  */
-export function renderPhoneBundle(manual) {
+export function renderPhoneBundle(input) {
+  const manual = withPcInBranch(input);
   checkInput(manual);
   const shape = [...pageProblems(manual), ...contactProblems(manual)];
   if (shape.length) throw new Error(`手順ページの形に問題があります:\n${shape.map((p) => `- ${p}`).join('\n')}`);

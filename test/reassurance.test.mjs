@@ -50,3 +50,8 @@ test('安心帯以外の文の Editor の直しは止めない', () => {
   const { manual: result } = applyEdits(manual('データは消えません。'), { rewrites: [{ id: 'STM-002', text: '別の文で大丈夫です。' }], glossary: [] });
   assert.equal(result.statements[1].text, '別の文で大丈夫です。');
 });
+
+test('文が変わらない更新で、主のエージェントが言う文が SKILL にある', () => {
+  const skill = readFileSync(new URL('../plugin/skills/start/SKILL.md', import.meta.url), 'utf8');
+  assert.ok(skill.includes('「文は変わらないので、番号を置き換えて確認します」'));
+});
