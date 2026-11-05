@@ -11,6 +11,7 @@ import { writerFormat } from '../plugin/lib/assemble.mjs';
 import { pageStatementIds } from '../plugin/lib/page-check.mjs';
 import { changeSummary, bundleOf, CREDENTIAL_MEMO, parseMemos, updateSummary, withContactPhone, withUpdateMark } from '../plugin/lib/update.mjs';
 import { renderManual } from '../plugin/renderer/render.mjs';
+import { PHONE_DIR } from '../plugin/renderer/phone.mjs';
 import { withoutReplies, withReplies } from '../plugin/lib/reply.mjs';
 import { validate } from '../plugin/lib/validate.mjs';
 import { nextStep, run } from '../plugin/scripts/hikitsugi.mjs';
@@ -152,7 +153,7 @@ test('連絡先の電話番号の変更：その連絡先の番号だけが変�
     assert.match(html, /<p class="label intro-label">更新の記録<\/p>/);
     assert.ok(html.includes(`<td class="update-kind">連絡先の変更</td><td>佐藤</td><td>${after.contacts.find((contact) => contact.id === 'VEN-02').name}</td>`), '更新の記録に種類、確認した人、相手を出す');
     assert.match(html, /更新：[^<]* 佐藤 確認/);
-    assert.ok(existsSync(join(out, 'phone')));
+    assert.ok(existsSync(join(out, PHONE_DIR)));
     assert.equal(JSON.parse(readFileSync(join(out, 'manual.json'), 'utf8')).manual.review.updated_by, '佐藤');
     assert.equal(nextStep(work).step, 'update');
   }));

@@ -24,7 +24,7 @@ import { appendEntry, appendReviewEntry, checkNextQuestion, emptyTranscript, int
 import { validate } from '../lib/validate.mjs';
 import { renderManual } from '../renderer/render.mjs';
 import { isComposedStatement, withoutFlaggedPlace, withReplies, withWindows10Note } from '../lib/reply.mjs';
-import { writePhoneBundle } from '../renderer/phone.mjs';
+import { PHONE_DIR, writePhoneBundle } from '../renderer/phone.mjs';
 import { oversizeMessage, PC_FILE_LIMIT, PC_FILE_TARGET, writeWithinLimit } from '../lib/limits.mjs';
 import { BUNDLE_NAME, bundleOf, changeSummary, pagesNeedingPhrases, pagesOfContact, parseMemos, targetKind, updateSummary, withContactPhone, withUpdateMark } from '../lib/update.mjs';
 
@@ -634,7 +634,8 @@ function reviewOk(work, [pageId]) {
   const today = new Date().toLocaleDateString('sv');
   writeJson(finalPath, checkSchema('manual', markReviewed(manual, state.review.reviewer, today)));
   rmSync(join(work, 'manual.html'), { force: true });
-  rmSync(join(work, 'phone'), { recursive: true, force: true });
+  // 作業フォルダの中だけ。前の名前（phone）の束も消す
+  for (const name of [PHONE_DIR, 'phone']) rmSync(join(work, name), { recursive: true, force: true });
   writeJson(join(work, 'state.json'), { ...state, review: { ...state.review, pages, done: true, confirmed_on: today } });
   return '全ページの確認が終わりました';
 }
@@ -1017,7 +1018,7 @@ function render(work, [outPath]) {
   const html = renderManual(manual, { unknowns });
   if (writeWithinLimit(target, html, PC_FILE_LIMIT)) throw new Problem(oversizeMessage(target, html, PC_FILE_LIMIT));
   if (target !== resolve(join(work, 'manual.html'))) writeWithinLimit(join(work, 'manual.html'), html, PC_FILE_LIMIT);
-  const phoneDir = join(dirname(target), 'phone');
+  const phoneDir = join(dirname(target), PHONE_DIR);
   const bundle = writePhoneBundle(manual, phoneDir);
   if (bundle.blocked.length) throw new Problem(bundle.blocked.join('\n'));
   // 更新に使うデータを隣に置く。下書きは更新の対象にならないので、確認が済んでから置く

@@ -3,7 +3,7 @@
 // パスワードらしい文字列や、架空の形式以外の電話番号、ドメインがあれば、ファイルを .blocked に改名して止める。
 // 開発用の検査で、配布するプラグインには含めない。値そのものは表示しない。
 //
-// スマホ向けの束（manual.html の隣の phone/ と、phone.mjs の出力先）の全ファイルにも同じ検査をする。
+// スマホ向けの束（manual.html の隣の「ITの取扱説明書（スマホ用）」か前の名前の phone/ と、phone.mjs の出力先）の全ファイルにも同じ検査をする。
 // 単独でも使える：node scripts/hooks/check-manual-html.mjs --file <入力.html またはフォルダ>
 
 import { existsSync, readdirSync, readFileSync, realpathSync, renameSync, statSync } from 'node:fs';
@@ -11,7 +11,7 @@ import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { secretProblems } from '../check-secrets.mjs';
 import { fileSize, PC_FILE_LIMIT } from '../../plugin/lib/limits.mjs';
-import { phoneFileProblems } from '../../plugin/renderer/phone.mjs';
+import { PHONE_DIR, phoneFileProblems } from '../../plugin/renderer/phone.mjs';
 
 const CREDENTIAL = /(?:パスワード|パスコード|暗証番号|認証コード|password|passcode)(?:は|が|:|=|\s)[\s、,]*[「『"'(]?[!-~]{4,}/iu;
 const PHONE = /(?<![\d-])0\d{0,4}-\d{1,4}-\d{3,4}(?![\d-])/g;
@@ -79,12 +79,12 @@ const htmlIn = (dir) => (existsSync(dir) ? readdirSync(dir).filter((name) => nam
 export function withPhoneBundles(paths) {
   return [...new Set(paths.flatMap((path) => {
     if (existsSync(path) && statSync(path).isDirectory()) return htmlIn(path);
-    return basename(path) === 'manual.html' ? [path, ...htmlIn(join(dirname(path), 'phone'))] : [path];
+    return basename(path) === 'manual.html' ? [path, ...[PHONE_DIR, 'phone'].flatMap((name) => htmlIn(join(dirname(path), name)))] : [path];
   }))];
 }
 
 /** スマホ向けの束のファイルか。束の決まり（script、リンク、大きさ）も確かめる。 */
-const isPhoneFile = (path) => basename(dirname(path)) === 'phone' || /^(?:\d{2}_)/.test(basename(path));
+const isPhoneFile = (path) => [PHONE_DIR, 'phone'].includes(basename(dirname(path))) || /^\d{2}[ _]/.test(basename(path));
 
 function checkFiles(paths) {
   let blocked = false;

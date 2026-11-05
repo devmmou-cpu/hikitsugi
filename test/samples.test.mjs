@@ -4,13 +4,14 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import { manualHtmlProblems } from '../scripts/hooks/check-manual-html.mjs';
+import { PHONE_DIR } from '../plugin/renderer/phone.mjs';
 
 const root = new URL('../samples/okojo/', import.meta.url);
 const read = (name) => readFileSync(new URL(name, root), 'utf8');
 
 test('PC 用と束のサンプルは HTML の検査に通る', () => {
   assert.deepEqual(manualHtmlProblems(read('manual.html')), []);
-  for (const name of readdirSync(new URL('phone/', root))) assert.deepEqual(manualHtmlProblems(read(`phone/${name}`)), [], name);
+  for (const name of readdirSync(new URL(`${PHONE_DIR}/`, root))) assert.deepEqual(manualHtmlProblems(read(`${PHONE_DIR}/${name}`)), [], name);
 });
 
 test('更新用のデータは架空の形式の番号とドメインだけ', () => {
@@ -22,6 +23,6 @@ test('更新用のデータは架空の形式の番号とドメインだけ', ()
 
 test('README からサンプルへのリンクがある', () => {
   const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
-  for (const path of ['samples/okojo/manual.html', 'samples/okojo/phone/', 'samples/okojo/manual.json']) assert.ok(readme.includes(path), path);
+  for (const path of ['samples/okojo/manual.html', `samples/okojo/${PHONE_DIR}/`, 'samples/okojo/manual.json']) assert.ok(readme.includes(path), path);
   assert.ok(readme.includes('サンプル（架空の会社）'));
 });

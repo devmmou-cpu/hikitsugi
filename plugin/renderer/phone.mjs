@@ -24,6 +24,8 @@ import { STYLES } from './styles.mjs';
 
 const SYMPTOM_NAME_MAX = 30;
 const LAST_NUMBER = 99;
+/** 書き出すフォルダの名前。OneDrive の一覧でそのまま意味が分かるように、日本語にする。 */
+export const PHONE_DIR = 'ITの取扱説明書（スマホ用）';
 const CIRCLED = ['①', '②', '③', '④'];
 
 /** 配色は PC 用と同じものを使う。暗い色は OS の設定に従う。 */
@@ -97,8 +99,8 @@ export function safeSymptomName(title) {
   return cut.replace(/^[\s.]+|[\s.]+$/g, (edge) => '_'.repeat([...edge].length));
 }
 
-/** 「番号_【判定】症状.html」の名前を作る。 */
-export const phoneFileName = (number, badge, title) => `${String(number).padStart(2, '0')}_【${BADGE_LABELS[badge]}】${safeSymptomName(title)}.html`;
+/** 「番号 判定 症状.html」の名前を作る。iPhone の OneDrive の一覧は名前の途中で切れるので、記号を減らして症状の文字を残す。 */
+export const phoneFileName = (number, badge, title) => `${String(number).padStart(2, '0')} ${BADGE_LABELS[badge]} ${safeSymptomName(title)}.html`;
 
 /** 番号は PC 版と同じ分類の順。同じ分類の中は、説明書の順のまま。 */
 function orderedPages(manual) {
@@ -184,7 +186,7 @@ function symptomHtml(ctx, page, fileTitle) {
     ? `<section class="part">\n<h2>${number()} ${hasFirst ? 'それでも直らなければ' : 'やること'}</h2>\n${bands(page.branches)}\n<ol class="phone-steps">\n${list(page.steps)}\n</ol>\n${goal(page.goal)}\n${bands(page.exceptions)}\n</section>`
     : [bands(page.branches), bands(page.exceptions)].filter(Boolean).join('\n');
   const closing = contactLeads ? '' : contactPart();
-  const noContact = contact ? '' : '<section class="part">\n<h2>連絡先</h2>\n<p>連絡先は、フォルダの中の 00_連絡先 を開いてください。</p>\n</section>';
+  const noContact = contact ? '' : '<section class="part">\n<h2>連絡先</h2>\n<p>連絡先は、フォルダの中の「00 連絡先」を開いてください。</p>\n</section>';
 
   const terms = pageTerms(ctx, page, contact);
   const allTerms = [...terms.steps.flat(), ...terms.rest];
@@ -262,12 +264,12 @@ export function renderPhoneBundle(input) {
 
   const ctx = makeContext(manual, { links: false });
   const bundle = [
-    { name: '00_連絡先.html', html: contactsHtml(ctx, '連絡先', '困ったときに連絡する相手です。', '連絡先', contactGuide(manual.contacts)) },
+    { name: '00 連絡先.html', html: contactsHtml(ctx, '連絡先', '困ったときに連絡する相手です。', '連絡先', contactGuide(manual.contacts)) },
     ...pages.map((page, index) => {
       const title = ctx.raw(page.title);
       return { name: phoneFileName(index + 1, page.badge.value, title), html: symptomHtml(ctx, page, title) };
     }),
-    { name: '99_当てはまる症状がないとき.html', html: contactsHtml(ctx, '当てはまる症状がないとき', '次の相手に、困っていることをそのまま伝えてください。', '当てはまる症状がないとき') },
+    { name: '99 当てはまる症状がないとき.html', html: contactsHtml(ctx, '当てはまる症状がないとき', '次の相手に、困っていることをそのまま伝えてください。', '当てはまる症状がないとき') },
   ];
   const problems = bundle.flatMap(({ name, html }) => phoneShapeProblems(html).map((problem) => `${name}: ${problem}`));
   if (problems.length) throw new Error(`スマホ向けのファイルに問題があります:\n${problems.map((p) => `- ${p}`).join('\n')}`);

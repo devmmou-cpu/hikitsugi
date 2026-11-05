@@ -9,6 +9,7 @@ import { prepareForRender } from '../plugin/lib/handover.mjs';
 import { composeStatements, loadLibrary } from '../plugin/lib/procedures.mjs';
 import { withReplies } from '../plugin/lib/reply.mjs';
 import { run } from '../plugin/scripts/hikitsugi.mjs';
+import { PHONE_DIR } from '../plugin/renderer/phone.mjs';
 
 const OLD_RESUME = '「同期の再開」を押してください。';
 const library = loadLibrary();
@@ -66,8 +67,8 @@ test('保存した説明書の ① と社員に返す文が、次の render で�
     assert.ok(plain(article.match(/<blockquote class="say reply"[\s\S]*?<\/blockquote>/)[0]).includes(NEW_RESUME), 'PC 用の社員に返す文');
     assert.doesNotMatch(plain(article), STANDS_ALONE);
 
-    const name = readdirSync(join(work, 'phone')).find((file) => file.includes('共有フォルダ'));
-    const phone = plain(readFileSync(join(work, 'phone', name), 'utf8').replace(/<style[\s\S]*?<\/style>/, ''));
+    const name = readdirSync(join(work, PHONE_DIR)).find((file) => file.includes('共有フォルダ'));
+    const phone = plain(readFileSync(join(work, PHONE_DIR, name), 'utf8').replace(/<style[\s\S]*?<\/style>/, ''));
     assert.ok(phone.split(NEW_RESUME).length - 1 >= 2, '束の ① と社員に返す文');
     assert.doesNotMatch(phone, STANDS_ALONE);
   } finally {

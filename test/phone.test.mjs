@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { PHONE_FILE_LIMIT } from '../plugin/lib/limits.mjs';
-import { phoneFileName, phoneFileProblems, renderPhoneBundle, safeSymptomName, writePhoneBundle } from '../plugin/renderer/phone.mjs';
+import { PHONE_DIR, phoneFileName, phoneFileProblems, renderPhoneBundle, safeSymptomName, writePhoneBundle } from '../plugin/renderer/phone.mjs';
 import { CATEGORY_LABELS } from '../plugin/renderer/render.mjs';
 import { checkSecretFiles } from '../scripts/check-secrets.mjs';
 import { manualHtmlProblems, withPhoneBundles, writtenHtmlPaths } from '../scripts/hooks/check-manual-html.mjs';
@@ -22,9 +22,10 @@ const plain = (html) => html.replace(/<style>[\s\S]*?<\/style>/, '').replace(/<[
 const fileFor = (page) => bundle.find(({ html }) => plain(html).includes(textOf.get(page.title)) && html.includes(`<title>${textOf.get(page.title)}`));
 const position = (html, text) => plain(html).indexOf(text);
 
-test('ファイル名：番号_【判定】症状.html。例のとおりになる', () => {
-  assert.equal(phoneFileName(3, 'self', '共有フォルダが見えません'), '03_【自分で直せる】共有フォルダが見えません.html');
-  assert.equal(phoneFileName(12, 'vendor', '複合機が故障した'), '12_【業者へ連絡】複合機が故障した.html');
+test('ファイル名：番号 判定 症状.html。記号を減らし、例のとおりになる', () => {
+  assert.equal(phoneFileName(3, 'self', '共有フォルダが見えません'), '03 自分で直せる 共有フォルダが見えません.html');
+  assert.equal(phoneFileName(12, 'vendor', '複合機が故障した'), '12 業者へ連絡 複合機が故障した.html');
+  assert.equal(PHONE_DIR, 'ITの取扱説明書（スマホ用）');
 });
 
 test('ファイル名：使えない文字と、先頭と末尾の空白とピリオドを置き換え、30字で切る', () => {
@@ -37,16 +38,16 @@ test('ファイル名：使えない文字と、先頭と末尾の空白とピ�
   assert.ok(!/[\\/:*?"<>|]/.test(safeSymptomName('改行\nや\tタブ/も')));
 });
 
-test('並び：00_連絡先 が先頭、99_当てはまる症状がないとき が末尾で、番号は PC 版の分類の順', () => {
+test('並び：00 連絡先 が先頭、99 当てはまる症状がないとき が末尾で、番号は PC 版の分類の順', () => {
   const names = bundle.map((file) => file.name);
-  assert.equal(names[0], '00_連絡先.html');
-  assert.equal(names.at(-1), '99_当てはまる症状がないとき.html');
+  assert.equal(names[0], '00 連絡先.html');
+  assert.equal(names.at(-1), '99 当てはまる症状がないとき.html');
   assert.deepEqual([...names].sort(), names, 'フォルダの一覧の並びと同じ');
   const order = CATEGORY_LABELS.flatMap(([category]) => manual.symptom_pages.filter((p) => p.category === category));
   assert.equal(names.length, order.length + 2);
   order.forEach((page, index) => {
     const label = { self: '自分で直せる', check_first: '確認してから', vendor: '業者へ連絡', internal: '社内で相談' }[page.badge.value];
-    assert.ok(names[index + 1].startsWith(`${String(index + 1).padStart(2, '0')}_【${label}】`), names[index + 1]);
+    assert.ok(names[index + 1].startsWith(`${String(index + 1).padStart(2, '0')} ${label} `), names[index + 1]);
   });
 });
 
@@ -209,7 +210,7 @@ test('上限の 200KB を超えるファイルは .blocked で保存し、理由
 test('フォルダに書き出すと、古い症状のファイルが残らない', () => {
   const dir = mkdtempSync(join(tmpdir(), 'hikitsugi-phone-'));
   try {
-    writeFileSync(join(dir, '50_【自分で直せる】古い症状.html'), 'x');
+    writeFileSync(join(dir, '50 自分で直せる 古い症状.html'), 'x');
     writeFileSync(join(dir, '51_古い.html.blocked'), 'x');
     writeFileSync(join(dir, 'メモ.txt'), 'x');
     writePhoneBundle(manual, dir);
@@ -226,12 +227,12 @@ test('書き出し後の検査：束の全ファイルが合格する。問題�
   for (const { name, html } of bundle) assert.deepEqual(manualHtmlProblems(html), [], name);
   const dir = mkdtempSync(join(tmpdir(), 'hikitsugi-phone-'));
   try {
-    const phone = join(dir, 'phone');
+    const phone = join(dir, PHONE_DIR);
     writePhoneBundle(manual, phone);
     writeFileSync(join(dir, 'manual.html'), '<!doctype html><p>本文</p>');
-    const bad = join(phone, '03_【自分で直せる】悪い.html');
+    const bad = join(phone, '03 自分で直せる 悪い.html');
     writeFileSync(bad, '<!doctype html><p>電話は 06-0000-0000 です。</p>');
-    const withLink = join(phone, '04_【自分で直せる】リンク.html');
+    const withLink = join(phone, '04 自分で直せる リンク.html');
     writeFileSync(withLink, '<!doctype html><a href="#x">x</a>');
     assert.ok(withPhoneBundles([join(dir, 'manual.html')]).includes(bad));
     const hook = spawnSync(process.execPath, [join(ROOT, 'scripts/hooks/check-manual-html.mjs'), '--file', join(dir, 'manual.html')], { encoding: 'utf8' });
