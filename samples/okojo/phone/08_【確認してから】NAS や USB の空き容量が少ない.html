@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>社員から不審なメールを知らされた</title>
+<title>NAS や USB の空き容量が少ない</title>
 <style>
 :root {
 color-scheme: light;
@@ -136,49 +136,103 @@ code, kbd { font-family: ui-monospace, monospace; font-size: .95em; }
 </head>
 <body>
 <p class="top"><span class="chip-secret">社外秘</span><span>オコジョ精工株式会社 ITの取扱説明書</span></p>
-<h1>社員から不審な<span class="nb">メール</span>を知らされた</h1>
-<p class="verdict"><span class="badge" data-badge="internal"><svg viewBox="0 0 24 24" role="presentation"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M16 4.8a3.5 3.5 0 0 1 0 6.4M17.5 14.3c2.2.7 3.5 2.8 3.5 5.7"/></svg><span>社内で相談</span></span><span>目安 約3分</span></p>
-<p class="verdict-text">社員に削除してもらい、社長に内線で報告してください。</p>
-<p class="safe">不審な<span class="nb">メール</span>は、開かずに削除してもらう決まりです。</p>
+<h1><span class="nb">NAS</span> や <span class="nb">USB</span> の空き<span class="nb">容量</span>が少ない</h1>
+<p class="verdict"><span class="badge" data-badge="check_first"><svg viewBox="0 0 24 24" role="presentation"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg><span>確認してから</span></span><span>目安 約10分</span></p>
+<p class="verdict-text"><span class="nb">NAS</span> と <span class="nb">USB</span> の空きを自分で確かめてください。<span class="nb">USB</span> が満杯に近ければ、<span class="nb">カワウソシステムサービス</span>に連絡します。</p>
+<p class="safe">後任がするのは空きを確かめるところまでです。<span class="nb">USB</span> の古い<span class="nb">世代</span>の削除は、<span class="nb">カワウソシステムサービス</span>に依頼する決まりです。</p>
 <section class="part">
 <h2>社員に返す文</h2>
-<blockquote class="say">いま確認しています。
-社長に相談します。</blockquote>
+<blockquote class="say">いま確認しています。</blockquote>
 <p class="note">長押しして選択し、コピーしてください。</p>
 </section>
 <section class="part">
 <h2>先に知っておくこと</h2>
 <ul class="notes">
-<li>社員は、不審な<span class="nb">メール</span>を開かずに総務課へ知らせる決まりです。</li>
-<li>知らされた<span class="nb">メール</span>は、開かないでください。</li>
-<li>削除と社長への報告のあとの対応は、記録がありません。社長に聞いてください（連絡先）。</li>
+<li>毎月1日の空き<span class="nb">容量</span>の確認で、<span class="nb">NAS</span> や <span class="nb">USB</span> の空きが少ないと分かったときの<span class="nb">ページ</span>です。</li>
+<li><span class="nb">NAS</span> の空き<span class="nb">容量</span>は、総務用 PC の S <span class="nb">ドライブ</span>の帯<span class="nb">グラフ</span>で見ます。</li>
+<li><span class="nb">USB</span> の空きは、<span class="nb">NAS</span> の<span class="nb">管理画面</span>でしか見られません。<span class="nb">NAS</span> の<span class="nb">管理画面</span>は、総務課の PC の<span class="nb">ブラウザー</span>で開きます。</li>
+<li><span class="nb">NAS</span> の<span class="nb">管理画面</span>の中で、<span class="nb">USB</span> の空きを見る場所は記録がありません。</li>
+<li><span class="nb">NAS</span> の管理者<span class="nb">パスワード</span>の控えは、総務課の鍵つき書庫にあります。</li>
+<li><span class="nb">USB</span> の古い<span class="nb">世代</span>の削除は、間違えると必要な<span class="nb">バックアップ</span>を消すので、自分でしないでください。</li>
 </ul>
 </section>
 <section class="part">
+<h2>この症状で使う会社の情報</h2>
+<table class="info-table info-drives">
+<thead><tr><th scope="col">PC</th><th scope="col">ドライブ</th><th scope="col">接続先</th></tr></thead>
+<tbody>
+<tr><td class="info-target">総務用 PC </td><td class="info-drive">S</td><td class="info-path"><code class="path">\\OKOJO-<wbr>NAS\<wbr>スキャン</code></td></tr>
+</tbody>
+</table>
+<table class="info-table info-values">
+<thead><tr><th scope="col">項目</th><th scope="col">値</th></tr></thead>
+<tbody>
+<tr><td class="info-target">NAS の管理画面のアドレス</td><td class="info-path"><code class="path">192.<wbr>168.<wbr>10.<wbr>20</code></td></tr>
+</tbody>
+</table>
+</section>
+<section class="part">
 <h2>① やること</h2>
-
+<p class="band">Windows 10 の PC（OKJ-<span class="nb">CAD</span>-01）は、手順が違うので、連絡先へ連絡してください。</p>
 <ol class="phone-steps">
-<li>知らせてきた社員に、<span class="nb">メール</span>を開かずに削除してもらってください。</li>
-<li>社長に内線で、不審な<span class="nb">メール</span>を知らされたことを報告してください。</li>
+<li><span class="nb">キーボード</span>の <kbd>Windows</kbd> <span class="nb">キー</span>を押しながら、<kbd>E</kbd> の<span class="nb">キー</span>を押してください。</li>
+<li>開いた画面の左の一覧で、「PC」を選んでください。</li>
+<li>「PC」の画面で、会社の情報の表の<span class="nb">ドライブ</span>の帯<span class="nb">グラフ</span>を見てください。</li>
+<li><span class="nb">インターネット</span>を見る<span class="nb">ソフト</span>（<span class="nb">ブラウザー</span>）を開いてください。</li>
+<li>画面の上の<span class="nb">アドレス</span>欄に、会社の情報の表の<span class="nb">アドレス</span>を入力して、<kbd>Enter</kbd> <span class="nb">キー</span>を押してください。</li>
 </ol>
 
-
+<p class="band">帯が赤ければ、空きがほとんどありません。</p>
+<p class="band"><span class="nb">NAS</span> の空きが少ないときの対応は、記録がありません。社長に聞いてください（連絡先）。</p>
+<p class="band"><span class="nb">USB</span> が満杯に近いと分かったら、<span class="nb">カワウソシステムサービス</span>に<span class="nb">スポット</span>（有償）で依頼してください。</p>
+<p class="band">有償の依頼をする前に、社長に一声かけてください。</p>
 </section>
 <section class="part">
 <h2>② それでもだめなら</h2>
 <div class="contact">
-<h3 class="contact-name">社長<span class="contact-role">NAS・報告の相談</span></h3>
-<p class="contact-hours"><svg viewBox="0 0 24 24" role="presentation"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M16 4.8a3.5 3.5 0 0 1 0 6.4M17.5 14.3c2.2.7 3.5 2.8 3.5 5.7"/></svg><span>連絡は内線でします。</span></p>
-<p class="label">相談するときの言い方</p>
-<blockquote class="say">「社員から不審な<span class="nb">メール</span>を知らされた」の件で相談です。
-どうすればよいですか。</blockquote>
+<h3 class="contact-name">カワウソシステムサービス<span class="contact-role">ネットワーク機器の保守</span></h3>
+<p class="contact-hours"><svg viewBox="0 0 24 24" role="presentation"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg><span>受付は平日9時から18時です。</span></p>
+<p class="num"><span class="tel"><span>03</span><span>0000</span><span>0188</span></span></p>
+<p class="note">番号を長押しすると、発信できます。</p>
+<p class="label">業者に伝える文面</p>
+<blockquote class="say"><span class="nb">オコジョ精工</span>株式会社です。
+「<span class="nb">NAS</span> や <span class="nb">USB</span> の空き<span class="nb">容量</span>が少ない」件で連絡しました。
+確認をお願いします。</blockquote>
 <p class="note">長押しして選択し、コピーしてください。</p>
 </div>
 </section>
 <p class="memo-nojs">メモは PC 版で書けます</p>
+<section class="part terms">
+<h2>このページのことば</h2>
+<dl>
+<dt>ドライブ</dt>
+<dd>ファイルの置き場所に付けた、名前の文字です。</dd>
+<dt>ブラウザー</dt>
+<dd>インターネットを見るためのソフトです。</dd>
+<dt>アドレス</dt>
+<dd>メールやサイトの場所を示す、文字の並びです。</dd>
+<dt>NAS</dt>
+<dd>みんなでファイルを置いて使う機器です。</dd>
+<dt>USB</dt>
+<dd>PC に差して使う、ファイルを保存する機器です。</dd>
+<dt>容量</dt>
+<dd>ファイルをしまえる量のことです。</dd>
+<dt>世代</dt>
+<dd>バックアップを取った時期ごとの控えです。</dd>
+<dt>管理画面</dt>
+<dd>機器の設定を見たり変えたりする、専用の画面です。</dd>
+<dt>バックアップ</dt>
+<dd>大事なファイルの控えを別の場所に取る作業です。</dd>
+<dt>CAD</dt>
+<dd>図面をかくためのソフトです。</dd>
+<dt>スポット</dt>
+<dd>決まった契約とは別に、その都度頼む依頼です。</dd>
+</dl>
+</section>
 <div class="foot">
-<p>作成：2026年11月4日 田中 確認</p>
-<p>もとにした情報：聞き取り</p>
+<p>作成：2026年11月6日 田中 確認</p>
+<p>更新：2026年11月6日 佐藤 確認</p>
+<p>もとにした情報：調査データ（2026年11月5日時点）、聞き取り、確認済みの標準手順</p>
 <p>ほかの症状は、フォルダの一覧から開いてください。</p>
 </div>
 </body>

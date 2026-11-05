@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>来客から Wi-Fi を使いたいと言われた</title>
+<title>Wi-Fi が切れる・つながらない（事務所、工場）</title>
 <style>
 :root {
 color-scheme: light;
@@ -136,47 +136,93 @@ code, kbd { font-family: ui-monospace, monospace; font-size: .95em; }
 </head>
 <body>
 <p class="top"><span class="chip-secret">社外秘</span><span>オコジョ精工株式会社 ITの取扱説明書</span></p>
-<h1>来客から Wi-Fi を使いたいと言われた</h1>
-<p class="verdict"><span class="badge" data-badge="internal"><svg viewBox="0 0 24 24" role="presentation"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M16 4.8a3.5 3.5 0 0 1 0 6.4M17.5 14.3c2.2.7 3.5 2.8 3.5 5.7"/></svg><span>社内で相談</span></span><span>目安 約1分</span></p>
-<p class="verdict-text">来客用の Wi-Fi はありません。来客への案内は、社内の <span class="nb">IT</span> 相談先に相談してください。</p>
-<p class="safe">会社には、来客用の Wi-Fi がもともとありません。</p>
-<section class="part">
-<h2>社員に返す文</h2>
-<blockquote class="say">いま確認しています。
-工場の <span class="nb">CAD</span> 担当者に相談します。</blockquote>
-<p class="note">長押しして選択し、コピーしてください。</p>
+<h1>Wi-Fi が切れる・つながらない（事務所、工場）</h1>
+<p class="verdict"><span class="badge" data-badge="self"><svg viewBox="0 0 24 24" role="presentation"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>自分で直せる</span></span><span>目安 約5分</span></p>
+<p class="verdict-text">工場の Wi-Fi は、自分で <span class="nb">AP</span> を差し直して直せます。事務所の Wi-Fi は、<span class="nb">AP</span> を触らずに連絡してください。</p>
+<p class="safe">工場の <span class="nb">AP</span> の<span class="nb">電源アダプター</span>を抜き差しする作業は、後任が自分でやってよい作業です。</p>
+<section class="part first">
+<h2>① まずこれだけ</h2>
+<p class="first-body">画面の右下にある、Wi-Fi の<span class="nb">マーク</span>を押してください。</p>
+<p class="first-body">Wi-Fi の<span class="nb">マーク</span>の横にある「&gt;」を押してください。</p>
+<p class="first-body">一覧で、会社の情報の表の Wi-Fi の名前を選んで、「接続」を押してください。</p>
+
 </section>
 <section class="part">
-<h2>① 相談してください</h2>
-<div class="contact">
-<h3 class="contact-name">工場の CAD 担当者<span class="contact-role">社内の IT 相談</span></h3>
-<p class="contact-hours"><svg viewBox="0 0 24 24" role="presentation"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M16 4.8a3.5 3.5 0 0 1 0 6.4M17.5 14.3c2.2.7 3.5 2.8 3.5 5.7"/></svg><span>工場の <span class="nb">CAD</span> 担当者には、工場事務所の席まで行って聞いてください。</span></p>
-<p class="label">相談するときの言い方</p>
-<blockquote class="say">「来客から Wi-Fi を使いたいと言われた」の件で相談です。
-どうすればよいですか。</blockquote>
+<h2>社員に返す文</h2>
+<blockquote class="say">いま確認しています。</blockquote>
 <p class="note">長押しして選択し、コピーしてください。</p>
-</div>
 </section>
 <section class="part">
 <h2>先に知っておくこと</h2>
 <ul class="notes">
-<li>来客に Wi-Fi を使ってもらうときの決まりは、記録がありません。</li>
+<li>事務所か工場かは、Wi-Fi の名前で見分けます。事務所は OKOJO-OFFICE、工場は OKOJO-FACTORY です。</li>
+<li>工場の Wi-Fi が切れるのは、夏の熱で工場の <span class="nb">AP</span> が止まることが多いです。</li>
+<li>工場の <span class="nb">AP</span> は、工場の入口に近い柱の上に1台あります。</li>
+<li><span class="nb">ルーター</span>と <span class="nb">UTM</span> の<span class="nb">初期化</span>は、絶対にしないでください。設定が消えて、全社の<span class="nb">ネット</span>が止まります。</li>
+<li>Wi-Fi の<span class="nb">パスワード</span>の控えは、総務課の鍵つき書庫にあります。</li>
+<li>来客用の Wi-Fi はありません。</li>
 </ul>
 </section>
-<p class="band">来客に社内の Wi-Fi を使ってもらってよいかは、記録がありません。社内で <span class="nb">IT</span> に比較的詳しい、工場の <span class="nb">CAD</span> 担当者に相談してください。</p>
+<section class="part">
+<h2>この症状で使う会社の情報</h2>
+<table class="info-table info-values">
+<thead><tr><th scope="col">項目</th><th scope="col">値</th></tr></thead>
+<tbody>
+<tr><td class="info-target">事務所の Wi-Fi の名前</td><td class="info-path"><code class="path">OKOJO-<wbr>OFFICE</code></td></tr>
+<tr><td class="info-target">工場の Wi-Fi の名前</td><td class="info-path"><code class="path">OKOJO-<wbr>FACTORY</code></td></tr>
+</tbody>
+</table>
+</section>
+<section class="part">
+<h2>② それでも直らなければ</h2>
+<p class="band">Windows 10 の PC（OKJ-<span class="nb">CAD</span>-01）は、手順が違うので、連絡先へ連絡してください。</p>
+<p class="band">事務所の Wi-Fi（OKOJO-OFFICE）が切れたときは、<span class="nb">AP</span> を触らないでください。<span class="nb">カワウソシステムサービス</span>に連絡してください。</p>
+<ol class="phone-steps">
+<li>工場の入口に近い柱の上にある <span class="nb">AP</span> の、<span class="nb">電源アダプター</span>を抜いてください。</li>
+<li>10秒待ってください。</li>
+<li><span class="nb">電源アダプター</span>を差してください。</li>
+<li>2〜3分待ってください。</li>
+</ol>
+<p class="goal">工場の PC の Wi-Fi 一覧に OKOJO-FACTORY が出れば、直っています。</p>
+<p class="band">2〜3分待っても OKOJO-FACTORY が出ないときの連絡先です。<span class="nb">カワウソシステムサービス</span>に連絡してください。</p>
+</section>
+<section class="part">
+<h2>③ それでもだめなら</h2>
+<div class="contact">
+<h3 class="contact-name">カワウソシステムサービス<span class="contact-role">ネットワーク機器の保守</span></h3>
+<p class="contact-hours"><svg viewBox="0 0 24 24" role="presentation"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg><span>受付は平日9時から18時です。</span></p>
+<p class="num"><span class="tel"><span>03</span><span>0000</span><span>0188</span></span></p>
+<p class="note">番号を長押しすると、発信できます。</p>
+<p class="label">業者に伝える文面</p>
+<blockquote class="say"><span class="nb">オコジョ精工</span>株式会社です。
+「Wi-Fi が切れる・つながらない（事務所、工場）」件で連絡しました。
+説明書の手順「画面の右下にある、Wi-Fi の<span class="nb">マーク</span>を押してください」、「Wi-Fi の<span class="nb">マーク</span>の横にある「&gt;」を押してください」、「一覧で、会社の情報の表の Wi-Fi の名前を選んで、「接続」を押してください」は試しました。直りません。
+確認をお願いします。</blockquote>
+<p class="note">長押しして選択し、コピーしてください。</p>
+</div>
+</section>
 <p class="memo-nojs">メモは PC 版で書けます</p>
 <section class="part terms">
 <h2>このページのことば</h2>
 <dl>
-<dt>IT</dt>
-<dd>パソコンやインターネットなどの、機器とソフトの分野です。</dd>
+<dt>AP</dt>
+<dd>Wi-Fi の電波を出す機器です。</dd>
+<dt>電源アダプター</dt>
+<dd>機器に電気を送る、コンセントに差す部品です。</dd>
+<dt>ルーター</dt>
+<dd>社内の機器をインターネットにつなぐ機器です。</dd>
+<dt>UTM</dt>
+<dd>ネットの出入り口で、危ないものを防ぐ機器です。</dd>
+<dt>初期化</dt>
+<dd>機器の設定を消して、買った時の状態に戻すことです。</dd>
 <dt>CAD</dt>
-<dd>図面を描くためのソフトのことです。</dd>
+<dd>図面をかくためのソフトです。</dd>
 </dl>
 </section>
 <div class="foot">
-<p>作成：2026年11月4日 田中 確認</p>
-<p>もとにした情報：聞き取り</p>
+<p>作成：2026年11月6日 田中 確認</p>
+<p>更新：2026年11月6日 佐藤 確認</p>
+<p>もとにした情報：調査データ（2026年11月5日時点）、聞き取り、確認済みの標準手順</p>
 <p>ほかの症状は、フォルダの一覧から開いてください。</p>
 </div>
 </body>

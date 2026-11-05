@@ -136,10 +136,10 @@ code, kbd { font-family: ui-monospace, monospace; font-size: .95em; }
 </head>
 <body>
 <p class="top"><span class="chip-secret">社外秘</span><span>オコジョ精工株式会社 ITの取扱説明書</span></p>
-<h1><span class="nb">共有フォルダ</span>が見えない</h1>
+<h1>共有<span class="nb">フォルダ</span>が見えない</h1>
 <p class="verdict"><span class="badge" data-badge="self"><svg viewBox="0 0 24 24" role="presentation"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>自分で直せる</span></span><span>目安 約5分</span></p>
-<p class="verdict-text"><span class="nb">共有フォルダ</span>のつなぎ直しは自分でできます。それでも見えないときは、<span class="nb">カワウソシステムサービス</span>に相談します。</p>
-<p class="safe">つなぎ直すだけなので、<span class="nb">データ</span>は消えません。</p>
+<p class="verdict-text">共有<span class="nb">フォルダ</span>をつなぎ直してください。</p>
+<p class="safe">共有<span class="nb">フォルダ</span>をつなぎ直すだけなので、<span class="nb">データ</span>は消えません。</p>
 <section class="part first">
 <h2>① まずこれだけ</h2>
 <p class="note">社員に、次の 3 つをしてもらいます。下の「社員に返す文」をそのまま送れます。</p>
@@ -160,7 +160,7 @@ code, kbd { font-family: ui-monospace, monospace; font-size: .95em; }
 <section class="part">
 <h2>先に知っておくこと</h2>
 <ul class="notes">
-<li><span class="nb">共有フォルダ</span>は、総務、経理、営業、図面、<span class="nb">スキャン</span>の5つです。</li>
+<li>Windows 10 の PC は、<span class="nb">CAD</span> 用の1台だけです。</li>
 </ul>
 </section>
 <section class="part">
@@ -169,19 +169,19 @@ code, kbd { font-family: ui-monospace, monospace; font-size: .95em; }
 <thead><tr><th scope="col">PC</th><th scope="col">ドライブ</th><th scope="col">接続先</th></tr></thead>
 <tbody>
 <tr><td class="info-target">全員</td><td class="info-drive">Z</td><td class="info-path"><code class="path">\\OKOJO-<wbr>NAS\<wbr>図面</code></td></tr>
-<tr><td class="info-target">OKJ-<wbr>SOUMU-<wbr>01</td><td class="info-drive">S</td><td class="info-path"><code class="path">\\OKOJO-<wbr>NAS\<wbr>スキャン</code></td></tr>
-<tr><td class="info-target">OKJ-<wbr>SOUMU-<wbr>01</td><td class="info-drive">X</td><td class="info-path"><code class="path">\\OKOJO-<wbr>NAS\<wbr>経理</code></td></tr>
-<tr><td class="info-target">OKJ-<wbr>SOUMU-<wbr>01</td><td class="info-drive">Y</td><td class="info-path"><code class="path">\\OKOJO-<wbr>NAS\<wbr>総務</code></td></tr>
+<tr><td class="info-target">総務用 PC </td><td class="info-drive">S</td><td class="info-path"><code class="path">\\OKOJO-<wbr>NAS\<wbr>スキャン</code></td></tr>
+<tr><td class="info-target">総務用 PC </td><td class="info-drive">X</td><td class="info-path"><code class="path">\\OKOJO-<wbr>NAS\<wbr>経理</code></td></tr>
+<tr><td class="info-target">総務用 PC </td><td class="info-drive">Y</td><td class="info-path"><code class="path">\\OKOJO-<wbr>NAS\<wbr>総務</code></td></tr>
+<tr><td class="info-target">営業の PC </td><td class="info-drive">V</td><td class="info-path"><code class="path">\\OKOJO-<wbr>NAS\<wbr>営業</code></td></tr>
 </tbody>
 </table>
-<p class="info-note">表にないフォルダ（営業）の接続先は記録がありません。工場の CAD 担当者に聞いてください。</p>
 </section>
 <section class="part">
 <h2>② それでも直らなければ</h2>
 <p class="band">Windows 10 の PC（OKJ-<span class="nb">CAD</span>-01）は、手順が違うので、連絡先へ連絡してください。</p>
 <ol class="phone-steps">
 <li>赤い×のついた<span class="nb">ドライブ</span>があれば、右<span class="nb">クリック</span>して「切断」を選んでください。</li>
-<li>画面の上の「…」を押して、「<span class="nb">ネットワーク ドライブ</span>の割り当て」を選んでください。</li>
+<li>画面の上の「…」を押して、「<span class="nb">ネットワーク</span> <span class="nb">ドライブ</span>の割り当て」を選んでください。</li>
 <li>「<span class="nb">ドライブ</span>」の欄で、会社の情報の表から、見えない<span class="nb">フォルダー</span>の<span class="nb">ドライブ</span>文字を選んでください。</li>
 <li>「<span class="nb">フォルダー</span>」の欄に、同じ行の接続先を入力してください。<p class="step-note">画面では「\」が「¥」<span class="nb">マーク</span>で表示されることがありますが、同じ意味です。</p></li>
 <li>「<span class="nb">サインイン</span>時に再接続する」に<span class="nb">チェック</span>を入れてください。</li>
@@ -189,18 +189,18 @@ code, kbd { font-family: ui-monospace, monospace; font-size: .95em; }
 </ol>
 <p class="goal">見えなかった<span class="nb">フォルダー</span>が開けば、直っています。</p>
 <p class="band"><span class="nb">ユーザー名</span>と<span class="nb">パスワード</span>を聞く画面が出たら、何も入力せずに閉じて、連絡先へ連絡してください。</p>
-<p class="band">つなぎ直しても見えないときは、社内のつながりの不調かもしれません。<span class="nb">カワウソシステムサービス</span>に相談してください。</p>
+<p class="band">つなぎ直しても見えないときは、社内<span class="nb">ネットワーク</span>の不調かもしれません。<span class="nb">カワウソシステムサービス</span>に連絡してください。</p>
 </section>
 <section class="part">
 <h2>③ それでもだめなら</h2>
 <div class="contact">
-<h3 class="contact-name">カワウソシステムサービス<span class="contact-role">社内のつながりの保守</span></h3>
+<h3 class="contact-name">カワウソシステムサービス<span class="contact-role">ネットワーク機器の保守</span></h3>
 <p class="contact-hours"><svg viewBox="0 0 24 24" role="presentation"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg><span>受付は平日9時から18時です。</span></p>
-<p class="num"><span class="tel"><span>03</span><span>0000</span><span>0102</span></span></p>
+<p class="num"><span class="tel"><span>03</span><span>0000</span><span>0188</span></span></p>
 <p class="note">番号を長押しすると、発信できます。</p>
 <p class="label">業者に伝える文面</p>
 <blockquote class="say"><span class="nb">オコジョ精工</span>株式会社です。
-「<span class="nb">共有フォルダ</span>が見えない」件で連絡しました。
+「共有<span class="nb">フォルダ</span>が見えない」件で連絡しました。
 説明書の手順「<span class="nb">キーボード</span>の Windows <span class="nb">キー</span>を押しながら、E の<span class="nb">キー</span>を押してください」、「開いた画面の左の一覧で、「PC」を選んでください」、「「PC」の中に、赤い×のついた<span class="nb">ドライブ</span>があれば、<span class="nb">ダブルクリック</span>してください」は試しました。直りません。
 確認をお願いします。</blockquote>
 <p class="note">長押しして選択し、コピーしてください。</p>
@@ -211,19 +211,18 @@ code, kbd { font-family: ui-monospace, monospace; font-size: .95em; }
 <h2>このページのことば</h2>
 <dl>
 <dt>ドライブ</dt>
-<dd>ファイルをしまう場所を、文字で呼ぶ名前です。</dd>
-<dt>ネットワーク ドライブ</dt>
-<dd>社内のほかの機器にあるフォルダを使う設定です。</dd>
+<dd>ファイルの置き場所に付けた、名前の文字です。</dd>
+<dt>ネットワーク</dt>
+<dd>社内の機器どうしをつなぐ仕組みです。</dd>
 <dt>サインイン</dt>
-<dd>パスワードを入れて、使い始める操作です。</dd>
-<dt>共有フォルダ</dt>
-<dd>みんなで使うフォルダのことです。</dd>
+<dd>名前とパスワードで使い始める操作です。</dd>
 <dt>CAD</dt>
-<dd>図面を描くためのソフトのことです。</dd>
+<dd>図面をかくためのソフトです。</dd>
 </dl>
 </section>
 <div class="foot">
-<p>作成：2026年11月4日 田中 確認</p>
+<p>作成：2026年11月6日 田中 確認</p>
+<p>更新：2026年11月6日 佐藤 確認</p>
 <p>もとにした情報：調査データ（2026年11月5日時点）、聞き取り、確認済みの標準手順</p>
 <p>ほかの症状は、フォルダの一覧から開いてください。</p>
 </div>

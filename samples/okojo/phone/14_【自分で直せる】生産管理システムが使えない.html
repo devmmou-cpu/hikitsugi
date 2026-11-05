@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>スキャンしたファイルが NAS の「スキャン」フォルダに届かない</title>
+<title>生産管理システムが使えない</title>
 <style>
 :root {
 color-scheme: light;
@@ -136,10 +136,15 @@ code, kbd { font-family: ui-monospace, monospace; font-size: .95em; }
 </head>
 <body>
 <p class="top"><span class="chip-secret">社外秘</span><span>オコジョ精工株式会社 ITの取扱説明書</span></p>
-<h1><span class="nb">スキャン</span>した<span class="nb">ファイル</span>が <span class="nb">NAS</span> の「<span class="nb">スキャン</span>」<span class="nb">フォルダ</span>に届かない</h1>
-<p class="verdict"><span class="badge" data-badge="check_first"><svg viewBox="0 0 24 24" role="presentation"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg><span>確認してから</span></span><span>目安 約3分</span></p>
-<p class="verdict-text"><span class="nb">NAS</span> の<span class="nb">空き容量</span>を確かめて、空きがあるのに届かなければ、<span class="nb">イタチ事務</span>機に連絡してください。</p>
-<p class="safe"><span class="nb">スキャン</span>した<span class="nb">ファイル</span>は <span class="nb">NAS</span> の「<span class="nb">スキャン</span>」<span class="nb">フォルダ</span>に保存されます。後任が確かめるのは、<span class="nb">NAS</span> の<span class="nb">空き容量</span>です。</p>
+<h1><span class="nb">生産管理システム</span>が使えない</h1>
+<p class="verdict"><span class="badge" data-badge="self"><svg viewBox="0 0 24 24" role="presentation"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>自分で直せる</span></span><span>目安 約5分</span></p>
+<p class="verdict-text">まず電源<span class="nb">ランプ</span>を見て、消えているときだけ電源<span class="nb">ボタン</span>を押してください。</p>
+<p class="safe">停電のあと、<span class="nb">NAS</span> と<span class="nb">サーバー</span>は自動では起動しません。電源<span class="nb">ボタン</span>を押すのは、<span class="nb">ランプ</span>が消えて止まっているときだけです。</p>
+<section class="part first">
+<h2>① まずこれだけ</h2>
+<p class="first-body"><span class="nb">NAS</span> と<span class="nb">サーバー</span>の前面の電源<span class="nb">ランプ</span>を見てください。</p>
+
+</section>
 <section class="part">
 <h2>社員に返す文</h2>
 <blockquote class="say">いま確認しています。</blockquote>
@@ -148,41 +153,33 @@ code, kbd { font-family: ui-monospace, monospace; font-size: .95em; }
 <section class="part">
 <h2>先に知っておくこと</h2>
 <ul class="notes">
-<li>この<span class="nb">ページ</span>は、総務室の複合機で<span class="nb">スキャン</span>した<span class="nb">ファイル</span>が届かないときの<span class="nb">ページ</span>です。</li>
+<li><span class="nb">生産管理システム</span>は、社内<span class="nb">サーバー</span>1台で動いています。窓口は販売店の<span class="nb">イイズナソフト</span>です。</li>
+<li><span class="nb">NAS</span> と<span class="nb">サーバー</span>は、事務所の<span class="nb">サーバーラック</span>にあります。</li>
+<li><span class="nb">サーバー</span>が動いているときは、勝手に再起動しないでください。</li>
 </ul>
 </section>
 <section class="part">
-<h2>この症状で使う会社の情報</h2>
-<table class="info-table info-drives">
-<thead><tr><th scope="col">PC</th><th scope="col">ドライブ</th><th scope="col">接続先</th></tr></thead>
-<tbody>
-<tr><td class="info-target">OKJ-<wbr>SOUMU-<wbr>01</td><td class="info-drive">S</td><td class="info-path"><code class="path">\\OKOJO-<wbr>NAS\<wbr>スキャン</code></td></tr>
-</tbody>
-</table>
-</section>
-<section class="part">
-<h2>① やること</h2>
-<p class="band">Windows 10 の PC（OKJ-<span class="nb">CAD</span>-01）は、手順が違うので、連絡先へ連絡してください。</p>
-<p class="band">帯が赤くなく、空きがあるのに<span class="nb">ファイル</span>が届かないときは、<span class="nb">イタチ事務</span>機に連絡してください。</p>
+<h2>② それでも直らなければ</h2>
+<p class="band"><span class="nb">NAS</span> と<span class="nb">サーバー</span>の電源<span class="nb">ランプ</span>が消えているときだけ、次の手順に進んでください。</p>
+<p class="band">電源<span class="nb">ランプ</span>が点いているときは、電源<span class="nb">ボタン</span>を押さずに、<span class="nb">イイズナソフト</span>に連絡してください。</p>
+<p class="band">電源を入れても<span class="nb">生産管理システム</span>が使えないときは、<span class="nb">イイズナソフト</span>に連絡してください。</p>
 <ol class="phone-steps">
-<li><span class="nb">キーボード</span>の <kbd>Windows</kbd> <span class="nb">キー</span>を押しながら、<kbd>E</kbd> の<span class="nb">キー</span>を押してください。</li>
-<li>開いた画面の左の一覧で、「PC」を選んでください。</li>
-<li>「PC」の画面で、会社の情報の表の<span class="nb">ドライブ</span>の帯<span class="nb">グラフ</span>を見てください。</li>
+<li><span class="nb">NAS</span> の電源<span class="nb">ボタン</span>を押してください。</li>
+<li><span class="nb">NAS</span> のあとに、<span class="nb">サーバー</span>の電源<span class="nb">ボタン</span>を押してください。</li>
 </ol>
 
-<p class="band">帯が赤ければ、空きがほとんどありません。</p>
-<p class="band">帯が赤いときに空きを増やす方法は、記録がありません。社長に聞いてください（連絡先）。</p>
+
 </section>
 <section class="part">
-<h2>② それでもだめなら</h2>
+<h2>③ それでもだめなら</h2>
 <div class="contact">
-<h3 class="contact-name">イタチ事務機<span class="contact-role">複合機のリース</span></h3>
-<p class="contact-hours"><svg viewBox="0 0 24 24" role="presentation"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg><span>受付は平日9時から17時です。</span></p>
-<p class="num"><span class="tel"><span>03</span><span>0000</span><span>0103</span></span></p>
+<h3 class="contact-name">イイズナソフト<span class="contact-role">生産管理の販売店</span></h3>
+<p class="contact-hours"><svg viewBox="0 0 24 24" role="presentation"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg><span>受付は平日9時から17時30分です。</span></p>
+<p class="num"><span class="tel"><span>03</span><span>0000</span><span>0104</span></span></p>
 <p class="note">番号を長押しすると、発信できます。</p>
 <p class="label">業者に伝える文面</p>
 <blockquote class="say"><span class="nb">オコジョ精工</span>株式会社です。
-「<span class="nb">スキャン</span>した<span class="nb">ファイル</span>が <span class="nb">NAS</span> の「<span class="nb">スキャン</span>」<span class="nb">フォルダ</span>に届かない」件で連絡しました。
+「<span class="nb">生産管理システム</span>が使えない」件で連絡しました。
 確認をお願いします。</blockquote>
 <p class="note">長押しして選択し、コピーしてください。</p>
 </div>
@@ -191,19 +188,19 @@ code, kbd { font-family: ui-monospace, monospace; font-size: .95em; }
 <section class="part terms">
 <h2>このページのことば</h2>
 <dl>
-<dt>ドライブ</dt>
-<dd>ファイルをしまう場所を、文字で呼ぶ名前です。</dd>
 <dt>NAS</dt>
-<dd>みんなで使うファイルをためておく機器です。</dd>
-<dt>空き容量</dt>
-<dd>ファイルをしまえる、残りの広さのことです。</dd>
-<dt>CAD</dt>
-<dd>図面を描くためのソフトのことです。</dd>
+<dd>みんなでファイルを置いて使う機器です。</dd>
+<dt>サーバー</dt>
+<dd>みんなで使うソフトやファイルを動かす機器です。</dd>
+<dt>生産管理システム</dt>
+<dd>ものづくりの注文や進み具合を管理するソフトです。</dd>
+<dt>サーバーラック</dt>
+<dd>機器をまとめて置く、金属の棚です。</dd>
 </dl>
 </section>
 <div class="foot">
-<p>作成：2026年11月4日 田中 確認</p>
-<p>もとにした情報：調査データ（2026年11月5日時点）、聞き取り、確認済みの標準手順</p>
+<p>作成：2026年11月6日 田中 確認</p>
+<p>もとにした情報：聞き取り</p>
 <p>ほかの症状は、フォルダの一覧から開いてください。</p>
 </div>
 </body>
