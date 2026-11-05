@@ -23,5 +23,5 @@ test('更新用のデータは架空の形式の番号とドメインだけ', ()
 test('README からサンプルへのリンクがある', () => {
   const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   for (const path of ['samples/okojo/manual.html', 'samples/okojo/phone/', 'samples/okojo/manual.json']) assert.ok(readme.includes(path), path);
-  assert.ok(readme.includes('架空の会社のサンプル'));
+  assert.ok(readme.includes('サンプル（架空の会社）'));
 });
