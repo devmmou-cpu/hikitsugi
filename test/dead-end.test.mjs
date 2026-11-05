@@ -164,6 +164,9 @@ test('確認の前に行き止まりを聞き、答えを記録して、答え�
     assert.equal(first.left, 2);
     assert.deepEqual(first.kinds, ['no_means']);
     assert.equal(first.same_answer, undefined);
+    // 選択肢が「分からない」だけのときは、AskUserQuestion（2つ以上が要る）でなく文章で聞く
+    assert.equal(first.ask, 'text');
+    assert.deepEqual(first.choices.map(({ label }) => label), ['分からない']);
     assert.throws(() => hikitsugi('dead-end-answer', ['T9'], '内線です'), /行き止まりのページではありません/);
     assert.throws(() => hikitsugi('dead-end-answer', ['T1'], '   '), /空です/);
 
@@ -176,6 +179,8 @@ test('確認の前に行き止まりを聞き、答えを記録して、答え�
     const second = nextStep(work);
     assert.equal(second.page, 'T2');
     assert.equal(second.same_answer, '工場事務所の内線 201 で聞きます。');
+    assert.equal(second.ask, 'choices');
+    assert.deepEqual(second.choices, [{ label: '前と同じ', description: '工場事務所の内線 201 で聞きます。' }, { label: '分からない', description: '決まった文（社内の最初の相談先に聞く）を載せます' }]);
 
     assert.match(hikitsugi('dead-end-unknown', ['T2']), /T1、T2 を書き直します/);
     const unknown = read('transcript.json').entries.at(-1);

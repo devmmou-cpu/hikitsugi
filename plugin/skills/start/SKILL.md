@@ -13,7 +13,7 @@ allowed-tools: Read Write Agent AskUserQuestion Bash(node *)
 ```
 node "${CLAUDE_PLUGIN_ROOT}/scripts/hikitsugi.mjs" <コマンド>
 ```
-以下では、これを `hikitsugi` と書きます。
+以下では、これを `hikitsugi` と書きます。実行するときは毎回この形のまま書き、変数に入れて呼びません（zsh では変数の中の空白で分かれず、動きません）。Bash の説明（description）も、画面に出す文も日本語で書きます。
 
 ## 最初に
 `hikitsugi status` を実行し、返ってきた `step` の段階から始めます。段階が終わるたびに `hikitsugi status` で次を確かめます。
@@ -105,7 +105,9 @@ Writer は1回に1つの部分だけを書きます。`status` の `round` と `
 ### dead-end
 連絡の相手か手段が分からないページ（行き止まり）を、確認の前に前任者に聞きます。`status` の `page`、`title`、`reasons`、`left` を使います。
 
-1. AskUserQuestion で聞きます。質問は「このページは行き止まりです。誰に、どうやって連絡しますか」です。ページの題名と `reasons` を添え、残りのページ数も伝えます。選択肢は「分からない」です。`same_answer` があれば、「前と同じ：（その内容）」も選択肢に足します。ふつうの回答は下の欄に入力してもらいます。退職する本人を相手にしないよう、お願いします。
+1. 質問は「このページは行き止まりです。誰に、どうやって連絡しますか」です。ページの題名と `reasons` を添え、残りのページ数も伝えます。退職する本人を相手にしないよう、お願いします。聞き方は `ask` に従います。
+   - `ask` が `choices` なら、AskUserQuestion で聞きます。選択肢は `choices` の `label` と `description` をそのまま使い、足しも減らしもしません。ふつうの回答は下の欄に入力してもらいます。
+   - `ask` が `text` なら、AskUserQuestion は使いません（選択肢が1つでは出せないため）。文章で聞き、「分からなければ『分からない』と返してください」と添えます。
 2. 答えがあれば、本人の言葉のまま（前と同じなら `same_answer` を）標準入力で渡します。
    ```
    hikitsugi dead-end-answer <page> <<'EOF_ANSWER'

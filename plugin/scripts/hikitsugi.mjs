@@ -705,11 +705,16 @@ function withContactMeans(manual, answers) {
   return { ...manual, contacts, statements };
 }
 
-/** 同じ相手のページで答えを打ち直さなくて済むように、前の答えを添える。 */
+/**
+ * 同じ相手のページで答えを打ち直さなくて済むように、前の答えを添える。
+ * 選択肢はプログラムが決める。AskUserQuestion は選択肢が2つ以上要るので、「分からない」だけのときは文章で聞く（ask: 'text'）。
+ */
 function deadEndStep(pending, state) {
   const [next] = pending;
   const earlier = Object.values(state.dead_ends ?? {}).find((answer) => answer.answer && answer.same_key === sameKey(next));
-  return { step: 'dead-end', ...next, left: pending.length, ...(earlier ? { same_answer: earlier.answer } : {}) };
+  const unknown = { label: '分からない', description: '決まった文（社内の最初の相談先に聞く）を載せます' };
+  const choices = earlier ? [{ label: '前と同じ', description: earlier.answer }, unknown] : [unknown];
+  return { step: 'dead-end', ...next, left: pending.length, ...(earlier ? { same_answer: earlier.answer } : {}), ask: choices.length >= 2 ? 'choices' : 'text', choices };
 }
 
 /** 聞き終えたら、答えのあったページをまとめて書き直す。1ページずつだと、ページの数だけ Editor と Verifier を待つことになる。 */

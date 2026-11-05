@@ -316,6 +316,11 @@ test('スキルの案内：形の指定、検査前の扱い、自由入力の�
     assert.ok(skill.includes(words), words);
   }
   assert.ok(skill.includes('「Other」とは書きません'));
+  // 行き止まりの選択肢が1つだけのとき、AskUserQuestion に渡すと失敗する（11/6 の録画の通し）
+  assert.ok(skill.includes('`ask` が `text` なら、AskUserQuestion は使いません'));
+  // 変数に入れた呼び出しが zsh で失敗し、英語の説明が画面に出た（11/6 の中継の試験）
+  assert.ok(skill.includes('変数に入れて呼びません'));
+  assert.ok(skill.includes('Bash の説明（description）も、画面に出す文も日本語で書きます'));
 });
 
 test('プロンプト：R0 の直しと plain-words の決まりが入っている', () => {
