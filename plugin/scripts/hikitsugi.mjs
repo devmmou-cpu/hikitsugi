@@ -25,6 +25,10 @@ import { validate } from '../lib/validate.mjs';
 import { renderManual } from '../renderer/render.mjs';
 import { isComposedStatement, withoutFlaggedPlace, withReplies, withWindows10Note } from '../lib/reply.mjs';
 import { PHONE_DIR, writePhoneBundle } from '../renderer/phone.mjs';
+
+// 画面の文での呼び名。ファイル名の manual.html は README、サンプル、テストが参照するので変えない
+const PC_NAME = '「ITの取扱説明書（PC 用）manual.html」';
+const PHONE_NAME = `「${PHONE_DIR}」フォルダ`;
 import { oversizeMessage, PC_FILE_LIMIT, PC_FILE_TARGET, writeWithinLimit } from '../lib/limits.mjs';
 import { BUNDLE_NAME, bundleOf, changeSummary, pagesNeedingPhrases, pagesOfContact, parseMemos, targetKind, updateSummary, withContactPhone, withUpdateMark } from '../lib/update.mjs';
 
@@ -1030,8 +1034,8 @@ function render(work, [outPath]) {
     const { needs_render: _done, last_update: _shown, ...rest } = state;
     writeJson(join(work, 'state.json'), rest);
   }
-  const notes = [manual.review ? `取扱説明書を作りました：${target}` : `下書きを作りました：${target}`, `スマホ向けのファイル：${phoneDir}（${bundle.length} ファイル）`];
-  if (Buffer.byteLength(html) > PC_FILE_TARGET) notes.push(`PC 用のファイルが目標の ${PC_FILE_TARGET / 1024}KB を超えています（上限の範囲です）`);
+  const notes = [`${manual.review ? '' : '下書きの'}${PC_NAME}を作りました：${target}`, `${PHONE_NAME}を作りました：${phoneDir}（${bundle.length} ファイル）`];
+  if (Buffer.byteLength(html) > PC_FILE_TARGET) notes.push(`${PC_NAME}が目標の ${PC_FILE_TARGET / 1024}KB を超えています（上限の範囲です）`);
   if (updatedParts.length) notes.push(`部品の文面が変わったので、いまの文面で作りました：${updatedParts.join('、')}`);
   if (rebuiltCount) notes.push(`社員に返す文と業者に伝える文を、いまの型で ${rebuiltCount} 件組み直しました`);
   const places = locationWarnings(manual);

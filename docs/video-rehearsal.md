@@ -123,7 +123,7 @@ Claude Code が開いたら、`/hikitsugi:start` と入力します。
 「分からない」を混ぜるのは、知らないことを「分からない」のまま残し、取扱説明書に書かないところを見せるためです。
 
 ## 終わったあと
-`hikitsugi-work/manual.html`（PC 用）と `hikitsugi-work/ITの取扱説明書（スマホ用）/`（スマホ用の束）ができます。11/6 の録画の回は、前の名前の `phone/` でした。録画が終わったら `~/hikitsugi-rehearsal` を消してかまいません。
+`hikitsugi-work/manual.html`（画面では「ITの取扱説明書（PC 用）manual.html」）と `hikitsugi-work/ITの取扱説明書（スマホ用）/`（スマホ用の束）ができます。11/6 の録画の回は、前の名前の `phone/` でした。録画が終わったら `~/hikitsugi-rehearsal` を消してかまいません。
 
 ## 差し戻しの場面について
 Verifier の差し戻しは、録画の回に起きるとは限りません。起きなければ、保存してある実行の結果を見せます。無理に起こしません。

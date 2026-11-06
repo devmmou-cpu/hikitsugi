@@ -13,7 +13,7 @@ IT をひとりで見てきた担当者が辞めると、IT 未経験の総務�
 
 <p><img src="docs/images/pc-search.png" width="400" alt="PC 用：「フォルダが消えた」で探すと、手順の図と社員に返す文が1画面に出る"> <img src="docs/images/phone-bundle.png" width="340" alt="スマホ用の束：フォルダの一覧が目次になり、1ファイルに1症状"></p>
 
-**サンプル（架空の会社）：** ダウンロードしてブラウザーで開けます。[PC 用](samples/okojo/manual.html)、[スマホ用の束](samples/okojo/ITの取扱説明書（スマホ用）/)、[更新用のデータ](samples/okojo/manual.json)。
+**サンプル（架空の会社）：** [PC 用](samples/okojo/manual.html)、[スマホ用の束（「ITの取扱説明書（スマホ用）」）](samples/okojo/phone/)、[更新用のデータ](samples/okojo/manual.json)。
 **動画：** （提出後に URL）
 
 ## 使い方

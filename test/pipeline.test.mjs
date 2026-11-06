@@ -467,7 +467,7 @@ test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途�
     const finalManual = JSON.parse(readFileSync(join(work, 'manual-final.json'), 'utf8'));
     const citedIds = [...new Set(finalManual.statements.flatMap((statement) => statement.evidence).filter((id) => id.startsWith('INT-') && !recorded.entries.some((item) => item.id === id)))];
     writeFileSync(join(work, 'transcript.json'), JSON.stringify({ ...recorded, entries: [...recorded.entries, ...citedIds.map((id) => ({ id, gap: 'GAP-001', covers: ['CHK-01'], question: '質問', answer: '記録です。', status: 'answered', answered_at: '2026-11-03T00:00:00Z' }))] }));
-    assert.match(hikitsugi('render'), /下書きを作りました/);
+    assert.match(hikitsugi('render'), /下書きの「ITの取扱説明書（PC 用）manual\.html」を作りました：.*\n「ITの取扱説明書（スマホ用）」フォルダを作りました：/);
     const draft = readFileSync(join(work, 'manual.html'), 'utf8');
     assert.ok(draft.includes('下書き（前任者の確認前）'));
     assert.ok(!draft.includes('田中 確認'));
@@ -506,7 +506,7 @@ test('/hikitsugi:start：段階をたどって取扱説明書まで進み、途�
     assert.equal(nextStep(work).page, 'T1');
     assert.match(hikitsugi('review-ok', ['T1']), /全ページの確認が終わりました/);
     assert.equal(nextStep(work).step, 'render');
-    assert.match(hikitsugi('render'), /取扱説明書を作りました/);
+    assert.match(hikitsugi('render'), /^「ITの取扱説明書（PC 用）manual\.html」を作りました：/);
     const finalHtml = readFileSync(join(work, 'manual.html'), 'utf8');
     assert.ok(finalHtml.includes('<html'));
     assert.ok(!finalHtml.includes('下書き（前任者の確認前）'));
