@@ -22,7 +22,7 @@
 
 **録画は 11/5 以降に行います。** 架空の調査データの日付が 11/5 なので、それより前に通すと「11月5日時点」と「作成：11月4日」が前後して見えます。
 
-**サンプルの差し替え：** 録画の通しの出力で `samples/okojo/` を差し替えます（11/6 23:00 の前。本人の判断）。README の通しの実測（約1時間、16ページ、要約の行の例）と画像も合わせて直し、高さを測ります（上限 3150px）。
+**サンプルの差し替え：** 録画の通しの出力で `samples/okojo/` を差し替えます（11/6 23:00 の前。本人の判断）。README の通しの実測（約1時間、16ページ、要約の行の例）と画像も合わせて直し、高さを測ります（11/7 から、目次つきなので高さの上限なし）。
 
 ## 場面ごとの画面（`night-logs/visual-check/video/`）
 PC 用と束の画像は今の表示で撮り直しました（11/4 夜）。端末の画像は4回目のときのものです。
@@ -73,7 +73,7 @@ Writer、Editor、Verifier の待ちが長いので、編集で詰めます。�
 
 ```bash
 mkdir -p ~/hikitsugi-rehearsal && cd ~/hikitsugi-rehearsal
-env -u ANTHROPIC_API_KEY claude --plugin-dir ~/Developer/hikitsugi-live/plugin
+env -u ANTHROPIC_API_KEY claude --plugin-dir <リポジトリのフォルダ>/plugin
 # 初めてのフォルダでは信頼の確認が出ます。「Yes, I trust this folder」を選びます
 ```
 
@@ -95,7 +95,7 @@ Claude Code が開いたら、`/hikitsugi:start` と入力します。
 **init の答え**
 - 会社名：オコジョ精工株式会社
 - 退職する人：田中
-- 調査データ：`~/Developer/hikitsugi-live/eval/sets/okojo/input/survey.json`（「すでにまとめた調査データがある」と答えます。実機の調査は別の場面で撮ります）
+- 調査データ：`<リポジトリのフォルダ>/eval/sets/okojo/input/survey.json`（「すでにまとめた調査データがある」と答えます。実機の調査は別の場面で撮ります）
 
 ## 聞き取りの回答例
 質問が複数の話題にまたがるときは、当てはまる行をつないで答えます。**パスワードの本体は聞かれません。答えるのは保管場所だけです。**
