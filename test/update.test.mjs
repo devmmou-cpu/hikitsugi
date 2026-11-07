@@ -265,6 +265,21 @@ test('manual.json だけの場所から更新を始められる。番号は重�
     assert.ok(work);
   }));
 
+test('manual.json の回の番号や中身がおかしければ止まり、作業フォルダの外に何も書かない', () =>
+  finished(({ dir, read }) => {
+    const shared = join(dir, 'shared');
+    mkdirSync(shared);
+    const newWork = join(shared, 'hikitsugi-work');
+    const bundle = read('manual.json');
+    // manual-<回>.json の <回> に ".." を入れると、作業フォルダの外の dir/escaped.json を指す
+    for (const broken of [{ ...bundle, round: '/../../../escaped' }, { ...bundle, manual: { schema_version: 1 } }]) {
+      writeFileSync(join(shared, 'manual.json'), JSON.stringify(broken));
+      assert.throws(() => run('update-start', ['佐藤'], { work: newWork, stdin: '' }), /回の番号|形式が違います/);
+      assert.equal(existsSync(join(dir, 'escaped.json')), false);
+      assert.equal(existsSync(newWork), false);
+    }
+  }));
+
 test('差し戻しの上限で止まった更新は取り消せて、次の更新に古いファイルを使わない', () =>
   finished(({ work, hikitsugi, write, read }) => {
     const before = read('manual-final.json');

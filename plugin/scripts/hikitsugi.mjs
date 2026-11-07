@@ -791,11 +791,24 @@ function deadEndUnknown(work, [pageId]) {
 // ---- 完成後の更新 ----
 const today = () => new Date().toLocaleDateString('sv');
 
+/**
+ * 回の番号はファイル名（manual-<回>.json など）に入る。共有フォルダの manual.json は誰でも書き換えられるので、
+ * 整数だけを通し、作業フォルダの外を指す値で書いたり消したりしないようにする。
+ */
+const checkRound = (value, min, where) => {
+  if (!Number.isInteger(value) || value < min) throw new Problem(`${where} の回の番号が正しくありません`);
+  return value;
+};
+
 /** manual.json から作業フォルダを作り直す。合格済みの説明書として扱う。 */
 function restoreFromBundle(work) {
   const path = join(dirname(work), BUNDLE_NAME);
   const bundle = readJson(path);
   if (bundle.kind !== 'hikitsugi-manual') throw new Problem(`${path} は取扱説明書のデータではありません`);
+  // 何かを書く前に確かめる。直したことのない説明書の round_base は 0
+  checkRound(bundle.round, 1, path);
+  if (checkRound(bundle.round_base, 0, path) >= bundle.round) throw new Problem(`${path} の回の番号が正しくありません`);
+  checkSchema('manual', bundle.manual);
   mkdirSync(work, { recursive: true });
   const { manual, sources, round, round_base: base } = bundle;
   writeJson(join(work, 'survey.json'), sources.survey);
@@ -931,6 +944,8 @@ function updateCancel(work) {
   const path = join(work, BEFORE_UPDATE);
   if (!existsSync(path)) throw new Problem('取り消す更新がありません');
   const { state, transcript, manual } = readJson(path);
+  // 回の番号は manual.json から来ることがあり、下で消すファイルの名前に入る
+  checkRound(state.round, 1, path);
   // 取り消した回のファイルが残ると、次の更新で書いたものとして数えられる
   for (const name of readdirSync(work)) {
     const match = name.match(/^(?:writer|manual|edited|editor|editor-findings|plain-findings|verify-scope|verification|findings)-(\d+)(?:-|\.)/);
